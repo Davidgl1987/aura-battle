@@ -1,8 +1,10 @@
 import { Suspense, lazy } from 'react'
-import { KIND_LABEL, getCard } from '../engine/cards'
+import { getCard } from '../engine/cards'
 import { getCharacter } from '../engine/characters'
 import { outauraTarget, playerColor } from '../engine/match'
 import { getRival } from '../engine/rivals'
+import { useI18n } from '../i18n'
+import { kindLabel } from './labels'
 import { now, useGame } from '../state/store'
 import { cpuPerformance, useCpuTurn } from '../state/useCpuTurn'
 import { CpuTurn } from './CpuTurn'
@@ -29,6 +31,8 @@ const StageScene = lazy(() =>
 )
 
 export function MatchScreen() {
+  const i18n = useI18n()
+  const { t, n } = i18n
   const match = useGame((s) => s.match)
   const dispatch = useGame((s) => s.dispatch)
   const paused = useGame((s) => s.paused)
@@ -74,22 +78,21 @@ export function MatchScreen() {
             <strong style={{ color: accent }}>
               {character.emoji} {player.name}
             </strong>{' '}
-            · move {move}/{settings.deckSize}
+            · {t('match.move', { n: move, total: settings.deckSize })}
           </div>
           <div className="hud__last">
-            {lastPlayed ? (
-              <>
-                last: {KIND_LABEL[lastPlayed.kind]} {getCard(lastPlayed.cardId).name}
-              </>
-            ) : (
-              'first move of the battle'
-            )}
+            {lastPlayed
+              ? t('match.last', {
+                  kind: kindLabel(lastPlayed.kind, i18n),
+                  card: getCard(lastPlayed.cardId).name,
+                })
+              : t('match.firstMove')}
           </div>
           {/* Not during a gesture: the QTE widgets run their own clocks and
               would carry on counting behind the overlay. */}
           <button
             className="hud__pause"
-            aria-label="Pause"
+            aria-label={t('common.pause')}
             disabled={phase.kind === 'qte'}
             onPointerDown={() => setPaused(true)}
           >
@@ -143,16 +146,19 @@ export function MatchScreen() {
 
         {!cpuUp && phase.kind === 'choosing' && (
           <>
-            <div className="prompt">{player.name}, PICK YOUR MOVE</div>
+            <div className="prompt">{t('match.pick', { name: player.name })}</div>
             {/* What the rival just took, and what it costs to top it. The
                 OUTAURA'D bonus is unwinnable if you cannot see the bar. */}
             {beat && (
               <div className="beat">
-                {rival.name} took <strong>+{beat.last}</strong> · beat{' '}
-                <strong>+{beat.needed}</strong> to OUTAURA them
+                {t('match.beat', {
+                  name: rival.name,
+                  took: n(beat.last),
+                  needed: n(beat.needed),
+                })}
               </div>
             )}
-            <Countdown endsAt={phase.endsAt} totalMs={settings.chooseMs} label="DECIDE" />
+            <Countdown endsAt={phase.endsAt} totalMs={settings.chooseMs} label={t('match.decide')} />
             <Hand
               cards={player.remaining}
               deckSize={settings.deckSize}
@@ -180,10 +186,10 @@ export function MatchScreen() {
           <div className="pass" style={{ '--i': phase.result.lines.length + 2 } as React.CSSProperties}>
             <span className="pass__lead">
               {match.pendingEnd
-                ? 'THAT WAS THE LAST MOVE'
+                ? t('match.lastMove')
                 : solo
-                  ? 'TURN OVER'
-                  : 'TURN OVER · PASS THE PHONE TO'}
+                  ? t('match.turnOver')
+                  : t('match.passTo')}
             </span>
             {!match.pendingEnd && !solo && (
               <span className="pass__who" style={{ color: playerColor(rival) }}>
@@ -197,12 +203,12 @@ export function MatchScreen() {
                 className="btn btn--big"
                 onPointerDown={() => dispatch({ type: 'READY', now: now() })}
               >
-                {match.pendingEnd ? 'SEE THE RESULT' : `${rival.name}'S TURN`}
+                {match.pendingEnd ? t('match.seeResult') : t('match.rivalTurn', { name: rival.name })}
               </button>
             ) : (
               <SlideToPass
                 color={match.pendingEnd ? 'var(--gold)' : playerColor(rival)}
-                label={match.pendingEnd ? 'SLIDE TO SEE WHO WON' : 'SLIDE WHEN READY'}
+                label={match.pendingEnd ? t('match.slideResult') : t('match.slideReady')}
                 onComplete={() => dispatch({ type: 'READY', now: now() })}
               />
             )}
@@ -211,7 +217,7 @@ export function MatchScreen() {
 
         {/* Not while the phone is changing hands: the next player is looking
             right at this screen to tap the button on it. */}
-        {!cpuUp && phase.kind === 'performIntro' && <DeckStrip player={player} label="your deck" />}
+        {!cpuUp && phase.kind === 'performIntro' && <DeckStrip player={player} label={t('match.yourDeck')} />}
       </footer>
 
       {/* The handoff and the result sit over a stage that never unmounts, so
@@ -222,19 +228,19 @@ export function MatchScreen() {
         <HandoffScreen
           {...(solo && opponentId
             ? {
-                lead: 'YOUR OPPONENT',
+                lead: t('handoff.opponent'),
                 name: getRival(opponentId).name,
                 color: getRival(opponentId).look.color ?? accent,
                 emoji: '⚔️',
                 note: getRival(opponentId).tagline,
                 confirm: 'tap' as const,
-                confirmLabel: 'START',
+                confirmLabel: t('handoff.start'),
               }
             : {
                 name: player.name,
                 color: accent,
                 emoji: character.emoji,
-                note: `${player.remaining.length} card${player.remaining.length === 1 ? '' : 's'} left`,
+                note: t('common.cardsLeft', { n: player.remaining.length }),
               })}
           onReady={() => dispatch({ type: 'READY', now: now() })}
         />

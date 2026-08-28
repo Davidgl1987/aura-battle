@@ -1,5 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { CARDS, KIND_LABEL, TIER_LABEL } from '../engine/cards'
+import { CARDS } from '../engine/cards'
+import { useI18n } from '../i18n'
+import { kindLabel, tierLabel } from './labels'
 import { CHARACTERS, getCharacter } from '../engine/characters'
 import { takenCharacterId, useGame } from '../state/store'
 
@@ -15,6 +17,8 @@ const SetupShowcase = lazy(() =>
 type Step = 'fighter' | 'deck'
 
 export function SetupScreen() {
+  const i18n = useI18n()
+  const { t, n } = i18n
   const settings = useGame((s) => s.settings)
   const index = useGame((s) => s.setupIndex)
   const setups = useGame((s) => s.setups)
@@ -67,12 +71,14 @@ export function SetupScreen() {
           className="setup__back"
           onPointerDown={() => (step === 'deck' ? setStep('fighter') : toTitle())}
         >
-          ‹ {step === 'deck' ? 'BACK' : 'HOME'}
+          ‹ {step === 'deck' ? t('common.back') : t('common.home')}
         </button>
         <div className="setup__caption" style={{ color: character.color }}>
           <span className="setup__who">{alias.trim() || fallbackName}</span>
           <span className="setup__step">
-            {step === 'fighter' ? 'PICK YOUR FIGHTER' : `DECK ${deck.length}/${settings.deckSize}`}
+            {step === 'fighter'
+              ? t('setup.pickFighter')
+              : t('setup.deck', { n: deck.length, total: settings.deckSize })}
           </span>
         </div>
       </div>
@@ -94,14 +100,14 @@ export function SetupScreen() {
                   >
                     <span className="fighter__emoji">{c.emoji}</span>
                     <span className="fighter__name">{c.name}</span>
-                    <span className="fighter__build">{claimed ? 'TAKEN' : c.build}</span>
+                    <span className="fighter__build">{claimed ? t('setup.taken') : c.build}</span>
                   </button>
                 )
               })}
             </div>
 
             <label className="alias__row">
-              <span className="setup__title">ALIAS (OPTIONAL)</span>
+              <span className="setup__title">{t('setup.alias')}</span>
               <input
                 className="alias"
                 type="text"
@@ -114,7 +120,7 @@ export function SetupScreen() {
           </>
         ) : (
           <>
-            <p className="setup__hint">Tap a card to see {character.name} do it.</p>
+            <p className="setup__hint">{t('setup.tryIt', { name: character.name })}</p>
             <div className="picker">
               {CARDS.map((card) => {
                 const picked = deck.includes(card.id)
@@ -139,7 +145,8 @@ export function SetupScreen() {
                     <span className="pick__emoji">{card.emoji}</span>
                     <span className="pick__name">{card.name}</span>
                     <span className="pick__meta">
-                      {KIND_LABEL[card.kind]} · {TIER_LABEL[card.difficulty]} · {card.baseAura}
+                      {kindLabel(card.kind, i18n)} · {tierLabel(card.difficulty, i18n)} ·{' '}
+                      {n(card.baseAura)}
                     </span>
                   </button>
                 )
@@ -153,12 +160,12 @@ export function SetupScreen() {
       <div className="setup__foot">
         {step === 'deck' && (
           <button className="btn btn--ghost" onPointerDown={() => setStep('fighter')}>
-            BACK
+            {t('common.back')}
           </button>
         )}
         {step === 'fighter' ? (
           <button className="btn btn--big" onPointerDown={() => setStep('deck')}>
-            NEXT
+            {t('setup.next')}
           </button>
         ) : (
           <button
@@ -166,7 +173,7 @@ export function SetupScreen() {
             disabled={!full}
             onPointerDown={() => full && submitSetup({ name: alias, characterId, deck })}
           >
-            {full ? 'LOCK IT IN' : `PICK ${settings.deckSize - deck.length} MORE`}
+            {full ? t('setup.lockIn') : t('setup.pickMore', { n: settings.deckSize - deck.length })}
           </button>
         )}
       </div>

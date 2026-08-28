@@ -83,6 +83,31 @@ const BANK = {
   handoff: { tones: [tone(440, 0, 120, 0.221), tone(587, 110, 200, 0.221)] },
   /** One per second while the choosing clock is running out. */
   tick: { tones: [tone(1100, 0, 35, 0.17, 'square')] },
+
+  // --- Interface -------------------------------------------------------------
+  /**
+   * Everything the thumb touches outside a battle. Quieter than the game's own
+   * sounds on purpose — a menu that clicks as loudly as a PERFECT lands makes
+   * the PERFECT worth less.
+   */
+  uiTap: { tones: [tone(900, 0, 28, 0.1, 'square')] },
+  /** Committing to something: two notes up. */
+  uiConfirm: { tones: [tone(660, 0, 45, 0.12, 'triangle'), tone(990, 40, 70, 0.1, 'triangle')] },
+  /** Going back, or closing something: the same shape downward. */
+  uiBack: { tones: [tone(560, 0, 55, 0.1, 'triangle', 380)] },
+  /** A panel sliding up. */
+  uiOpen: { tones: [tone(420, 0, 90, 0.09, 'triangle', 700)] },
+  uiOn: { tones: [tone(700, 0, 60, 0.115, 'triangle', 1050)] },
+  uiOff: { tones: [tone(700, 0, 60, 0.1, 'triangle', 460)] },
+  /** A card going into the deck. */
+  uiPick: { tones: [tone(780, 0, 40, 0.12, 'triangle', 1170)] },
+  /** And coming back out of it. */
+  uiDrop: { tones: [tone(660, 0, 55, 0.1, 'triangle', 440)] },
+  /** Something you cannot have yet. */
+  uiLocked: {
+    tones: [tone(190, 0, 100, 0.13, 'square', 150)],
+    noise: [{ startMs: 0, durationMs: 70, gain: 0.08, cutoff: 700 }],
+  },
 } satisfies Record<string, Sound>
 
 export type SoundName = keyof typeof BANK

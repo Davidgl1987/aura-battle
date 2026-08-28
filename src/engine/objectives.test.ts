@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { met, meets, objectiveLabel, type ObjectiveCheck } from './objectives'
+import { met, meets, type ObjectiveCheck } from './objectives'
 import type { BattleStats } from './stats'
 
 const BLANK: BattleStats = {
@@ -40,7 +40,7 @@ describe('what an objective asks', () => {
     // Except the clean sheet: playing nothing badly is, technically, clean.
     for (const check of EVERY_KIND) {
       const expected = check.kind === 'noMiss'
-      expect(meets(check, BLANK, 0), objectiveLabel(check)).toBe(expected)
+      expect(meets(check, BLANK, 0), check.kind).toBe(expected)
     }
   })
 
@@ -57,11 +57,11 @@ describe('what an objective asks', () => {
       mogged: true,
     })
     for (const check of EVERY_KIND) {
-      expect(meets(check, mine, 0), `${objectiveLabel(check)} for me`).toBe(true)
+      expect(meets(check, mine, 0), `${check.kind} for me`).toBe(true)
       // Except the clean sheet, which the rival meets by having done nothing
       // at all. Every other objective has to be earned by the side asking.
       const expected = check.kind === 'noMiss'
-      expect(meets(check, mine, 1), `${objectiveLabel(check)} for them`).toBe(expected)
+      expect(meets(check, mine, 1), `${check.kind} for them`).toBe(expected)
     }
   })
 
@@ -86,13 +86,6 @@ describe('what an objective asks', () => {
     expect(meets({ kind: 'noMiss' }, stats({ perfectCount: [4, 0] }), 0)).toBe(true)
   })
 
-  it('says what it wants in words a player can read', () => {
-    expect(objectiveLabel({ kind: 'aura', amount: 9500 })).toBe('GET 9,500 AURA')
-    expect(objectiveLabel({ kind: 'streak', length: 3 })).toBe('PERFECT STREAK ×3')
-    for (const check of EVERY_KIND) {
-      expect(objectiveLabel(check)).toMatch(/^[A-Z0-9]/)
-    }
-  })
 })
 
 describe('a rival\'s three', () => {

@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { KIND_LABEL, TIER_LABEL } from '../engine/cards'
 import type { Beat } from '../engine/perform'
 import { freshnessOf } from '../engine/scoring'
+import { useI18n } from '../i18n'
+import { freshLabel, kindLabel, tierLabel } from './labels'
 import type { Card, PlayedCard, PlayerState } from '../engine/types'
 import { now } from '../state/store'
 
@@ -27,6 +28,8 @@ interface Props {
  * countdown and the QTE cursor. Nothing that ticks goes through React state.
  */
 export function CpuTurn({ rival, card, startedAt, lastPlayed, beats }: Props) {
+  const i18n = useI18n()
+  const { t } = i18n
   const fillRef = useRef<HTMLDivElement>(null)
   const beatsRef = useRef<HTMLDivElement>(null)
 
@@ -68,13 +71,13 @@ export function CpuTurn({ rival, card, startedAt, lastPlayed, beats }: Props) {
   if (!card) {
     return (
       <div className="cpu" data-state="thinking">
-        <div className="cpu__who">{rival.name} IS COOKING</div>
+        <div className="cpu__who">{t('cpu.thinking', { name: rival.name })}</div>
         <div className="cpu__dots" aria-hidden>
           <i />
           <i />
           <i />
         </div>
-        <div className="cpu__left">{rival.remaining.length} cards left</div>
+        <div className="cpu__left">{t('common.cardsLeft', { n: rival.remaining.length })}</div>
       </div>
     )
   }
@@ -83,14 +86,15 @@ export function CpuTurn({ rival, card, startedAt, lastPlayed, beats }: Props) {
 
   return (
     <div className="cpu" data-state="performing">
-      <div className="cpu__who">{rival.name} PLAYS</div>
+      <div className="cpu__who">{t('cpu.plays', { name: rival.name })}</div>
       <div className="cpu__card" data-kind={card.kind} data-fresh={fresh}>
         <span className="cpu__emoji">{card.emoji}</span>
         <span className="cpu__name">{card.name}</span>
         <span className="cpu__meta">
-          {KIND_LABEL[card.kind]} · {TIER_LABEL[card.difficulty]} · {card.baseAura} aura
+          {kindLabel(card.kind, i18n)} · {tierLabel(card.difficulty, i18n)} · {i18n.n(card.baseAura)}{' '}
+          {t('common.auraLower')}
         </span>
-        <span className="cpu__fresh">{fresh}</span>
+        <span className="cpu__fresh">{freshLabel(fresh, i18n)}</span>
       </div>
       {/* What they are actually doing with it. A rival never touches the
           glass, so without this a MISS is a number that arrives out of

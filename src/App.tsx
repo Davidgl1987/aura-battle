@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { play } from './audio/engine'
 import { useSound } from './audio/useSound'
 import { getCharacter } from './engine/characters'
+import { useI18n } from './i18n'
 import { useGame } from './state/store'
 import { useGameClock } from './state/useGameClock'
 import { HandoffScreen } from './ui/HandoffScreen'
@@ -11,11 +12,11 @@ import { QteLab } from './ui/QteLab'
 import { SetupScreen } from './ui/SetupScreen'
 import { CollectionScreen } from './ui/collection/CollectionScreen'
 import { HomeScreen } from './ui/home/HomeScreen'
-import { SettingsScreen } from './ui/settings/SettingsScreen'
 import { RivalSelectScreen } from './ui/solo/RivalSelectScreen'
 import './ui/styles.css'
 
 function SetupHandoff() {
+  const { t } = useI18n()
   const confirm = useGame((s) => s.confirmSetupHandoff)
   const taken = useGame((s) => s.setups[0]?.characterId)
 
@@ -28,7 +29,7 @@ function SetupHandoff() {
       name="P2"
       color="var(--p1)"
       emoji="🫱"
-      note={taken ? `P1 is playing ${getCharacter(taken).name}` : undefined}
+      note={taken ? t('handoff.p2Note', { name: getCharacter(taken).name }) : undefined}
       onReady={confirm}
     />
   )
@@ -61,7 +62,6 @@ export default function App() {
       {screen === 'home' && <HomeScreen />}
       {screen === 'rivals' && <RivalSelectScreen />}
       {screen === 'collection' && <CollectionScreen />}
-      {screen === 'settings' && <SettingsScreen />}
       {screen === 'setup' && <SetupScreen />}
       {screen === 'setupHandoff' && <SetupHandoff />}
       {screen === 'match' && <MatchScreen />}

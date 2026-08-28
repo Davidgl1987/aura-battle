@@ -15,17 +15,6 @@ export type Reward =
   | { kind: 'coins'; amount: number }
   | { kind: 'accessory'; accessoryId: string }
 
-export function rewardLabel(reward: Reward): string {
-  switch (reward.kind) {
-    case 'card':
-      return `NEW MOVE · ${getCard(reward.cardId).name.toUpperCase()}`
-    case 'coins':
-      return `+${reward.amount.toLocaleString('en-US')} COINS`
-    case 'accessory':
-      return `NEW DRIP · ${getAccessory(reward.accessoryId).name.toUpperCase()}`
-  }
-}
-
 export function rewardEmoji(reward: Reward): string {
   switch (reward.kind) {
     case 'card':

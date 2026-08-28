@@ -1,3 +1,4 @@
+import { LANGUAGES, useI18n } from '../../i18n'
 import { useProgress } from '../../state/useProgress'
 
 interface ToggleProps {
@@ -35,37 +36,43 @@ function Toggle({ label, note, value, onChange }: ToggleProps) {
  * `compact` drops the explanations: mid-battle nobody is reading them.
  */
 export function SettingsList({ compact = false }: { compact?: boolean }) {
+  const { t, lang } = useI18n()
   const settings = useProgress((s) => s.settings)
   const setSettings = useProgress((s) => s.setSettings)
+
+  const current = LANGUAGES.findIndex((l) => l.id === lang)
+  const nextLang = LANGUAGES[(current + 1) % LANGUAGES.length]
 
   return (
     <div className="settings__list" data-compact={compact}>
       <Toggle
-        label="MUSIC"
-        note="Backing track during a battle"
+        label={t('settings.music')}
+        note={t('settings.musicNote')}
         value={settings.music}
         onChange={(music) => setSettings({ music })}
       />
       <Toggle
-        label="SFX"
-        note="Hits, judgements and the crowd"
+        label={t('settings.sfx')}
+        note={t('settings.sfxNote')}
         value={settings.sfx}
         onChange={(sfx) => setSettings({ sfx })}
       />
       <Toggle
-        label="VIBRATION"
-        note="A buzz on every judgement"
+        label={t('settings.vibration')}
+        note={t('settings.vibrationNote')}
         value={settings.vibration}
         onChange={(vibration) => setSettings({ vibration })}
       />
 
-      <div className="setting setting--static">
+      {/* Two languages cycle rather than opening a picker: a menu to choose
+          between two things is one tap more than choosing between them. */}
+      <button className="setting" onPointerDown={() => setSettings({ language: nextLang.id })}>
         <span className="setting__text">
-          <span className="setting__label">LANGUAGE</span>
-          <span className="setting__note">More on the way</span>
+          <span className="setting__label">{t('settings.language')}</span>
+          <span className="setting__note">{t('settings.languageNote')}</span>
         </span>
-        <span className="setting__value">ENGLISH</span>
-      </div>
+        <span className="setting__value">{LANGUAGES[current]?.label}</span>
+      </button>
     </div>
   )
 }

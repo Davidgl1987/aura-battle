@@ -52,36 +52,6 @@ export function meets(check: ObjectiveCheck, stats: BattleStats, me: PlayerId): 
   }
 }
 
-/**
- * What the objective says on the rival's card. Derived rather than written out
- * beside every rival, so a number can never be changed in one place and left
- * stale in the other.
- */
-export function objectiveLabel(check: ObjectiveCheck): string {
-  switch (check.kind) {
-    case 'win':
-      return 'WIN THE BATTLE'
-    case 'aura':
-      return `GET ${check.amount.toLocaleString('en-US')} AURA`
-    case 'mogged':
-      return 'WIN BY MOGGED'
-    case 'outaura':
-      return check.count === 1 ? "OUTAURA THEM" : `OUTAURA ×${check.count}`
-    case 'streak':
-      return `PERFECT STREAK ×${check.length}`
-    case 'perfects':
-      return `LAND ${check.count} PERFECTS`
-    case 'godAura':
-      return 'REACH GOD AURA'
-    case 'noMiss':
-      return 'FINISH WITHOUT A MISS'
-    case 'hardLanded':
-      return `LAND ${check.count} HARD CARDS`
-    case 'momentum':
-      return `REACH ${check.atLeast} MOMENTUM`
-  }
-}
-
 /** Which of a rival's three objectives were met. Order is the rival's order. */
 export function met(
   objectives: readonly Objective[],

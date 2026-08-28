@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useI18n } from '../i18n'
 import { useGame } from '../state/store'
 import { Glossary } from './Glossary'
 import { SettingsList } from './settings/SettingsList'
@@ -12,6 +13,7 @@ import { SettingsList } from './settings/SettingsList'
 type Panel = 'settings' | 'rules' | null
 
 export function PauseScreen() {
+  const { t } = useI18n()
   const setPaused = useGame((s) => s.setPaused)
   const toTitle = useGame((s) => s.toTitle)
   const [panel, setPanel] = useState<Panel>(null)
@@ -19,8 +21,8 @@ export function PauseScreen() {
 
   return (
     <div className="paused">
-      <span className="paused__title">PAUSED</span>
-      <span className="paused__note">nothing is ticking</span>
+      <span className="paused__title">{t('pause.title')}</span>
+      <span className="paused__note">{t('pause.note')}</span>
 
       {/* One at a time: between them they cover the whole screen, and the
           battle underneath is what the player is coming back to. */}
@@ -32,7 +34,7 @@ export function PauseScreen() {
       )}
 
       <button className="btn btn--big" onPointerDown={() => setPaused(false)}>
-        RESUME
+        {t('pause.resume')}
       </button>
 
       <div className="tabs">
@@ -41,13 +43,13 @@ export function PauseScreen() {
           data-open={panel === 'settings'}
           onPointerDown={() => toggle('settings')}
         >
-          ⚙ SETTINGS
+          ⚙ {t('home.settings')}
         </button>
         <button className="tab" data-open={panel === 'rules'} onPointerDown={() => toggle('rules')}>
-          ? HOW TO PLAY
+          ? {t('home.howToPlay')}
         </button>
         <button className="tab" onPointerDown={toTitle}>
-          QUIT
+          {t('pause.quit')}
         </button>
       </div>
     </div>

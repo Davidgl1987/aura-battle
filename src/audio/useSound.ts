@@ -5,6 +5,7 @@ import { useProgress } from '../state/useProgress'
 import { crowd, play, setMusicMuted, setSfxMuted, unlock } from './engine'
 import { setMusicHeat } from './music'
 import { crowdFor, soundFor } from './sounds'
+import { uiSoundFor } from './uiSounds'
 
 /** How long the phone buzzes for each result. A MISS gets the blunt one. */
 const BUZZ_MS: Record<string, number> = {
@@ -56,6 +57,20 @@ export function useSound(): void {
     return () => {
       for (const type of gestures) window.removeEventListener(type, open)
     }
+  }, [])
+
+  /**
+   * One listener for the whole interface. `pointerdown` rather than `click`
+   * because that is the event the buttons themselves act on, so the sound and
+   * the thing it is announcing happen on the same touch.
+   */
+  useEffect(() => {
+    const onTap = (event: PointerEvent) => {
+      const sound = uiSoundFor(event.target)
+      if (sound) play(sound)
+    }
+    window.addEventListener('pointerdown', onTap)
+    return () => window.removeEventListener('pointerdown', onTap)
   }, [])
 
   useGameEvents(

@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { getCard } from '../engine/cards'
+import { useI18n } from '../i18n'
 import { getCharacter } from '../engine/characters'
 import type { MatchState } from '../engine/types'
 
@@ -15,11 +16,12 @@ import type { MatchState } from '../engine/types'
  * battle, and both players watched it happen.
  */
 export function PlayedStrip({ match }: { match: MatchState }) {
+  const { t } = useI18n()
   if (match.log.length === 0) return null
 
   return (
     <div className="strip">
-      <span className="strip__label">PLAYED</span>
+      <span className="strip__label">{t('match.played')}</span>
       <div className="strip__cards">
         {match.log.map((turn, i) => {
           const who = getCharacter(match.players[turn.player].characterId).color

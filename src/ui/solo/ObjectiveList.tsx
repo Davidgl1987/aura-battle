@@ -1,5 +1,7 @@
-import { objectiveLabel, type Objective } from '../../engine/objectives'
-import { rewardEmoji, rewardLabel } from '../../engine/rewards'
+import { rewardEmoji } from '../../engine/rewards'
+import type { Objective } from '../../engine/objectives'
+import { useI18n } from '../../i18n'
+import { objectiveText, rewardText } from '../labels'
 
 interface Props {
   objectives: readonly Objective[]
@@ -17,6 +19,8 @@ interface Props {
  * different-looking things.
  */
 export function ObjectiveList({ objectives, banked, met, fresh }: Props) {
+  const i18n = useI18n()
+
   return (
     <ul className="objectives">
       {objectives.map((objective, i) => {
@@ -34,14 +38,14 @@ export function ObjectiveList({ objectives, banked, met, fresh }: Props) {
             <span className="objective__tick" aria-hidden>
               {done ? '✓' : '○'}
             </span>
-            <span className="objective__what">{objectiveLabel(objective.check)}</span>
+            <span className="objective__what">{objectiveText(objective.check, i18n)}</span>
             <span className="objective__reward">
               <span className="objective__emoji" aria-hidden>
                 {rewardEmoji(objective.reward)}
               </span>
-              {rewardLabel(objective.reward)}
+              {rewardText(objective.reward, i18n)}
             </span>
-            {fresh?.[i] && <span className="objective__new">NEW</span>}
+            {fresh?.[i] && <span className="objective__new">{i18n.t('objective.new')}</span>}
           </li>
         )
       })}

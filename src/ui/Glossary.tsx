@@ -1,78 +1,63 @@
-import { GOD_AURA_MULT, MOGGED_THRESHOLD, OUTAURA_RATIO, STREAK_MIN } from '../engine/balance'
+import { useI18n, type TextKey } from '../i18n'
 
 /**
- * Every label the game will ever shout at you, in one place. The resolve screen
- * explains a score while it is on the table, but only in passing and only for
- * the lines that fired — this is where you look up the one you did not catch.
+ * What every word on the score sheet means, grouped the way a player runs into
+ * them: how a play scores, then what freshness is, then momentum, then how a
+ * battle ends.
+ *
+ * Keys rather than sentences: the words live in `i18n/`, so the same list
+ * reads in whichever language is on without a second copy of it here.
  */
-const GLOSSARY: { group: string; terms: [label: string, meaning: string][] }[] = [
+const GROUPS: { heading: TextKey; terms: [term: TextKey, text: TextKey][] }[] = [
   {
-    group: 'HOW A PLAY SCORES',
+    heading: 'glossary.scoring',
     terms: [
-      ['PERFECT / GOOD / MISS', 'How cleanly you hit the gesture. A MISS costs you aura.'],
-      ['FRESH MOVE', 'You answered with a different kind of gesture than the last one played.'],
-      [
-        'HARD MOVE',
-        'Every card is worth one, and a HARD card is worth double a NORMAL one. Hard cards pay more and miss more.',
-      ],
-      [
-        `PERFECT STREAK ×${STREAK_MIN}+`,
-        'PERFECTs in a row, yours only. Each link is worth more than the last; anything short of a PERFECT breaks it.',
-      ],
-      [
-        "OUTAURA'D",
-        `Your play beat the rival's last one by ${OUTAURA_RATIO}× or better. You cannot out-aura someone who just started, or who missed.`,
-      ],
+      ['glossary.judgement', 'glossary.judgementText'],
+      ['glossary.freshMove', 'glossary.freshMoveText'],
+      ['glossary.hardMove', 'glossary.hardMoveText'],
+      ['glossary.streak', 'glossary.streakText'],
+      ['glossary.outaura', 'glossary.outauraText'],
     ],
   },
   {
-    group: 'FRESHNESS',
+    heading: 'glossary.freshness',
     terms: [
-      ['FRESH', 'A different kind than the last move. Pays a bonus and feeds momentum.'],
-      ['NEUTRAL', 'Same kind, different card. No bonus, and momentum slips.'],
-      ['STALE', 'The very same card again. No bonus, and momentum drops hard.'],
+      ['glossary.fresh', 'glossary.freshText'],
+      ['glossary.neutral', 'glossary.neutralText'],
+      ['glossary.stale', 'glossary.staleText'],
     ],
   },
   {
-    group: 'MOMENTUM',
+    heading: 'glossary.momentum',
     terms: [
-      [
-        'THE METER',
-        'Fills on PERFECTs and GOODs, on varying your answers, on hard cards, and on streaks. Repeating yourself drains it.',
-      ],
-      [
-        `🔥 GOD AURA ×${GOD_AURA_MULT}`,
-        'A full meter sets you alight and doubles everything you score. A MISS puts it out.',
-      ],
+      ['glossary.meter', 'glossary.meterText'],
+      ['glossary.godAura', 'glossary.godAuraText'],
     ],
   },
   {
-    group: 'THE BATTLE',
+    heading: 'glossary.battle',
     terms: [
-      [
-        'THE BAR',
-        `Shared. It leans toward whoever is ahead, and shoving it all the way to their end is MOGGED — an instant win, ${MOGGED_THRESHOLD} aura clear.`,
-      ],
-      [
-        '😬 LOST COMPOSURE',
-        'You ran out of time choosing. The turn is spent and your momentum is wiped — but your cards are all still yours.',
-      ],
-      ['OUT OF MOVES', 'Both of you have taken every turn. Whoever holds the bar wins.'],
+      ['glossary.bar', 'glossary.barText'],
+      ['glossary.mogged', 'glossary.moggedText'],
+      ['glossary.lostComposure', 'glossary.lostComposureText'],
+      ['glossary.outOfMoves', 'glossary.outOfMovesText'],
     ],
   },
 ]
 
 export function Glossary() {
+  const { t } = useI18n()
+
   return (
     <div className="glossary">
-      {GLOSSARY.map(({ group, terms }) => (
-        <section key={group} className="glossary__group">
-          <h3 className="glossary__heading">{group}</h3>
+      {GROUPS.map(({ heading, terms }) => (
+        <section key={heading} className="glossary__group">
+          <h3 className="glossary__heading">{t(heading)}</h3>
           <dl className="glossary__list">
-            {terms.map(([label, meaning]) => (
-              <div key={label} className="glossary__term">
-                <dt>{label}</dt>
-                <dd>{meaning}</dd>
+            {terms.map(([term, text]) => (
+              <div key={term} className="glossary__term">
+                <dt>{t(term)}</dt>
+                <dd>{t(text)}</dd>
               </div>
             ))}
           </dl>

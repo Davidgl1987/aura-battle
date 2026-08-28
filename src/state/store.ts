@@ -50,14 +50,7 @@ function holdClock(paused: boolean): void {
  * always had, home → P1 sets up → the phone changes hands → P2 sets up →
  * battle. In-match handoffs are a phase of the reducer, not a screen.
  */
-export type Screen =
-  | 'home'
-  | 'rivals'
-  | 'collection'
-  | 'settings'
-  | 'setup'
-  | 'setupHandoff'
-  | 'match'
+export type Screen = 'home' | 'rivals' | 'collection' | 'setup' | 'setupHandoff' | 'match'
 
 /** Who is on the other side of the phone. */
 export type Mode = 'local' | 'solo'

@@ -1,6 +1,8 @@
 import { Suspense, lazy, useState } from 'react'
 import { SOLO_DECK_SIZE } from '../../engine/balance'
-import { CARDS, KIND_LABEL, TIER_LABEL } from '../../engine/cards'
+import { CARDS } from '../../engine/cards'
+import { useI18n } from '../../i18n'
+import { kindLabel, tierLabel } from '../labels'
 import { getRival } from '../../engine/rivals'
 import { PLAYER_CHARACTER, useGame } from '../../state/store'
 import { hasCard, unlockedBy, useProgress } from '../../state/useProgress'
@@ -19,10 +21,28 @@ const ORDER: QteKind[] = ['timing', 'speed', 'control']
  * tells you who is holding it.
  */
 export function CollectionScreen() {
+  const i18n = useI18n()
+  const { t, n } = i18n
   const go = useGame((s) => s.go)
   const progress = useProgress()
   const setDeck = useProgress((s) => s.setDeck)
-  const deck = progress.deck
+
+  /**
+   * The deck is edited here and only saved once it is legal again. The store
+   * refuses a deck of the wrong size — rightly, since that is what a battle
+   * starts from — so taking a card out has to be able to leave the deck four
+   * long for as long as it takes to pick the fifth.
+   */
+  const [draft, setDraft] = useState<string[] | null>(null)
+  const deck = draft ?? progress.deck
+
+  const commit = (next: string[]) => {
+    setDraft(next)
+    if (next.length === SOLO_DECK_SIZE) {
+      setDeck(next)
+      setDraft(null)
+    }
+  }
 
   const [preview, setPreview] = useState<{
     animation: string
@@ -31,20 +51,23 @@ export function CollectionScreen() {
   } | null>(null)
   const [note, setNote] = useState<string | null>(null)
 
+  /**
+   * Tap to take a move, tap it again to put it back. A full deck refuses new
+   * picks rather than quietly dropping one of its own: swapping the oldest out
+   * meant a tap could cost you a card you never chose to lose, and you found
+   * out by noticing it missing.
+   */
   const toggle = (cardId: string) => {
     if (deck.includes(cardId)) {
-      // The last slot cannot be emptied: an illegal deck is refused by the
-      // store, so removing it would look like the tap did nothing.
-      if (deck.length <= SOLO_DECK_SIZE) {
-        setNote(`Pick a replacement to swap ${CARDS.find((c) => c.id === cardId)!.name} out`)
-        return
-      }
-      setDeck(deck.filter((id) => id !== cardId))
+      commit(deck.filter((id) => id !== cardId))
+      setNote(null)
       return
     }
-    // A full deck swaps the oldest pick out, so a tap always does something.
-    const next = deck.length >= SOLO_DECK_SIZE ? [...deck.slice(1), cardId] : [...deck, cardId]
-    setDeck(next)
+    if (deck.length >= SOLO_DECK_SIZE) {
+      setNote(t('collection.full'))
+      return
+    }
+    commit([...deck, cardId])
     setNote(null)
   }
 
@@ -55,25 +78,27 @@ export function CollectionScreen() {
           <SetupShowcase characterId={PLAYER_CHARACTER} preview={preview} cardIds={deck} />
         </Suspense>
         <button className="setup__back" onPointerDown={() => go('home')}>
-          ‹ HOME
+          ‹ {t('common.home')}
         </button>
         <div className="collection__caption">
-          <span className="collection__count">
-            DECK {deck.length}/{SOLO_DECK_SIZE}
+          <span className="collection__count" data-short={deck.length < SOLO_DECK_SIZE}>
+            {t('collection.deck', { n: deck.length, total: SOLO_DECK_SIZE })}
           </span>
           <span className="collection__owned">
-            {progress.unlockedCards.length}/{CARDS.length} MOVES
+            {t('collection.moves', { n: progress.unlockedCards.length, total: CARDS.length })}
           </span>
         </div>
       </div>
 
       <div className="collection__body">
-        <p className="setup__hint">{note ?? 'Tap a move to swap it into your deck.'}</p>
+        <p className="setup__hint" data-warn={note !== null}>
+          {note ?? t('collection.hint')}
+        </p>
 
         {ORDER.map((kind) => (
           <section key={kind} className="collection__group">
             <h3 className="collection__kind" data-kind={kind}>
-              {KIND_LABEL[kind]}
+              {kindLabel(kind, i18n)}
             </h3>
             <div className="picker">
               {CARDS.filter((c) => c.kind === kind).map((card) => {
@@ -90,7 +115,12 @@ export function CollectionScreen() {
                     data-locked={!owned}
                     onPointerDown={() => {
                       if (!owned) {
-                        setNote(`${card.name} · beat ${getRival(holder!).name} to unlock`)
+                        setNote(
+                          t('collection.locked', {
+                            card: card.name,
+                            name: getRival(holder!).name,
+                          }),
+                        )
                         return
                       }
                       setPreview({
@@ -106,7 +136,7 @@ export function CollectionScreen() {
                     <span className="pick__name">{card.name}</span>
                     <span className="pick__meta">
                       {owned
-                        ? `${TIER_LABEL[card.difficulty]} · ${card.baseAura} aura`
+                        ? `${tierLabel(card.difficulty, i18n)} · ${n(card.baseAura)} ${t('common.auraLower')}`
                         : getRival(holder!).name}
                     </span>
                   </button>

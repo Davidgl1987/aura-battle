@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { useI18n } from '../i18n'
 import { SlideToPass } from './SlideToPass'
 
 interface Props {
@@ -27,14 +28,16 @@ export function HandoffScreen({
   color,
   emoji,
   note,
-  lead = 'PASS THE PHONE TO',
+  lead,
   confirm = 'slide',
-  confirmLabel = 'SLIDE WHEN YOU HAVE IT',
+  confirmLabel,
   onReady,
 }: Props) {
+  const { t } = useI18n()
+
   return (
     <div className="handoff" style={{ '--who': color } as CSSProperties}>
-      <span className="handoff__pass">{lead}</span>
+      <span className="handoff__pass">{lead ?? t('handoff.passTo')}</span>
       <span className="handoff__emoji">{emoji}</span>
       <span className="handoff__name">{name}</span>
       {note && <span className="handoff__note">{note}</span>}
@@ -42,10 +45,10 @@ export function HandoffScreen({
         {/* The name is already the biggest thing on the screen; saying it
             again here only makes the label too wide for its own track. */}
         {confirm === 'slide' ? (
-          <SlideToPass color={color} label={confirmLabel} onComplete={onReady} />
+          <SlideToPass color={color} label={confirmLabel ?? t('handoff.slide')} onComplete={onReady} />
         ) : (
           <button className="btn btn--big" onPointerDown={onReady}>
-            {confirmLabel}
+            {confirmLabel ?? t('handoff.start')}
           </button>
         )}
       </div>

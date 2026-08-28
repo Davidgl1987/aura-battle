@@ -4,6 +4,9 @@ Answer the rival's move with a different kind of gesture, nail the QTE, and
 push the shared aura bar onto their side before both decks run dry. Two players
 on one phone, or one player up a ladder of six rivals.
 
+**Play it: <https://davidgl1987.github.io/aura-battle/>** — portrait, on a
+phone, with the sound on.
+
 ## Run it
 
 ```bash
@@ -109,6 +112,20 @@ Aura per play: `baseAura × judgement × freshness × momentum`.
 The match ends when the cards run out, or instantly (**MOGGED**) if the bar
 reaches 85 on either side.
 
+## Two languages
+
+English and Spanish, a file each under `i18n/`. English is the source: the key
+type is derived from it and the Spanish file is typed against that, so a
+missing translation stops the build rather than showing somebody a raw key
+mid-battle. `i18n.test.ts` also checks that every `{slot}` survives the
+crossing — a `{name}` renamed in translation is the bug that prints
+`{nombre}` at a player.
+
+The game's own nouns do not translate. GRIDDY DROP is GRIDDY DROP, THE MEWER is
+THE MEWER; only the words around them change. The language is picked from the
+phone on first run and can be switched in Settings, from the hub or from the
+pause menu.
+
 ## The three QTEs
 
 **No two plays of a card are the same puzzle.** Every QTE gets a `variation`
@@ -162,6 +179,8 @@ src/
     objectives.ts  what a rival asks, answered from stats alone
     rewards.ts     what it pays
   audio/      a synthesiser: every sound is oscillators and noise, no files
+    uiSounds.ts    what a tap on each part of the interface sounds like
+  i18n/       every string the game says, one file per language
   state/      zustand store, setup flow, and the rAF clock driving the reducer
     useProgress.ts   the only thing that survives closing the tab
     useCpuTurn.ts    plays the rival's turns through the same reducer
@@ -174,6 +193,7 @@ src/
     StageShell.tsx canvas, air, floor and glow — shared by every screen
     Showcase.tsx   the same fighters, warming up behind the menus
   ui/         DOM overlay: home, setup, handoff, hand, aura bar, judgements
+    labels.ts      the engine's data put into the reader's own words
     qte/           one widget per QTE kind, plus the pure maths behind each
     home/          the hub, and the sheet that picks a mode
     solo/          the rival carousel and its objectives
@@ -251,7 +271,10 @@ drains that bus, and everything loud hangs off it.
   separate things: the first gesture of any kind opens the context, a sample of
   silence is played inside that gesture so iOS really opens the tap, and
   `navigator.audioSession` is set to `playback` so an iPhone with its ringer
-  switch flipped is not silent. The loop sits on its own fader under the
+  switch flipped is not silent. Every tap outside a battle makes a noise too:
+  one delegated listener and one table in `uiSounds.ts`, rather than a `play()`
+  wired into each of several dozen handlers and forgotten in one of them. The
+  loop sits on its own fader under the
   master, so MUSIC and SFX in Settings are two switches rather than one, and
   both of them are in the pause menu as well — mid-battle is when somebody
   actually reaches for them. Nothing waits for a tap that the browser did not

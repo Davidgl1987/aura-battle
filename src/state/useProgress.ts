@@ -6,6 +6,7 @@ import { met } from '../engine/objectives'
 import type { Reward } from '../engine/rewards'
 import { RIVALS, getRival, rivalIndex } from '../engine/rivals'
 import type { BattleStats } from '../engine/stats'
+import type { Lang } from '../i18n'
 import type { AccessorySlot, PlayerId, QteKind } from '../engine/types'
 
 /**
@@ -18,8 +19,7 @@ export interface SoloSettings {
   music: boolean
   sfx: boolean
   vibration: boolean
-  /** Only English exists. The setting is here so the strings have somewhere to go. */
-  language: 'en'
+  language: Lang
 }
 
 export interface Progress {
@@ -74,7 +74,14 @@ export const INITIAL_PROGRESS: Progress = {
   equippedAccessories: {},
   deck: defaultDeck(),
   objectives: {},
-  settings: { music: true, sfx: true, vibration: true, language: 'en' },
+  // The browser already knows which language the phone is in; asking again on
+  // the first screen would be asking a question that has an answer.
+  settings: {
+    music: true,
+    sfx: true,
+    vibration: true,
+    language: typeof navigator !== 'undefined' && navigator.language.startsWith('es') ? 'es' : 'en',
+  },
 }
 
 // --- Derived, never stored ---------------------------------------------------

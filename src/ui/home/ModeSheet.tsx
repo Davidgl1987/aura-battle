@@ -5,7 +5,9 @@ import {
   DECK_SIZE_MIN,
 } from '../../engine/balance'
 import { RIVALS, getRival } from '../../engine/rivals'
+import { useI18n } from '../../i18n'
 import { useGame } from '../../state/store'
+import { Sheet } from '../Sheet'
 import { Stepper } from '../Stepper'
 
 interface Props {
@@ -24,6 +26,7 @@ interface Props {
  * comparable from the first rival to the last.
  */
 export function ModeSheet({ beaten, nextRivalId, onClose }: Props) {
+  const { t } = useI18n()
   const go = useGame((s) => s.go)
   const beginSetup = useGame((s) => s.beginSetup)
   const settings = useGame((s) => s.settings)
@@ -33,21 +36,16 @@ export function ModeSheet({ beaten, nextRivalId, onClose }: Props) {
   const done = beaten === RIVALS.length
 
   return (
-    <div className="sheet" role="dialog" aria-label="Choose a mode">
-      <button className="sheet__scrim" aria-label="Close" onPointerDown={onClose} />
-
-      <div className="sheet__body">
-        <div className="sheet__grab" />
-
-        <button className="mode mode--solo" onPointerDown={() => go('rivals')}>
+    <Sheet label={t('mode.label')} onClose={onClose}>
+      <button className="mode mode--solo" onPointerDown={() => go('rivals')}>
           <span className="mode__head">
-            <span className="mode__name">SOLO</span>
+            <span className="mode__name">{t('mode.solo')}</span>
             <span className="mode__count">
               {beaten}/{RIVALS.length}
             </span>
           </span>
           <span className="mode__note">
-            {done ? 'Every rival beaten. Go back for the objectives you left.' : `Next up · ${next.name}`}
+            {done ? t('mode.allBeaten') : t('mode.nextUp', { name: next.name })}
           </span>
           <span className="mode__progress" aria-hidden>
             {RIVALS.map((rival, i) => (
@@ -59,21 +57,21 @@ export function ModeSheet({ beaten, nextRivalId, onClose }: Props) {
         <div className="mode mode--local">
           <button className="mode__hit" onPointerDown={beginSetup}>
             <span className="mode__head">
-              <span className="mode__name">1 VS 1</span>
+              <span className="mode__name">{t('mode.local')}</span>
             </span>
-            <span className="mode__note">Two players, one phone</span>
+            <span className="mode__note">{t('mode.localNote')}</span>
           </button>
 
           <div className="settings settings--inline">
             <Stepper
-              label="CARDS PER DECK"
+              label={t('mode.cardsPerDeck')}
               value={settings.deckSize}
               min={DECK_SIZE_MIN}
               max={DECK_SIZE_MAX}
               onChange={(deckSize) => setSettings({ deckSize })}
             />
             <Stepper
-              label="TIME TO CHOOSE"
+              label={t('mode.timeToChoose')}
               value={Math.round(settings.chooseMs / 1000)}
               min={CHOOSE_SECONDS_MIN}
               max={CHOOSE_SECONDS_MAX}
@@ -82,7 +80,6 @@ export function ModeSheet({ beaten, nextRivalId, onClose }: Props) {
             />
           </div>
         </div>
-      </div>
-    </div>
+    </Sheet>
   )
 }

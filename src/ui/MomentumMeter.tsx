@@ -1,4 +1,5 @@
 import { MOMENTUM_MAX, STREAK_MIN } from '../engine/balance'
+import { useI18n } from '../i18n'
 import { getCharacter } from '../engine/characters'
 import type { PlayerState } from '../engine/types'
 
@@ -15,12 +16,15 @@ export function MomentumMeter({
   delta?: number | null
 }) {
   const character = getCharacter(player.characterId)
+  const { t } = useI18n()
   const pct = (player.momentum / MOMENTUM_MAX) * 100
 
   return (
     <div className="momentum" data-god={player.godAura}>
       <div className="momentum__label">
-        <span>{player.godAura ? '🔥 GOD AURA' : `${player.name} MOMENTUM`}</span>
+        <span>
+          {player.godAura ? t('match.godAura') : t('match.momentum', { name: player.name })}
+        </span>
         {delta !== null && delta !== 0 && (
           <span className="momentum__delta" data-sign={delta < 0 ? 'down' : 'up'}>
             {delta > 0 ? `+${delta}` : delta}

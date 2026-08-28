@@ -1,5 +1,7 @@
 import { play } from '../audio/engine'
-import { KIND_LABEL, getCard, TIER_LABEL } from '../engine/cards'
+import { getCard } from '../engine/cards'
+import { useI18n } from '../i18n'
+import { freshLabel, kindLabel, tierLabel } from './labels'
 import { freshnessOf } from '../engine/scoring'
 import type { Card, PlayedCard } from '../engine/types'
 
@@ -18,6 +20,8 @@ interface Props {
  * front what it would score against the rival's last move.
  */
 export function Hand({ cards, deckSize, lastPlayed, disabled, onPick }: Props) {
+  const i18n = useI18n()
+
   return (
     <div className="hand" data-size={deckSize}>
       {cards.map((id) => {
@@ -36,12 +40,13 @@ export function Hand({ cards, deckSize, lastPlayed, disabled, onPick }: Props) {
               onPick(id)
             }}
           >
-            <span className="card__fresh">{fresh}</span>
+            <span className="card__fresh">{freshLabel(fresh, i18n)}</span>
             <span className="card__emoji">{card.emoji}</span>
             <span className="card__name">{card.name}</span>
-            <span className="card__kind">{KIND_LABEL[card.kind]}</span>
+            <span className="card__kind">{kindLabel(card.kind, i18n)}</span>
             <span className="card__stats">
-              {TIER_LABEL[card.difficulty]} · {card.baseAura} aura
+              {tierLabel(card.difficulty, i18n)} · {i18n.n(card.baseAura)}{' '}
+              {i18n.t('common.auraLower')}
             </span>
           </button>
         )

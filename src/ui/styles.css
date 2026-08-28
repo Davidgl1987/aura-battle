@@ -64,9 +64,10 @@
 }
 
 .title {
-  font-size: 44px;
-  line-height: 0.92;
-  letter-spacing: -1px;
+  font-size: clamp(48px, 15vw, 62px);
+  line-height: 0.9;
+  letter-spacing: -1.5px;
+  text-align: center;
 }
 .title span {
   display: block;
@@ -1785,10 +1786,15 @@
 /* --- Solo: the hub -------------------------------------------------------- */
 /* The stage owns the middle, so both bands sit against their own edge and the
    top one lays the logo and the purse out on one line. */
+/* The purse gets its own line above the name rather than sitting beside it:
+   at this size AURA reaches the right-hand edge, and anything parked there
+   ends up inside the word. */
 .home__top {
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: stretch;
+  gap: 6px;
+}
+.coins {
+  align-self: flex-end;
 }
 
 .coins {
@@ -1826,7 +1832,9 @@
 .hub__item {
   position: relative;
   flex: 1 1 0;
-  max-width: 118px;
+  max-width: 96px;
+  min-height: 62px;
+  justify-content: center;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1844,8 +1852,11 @@
   line-height: 1;
 }
 .hub__label {
-  font-size: 10px;
-  letter-spacing: 0.09em;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+  text-align: center;
+  text-wrap: balance;
   color: var(--muted);
 }
 .hub__soon {
@@ -1906,6 +1917,13 @@
   .sheet__body {
     animation: none;
   }
+}
+.sheet__title {
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-align: center;
+  color: var(--muted);
+  margin-bottom: 2px;
 }
 .sheet__grab {
   width: 40px;
@@ -1972,6 +1990,19 @@
 }
 .mode__pip[data-done='true'] {
   background: var(--gold);
+}
+/* Inside a sheet the panel already provides the ground and the scrolling, so
+   the rules drop their own and just set the reading style. */
+.rules--sheet {
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  background: none;
+  backdrop-filter: none;
+}
+.sheet__body .settings__list {
+  max-width: none;
 }
 .settings--inline {
   max-width: none;
@@ -2511,6 +2542,14 @@
   letter-spacing: 0.08em;
   color: var(--gold);
   font-variant-numeric: tabular-nums;
+}
+/* A deck with a hole in it is not one you can take into a battle, so it says
+   so rather than looking finished. */
+.collection__count[data-short='true'] {
+  color: var(--miss);
+}
+.setup__hint[data-warn='true'] {
+  color: var(--gold);
 }
 .collection__owned {
   font-size: 10px;
