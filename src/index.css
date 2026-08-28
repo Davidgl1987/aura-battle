@@ -1,0 +1,53 @@
+:root {
+  --bg: #0b0713;
+  --panel: #16112a;
+  --panel-2: #1f1838;
+  --ink: #f4f0ff;
+  --muted: #9a8fc0;
+
+  --p0: #22d3ee;
+  --p1: #f472b6;
+  --gold: #fbbf24;
+
+  --timing: #38bdf8;
+  --speed: #fbbf24;
+  --control: #c084fc;
+
+  --perfect: #4ade80;
+  --good: #fbbf24;
+  --miss: #fb7185;
+
+  --radius: 14px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Archivo Black', 'Arial Black', system-ui, sans-serif;
+  /* A mash QTE must never trigger double-tap zoom or a pull-to-refresh. */
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}

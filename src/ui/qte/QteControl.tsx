@@ -1,0 +1,170 @@
+import { useEffect, useRef } from 'react'
+import { play } from '../../audio/engine'
+import { now } from '../../state/store'
+import type { Card, ControlParams, Judgement } from '../../engine/types'
+import { useArming } from './arming'
+import { gradeControl, zoneAt } from './control'
+
+interface Props {
+  card: Card
+  params: ControlParams
+  startedAt: number
+  variation: number
+  onResult: (judgement: Judgement) => void
+}
+
+/** Never bank a frame longer than this: a stall is not a held finger. */
+const MAX_FRAME_MS = 60
+
+export function QteControl({ card, params, startedAt, variation, onResult }: Props) {
+  const done = useRef(false)
+  const held = useRef(0)
+  const pointer = useRef<{ x: number; y: number } | null>(null)
+  const onResultRef = useRef(onResult)
+  const arming = useArming(startedAt)
+
+  const rootRef = useRef<HTMLDivElement>(null)
+  const armRef = useRef<HTMLElement>(null)
+  const areaRef = useRef<HTMLDivElement>(null)
+  const zoneRef = useRef<HTMLDivElement>(null)
+  const timeRef = useRef<HTMLDivElement>(null)
+  const holdRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    onResultRef.current = onResult
+  })
+
+  useEffect(() => {
+    let raf = 0
+    let last = now()
+
+    const finish = (judgement: Judgement) => {
+      if (done.current) return
+      done.current = true
+      onResultRef.current(judgement)
+    }
+
+    const loop = () => {
+      const t = now()
+      const dt = Math.min(t - last, MAX_FRAME_MS)
+      last = t
+
+      // Still and waiting until a finger lands on it.
+      let armedAt = arming.resolve(t)
+      const elapsed = armedAt === null ? 0 : t - armedAt
+
+      const area = areaRef.current
+      const zone = zoneRef.current
+      if (area && zone) {
+        const rect = area.getBoundingClientRect()
+        const size = Math.min(rect.width, rect.height)
+        const radius = params.zoneRadius * size
+        // Both axes travel the same square region, so the drift is not twice
+        // as fast down the long side of the pad.
+        const span = size / 2 - radius
+        const offset = zoneAt(elapsed, params, variation)
+        const cx = rect.width / 2 + offset.x * span
+        const cy = rect.height / 2 + offset.y * span
+
+        zone.style.width = `${radius * 2}px`
+        zone.style.height = `${radius * 2}px`
+        zone.style.transform = `translate(${cx - radius}px, ${cy - radius}px)`
+
+        const p = pointer.current
+        const inside =
+          p !== null && Math.hypot(p.x - rect.left - cx, p.y - rect.top - cy) <= radius
+
+        // The card says to put your finger on the ring, so that is what starts
+        // it — landing on it or sliding onto it, but never a stray tap in a
+        // corner that would begin the hold with you already outside.
+        if (armedAt === null && inside) {
+          arming.arm(t)
+          armedAt = t
+          play('tap')
+        }
+        if (inside && armedAt !== null) held.current += Math.min(dt, elapsed)
+
+        zone.dataset.inside = String(inside)
+        zone.dataset.live = String(armedAt !== null)
+      }
+
+      if (rootRef.current) rootRef.current.dataset.live = String(armedAt !== null)
+
+      if (armRef.current) {
+        armRef.current.textContent = `${(arming.countdown(t) / 1000).toFixed(1)}s`
+      }
+      if (timeRef.current) {
+        const left = armedAt === null ? 1 : Math.max(0, 1 - elapsed / card.durationMs)
+        timeRef.current.style.transform = `scaleX(${left})`
+      }
+      if (holdRef.current) {
+        holdRef.current.style.transform = `scaleX(${Math.min(1, held.current / card.durationMs)})`
+      }
+
+      if (armedAt !== null && elapsed >= card.durationMs) {
+        finish(gradeControl(held.current, card.durationMs, params))
+        return
+      }
+      raf = requestAnimationFrame(loop)
+    }
+
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [startedAt, card.durationMs, params, variation, arming])
+
+  const track = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointer.current = { x: event.clientX, y: event.clientY }
+  }
+
+  const grab = (event: React.PointerEvent<HTMLDivElement>) => {
+    // Capture so a finger that slides off the pad still reports as "out"
+    // instead of silently ending the gesture.
+    event.currentTarget.setPointerCapture(event.pointerId)
+    track(event)
+  }
+
+  const release = () => {
+    pointer.current = null
+  }
+
+  return (
+    <div className="qte" ref={rootRef} data-live="false">
+      <div className="qte__title">
+        {card.emoji} {card.name}
+        <em className="qte__hint-grab">
+          PUT YOUR FINGER ON THE RING TO START <b ref={armRef} className="qte__count" />
+        </em>
+        <em className="qte__hint-live">HOLD IT</em>
+      </div>
+
+      <div className="qte__timer">
+        <div ref={timeRef} className="qte__timer-fill" />
+      </div>
+      <div className="qte__progress">
+        <div ref={holdRef} className="qte__progress-fill" />
+        <div className="qte__mark" style={{ left: `${params.goodRatio * 100}%` }} />
+        <div
+          className="qte__mark qte__mark--perfect"
+          style={{ left: `${params.perfectRatio * 100}%` }}
+        />
+      </div>
+
+      <div
+        ref={areaRef}
+        className="qte__area"
+        onPointerDown={grab}
+        onPointerMove={track}
+        onPointerUp={release}
+        onPointerCancel={release}
+      >
+        {/* The wrapper owns the position and nothing else. Anything that
+            animates lives on the ring inside it — a keyframe touching
+            `transform` out here would fight the inline one and walk the
+            target across the pad. */}
+        <div ref={zoneRef} className="zone" data-live="false">
+          <div className="zone__ring" />
+        </div>
+      </div>
+    </div>
+  )
+}

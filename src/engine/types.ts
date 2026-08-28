@@ -1,0 +1,283 @@
+export type PlayerId = 0 | 1
+
+export type QteKind = 'timing' | 'speed' | 'control'
+export type Difficulty = 1 | 2 | 3
+
+export type Judgement = 'PERFECT' | 'GOOD' | 'MISS'
+export type Freshness = 'FRESH' | 'NEUTRAL' | 'STALE'
+
+/**
+ * Aura is scored as an itemised bill so the resolve screen can show its own
+ * arithmetic: every celebration a player sees is a line that actually adds up
+ * to the total, rather than a caption guessing at a formula.
+ */
+export type AuraLineKey = 'miss' | 'base' | 'fresh' | 'hard' | 'streak' | 'outaurad' | 'god'
+
+export interface AuraLine {
+  key: AuraLineKey
+  label: string
+  /** Aura this line put on the total. */
+  value: number
+  /** Set on multiplier lines, so the UI can print the "x2" as well. */
+  multiplier?: number
+}
+
+export interface AuraBreakdown {
+  lines: AuraLine[]
+  total: number
+}
+
+/**
+ * Which minigame a card runs. Deliberately a second discriminator, separate
+ * from `kind`: `kind` is what freshness is measured on and what the card says
+ * on its face, so it stays at three. Adding minigames under those three keeps
+ * varying your answers worth exactly what it was worth before.
+ */
+export type QteGame = 'sweep' | 'lanes' | 'mash' | 'order' | 'zone' | 'paths'
+
+/** Tap once (or `hits` times) while a cursor sweeps across the target window. */
+export interface TimingParams {
+  kind: 'timing'
+  game: 'sweep'
+  /** Time for the cursor to cross the bar once. */
+  sweepMs: number
+  /** How many successful taps the card requires. */
+  hits: number
+  /** Half-width of the PERFECT / GOOD windows, in ms. */
+  perfectMs: number
+  goodMs: number
+}
+
+/**
+ * Notes travel down three lanes toward a line; hit each one as it crosses.
+ */
+export interface LanesParams {
+  kind: 'timing'
+  game: 'lanes'
+  lanes: number
+  notes: number
+  /** How long a note takes to cross the board, entering to hit line. */
+  travelMs: number
+  /** Gap between one note and the next. */
+  gapMs: number
+  /** Half-width of the PERFECT / GOOD windows, in ms. */
+  perfectMs: number
+  goodMs: number
+}
+
+/** Mash (or alternate between two zones) as fast as possible. */
+export interface SpeedParams {
+  kind: 'speed'
+  game: 'mash'
+  targetTaps: number
+  /** When true, tapping the same zone twice in a row does not count. */
+  alternating: boolean
+}
+
+/** Scattered numbers; press them in order, as fast as you can find them. */
+export interface OrderParams {
+  kind: 'speed'
+  game: 'order'
+  /** How many buttons, numbered 1 upward. */
+  count: number
+  /** Finish inside this to be PERFECT, inside `goodMs` to be GOOD. */
+  perfectMs: number
+  goodMs: number
+  /** What a press out of order adds to your time. */
+  mistakeMs: number
+}
+
+/** Keep the finger inside a drifting zone for as long as possible. */
+export interface ControlParams {
+  kind: 'control'
+  game: 'zone'
+  /** Zone radius in normalised screen units (1 = half the short axis). */
+  zoneRadius: number
+  /** How fast the zone drifts, in normalised units per second. */
+  driftSpeed: number
+  /** Share of the card duration spent inside the zone needed for each grade. */
+  perfectRatio: number
+  goodRatio: number
+}
+
+/**
+ * Two winding lanes scrolling past, a marker in each that only moves sideways,
+ * and a thumb steering each one. The driving-licence machine, more or less.
+ */
+export interface PathsParams {
+  kind: 'control'
+  game: 'paths'
+  /** Half-width of the safe corridor. 1 is half the pad's width. */
+  laneWidth: number
+  /** How far a lane wanders from the middle of its own half. */
+  wander: number
+  /** How fast the track scrolls, in track units per second. */
+  speed: number
+  /** Share of the card spent with BOTH markers in their lane, per grade. */
+  perfectRatio: number
+  goodRatio: number
+}
+
+export type QteParams =
+  | TimingParams
+  | LanesParams
+  | SpeedParams
+  | OrderParams
+  | ControlParams
+  | PathsParams
+
+export interface Card {
+  id: string
+  name: string
+  emoji: string
+  kind: QteKind
+  difficulty: Difficulty
+  /** How long the QTE lasts once it starts. */
+  durationMs: number
+  /** Aura before any multiplier. */
+  baseAura: number
+  /** Key of the character animation this card triggers. */
+  animation: string
+  qte: QteParams
+}
+
+export interface Character {
+  id: string
+  name: string
+  emoji: string
+  color: string
+  /** Shape note that the F4 procedural model will be built from. */
+  build: string
+}
+
+export interface MatchSettings {
+  /** Cards each player brings to the battle. */
+  deckSize: number
+  /** Time on the clock to pick a card, in ms. */
+  chooseMs: number
+}
+
+export interface PlayerSetup {
+  name: string
+  characterId: string
+  /** Exactly `settings.deckSize` card ids, in pick order. */
+  deck: string[]
+}
+
+export interface PlayedCard {
+  cardId: string
+  kind: QteKind
+}
+
+export interface TurnResult {
+  player: PlayerId
+  /** null when the player lost composure and never performed. */
+  cardId: string | null
+  judgement: Judgement | 'LOST_COMPOSURE'
+  freshness: Freshness | null
+  /** Aura won by this player (negative when they lost some). */
+  aura: number
+  /** What made up that number, in the order it should be read out. */
+  lines: AuraLine[]
+  /** Consecutive PERFECTs after this play, this one included. */
+  perfectStreak: number
+  momentumBefore: number
+  momentumAfter: number
+  godAuraBefore: boolean
+  godAuraAfter: boolean
+}
+
+export interface PlayerState {
+  id: PlayerId
+  name: string
+  characterId: string
+  /** The cards brought to the battle. Never changes: it is the match record. */
+  deck: string[]
+  /** Still playable. A card leaves only by being played. */
+  remaining: string[]
+  /** 0..100 */
+  momentum: number
+  godAura: boolean
+  /** Consecutive PERFECTs. Any other outcome puts it back to zero. */
+  perfectStreak: number
+  movesPlayed: number
+}
+
+export type PhaseKind =
+  | 'idle'
+  | 'handoff'
+  | 'choosing'
+  | 'performIntro'
+  | 'qte'
+  | 'resolve'
+  | 'lostComposure'
+  | 'matchEnd'
+
+export type Phase =
+  | { kind: 'idle' }
+  /** Untimed: the phone is changing hands, nothing ticks until READY. */
+  | { kind: 'handoff'; player: PlayerId }
+  | { kind: 'choosing'; startedAt: number; endsAt: number }
+  | { kind: 'performIntro'; cardId: string; endsAt: number }
+  /**
+   * `variation` is a per-play random number in [0, 1) that the QTE widget uses
+   * to shuffle itself, so the same card is not the same puzzle twice. It comes
+   * from the match seed, so a battle still replays exactly.
+   */
+  | { kind: 'qte'; cardId: string; startedAt: number; endsAt: number; variation: number }
+  /**
+   * The score is on screen and nothing ticks. It doubles as the handoff: the
+   * bill stays up until the next player says they are holding the phone, so a
+   * big number is never yanked away mid-read.
+   */
+  | { kind: 'resolve'; result: TurnResult; startedAt: number }
+  | { kind: 'lostComposure'; result: TurnResult; startedAt: number }
+  | { kind: 'matchEnd'; winner: PlayerId | null; reason: 'mogged' | 'moves' }
+
+export type GameEvent =
+  | { type: 'phase'; phase: PhaseKind; player: PlayerId }
+  | { type: 'judgement'; player: PlayerId; result: TurnResult }
+  | { type: 'godAura'; player: PlayerId; on: boolean }
+  | { type: 'mogged'; winner: PlayerId }
+  | { type: 'matchEnd'; winner: PlayerId | null; reason: 'mogged' | 'moves' }
+
+export interface MatchState {
+  settings: MatchSettings
+  phase: Phase
+  active: PlayerId
+  players: [PlayerState, PlayerState]
+  /**
+   * Shared aura bar. Positive means player 0 is winning, negative player 1.
+   * Clamped to [-100, 100].
+   */
+  balance: number
+  /** Last card played in the match, shared by both players. */
+  lastPlayed: PlayedCard | null
+  /** Total turns started, both players combined. */
+  turnIndex: number
+  log: TurnResult[]
+  /** Decided while showing the resolve screen, applied when it ends. */
+  pendingEnd: { winner: PlayerId | null; reason: 'mogged' | 'moves' } | null
+  seed: number
+  /** Produced by the last step; the store drains these into the VFX bus. */
+  events: GameEvent[]
+}
+
+export type Action =
+  | {
+      type: 'START'
+      now: number
+      seed?: number
+      settings: MatchSettings
+      setups: [PlayerSetup, PlayerSetup]
+    }
+  /** The next player has the phone and tapped to begin. */
+  | { type: 'READY'; now: number }
+  | { type: 'TICK'; now: number }
+  | { type: 'SELECT_CARD'; cardId: string; now: number }
+  | { type: 'QTE_RESULT'; judgement: Judgement; now: number }
+  /**
+   * Time the game was not running (tab hidden, a long frame hitch). Deadlines
+   * move forward by that much so nobody loses a turn they never saw.
+   */
+  | { type: 'RESUME'; skippedMs: number; now: number }
