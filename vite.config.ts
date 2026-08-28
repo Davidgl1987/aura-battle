@@ -1,7 +1,16 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  /**
+   * GitHub Pages serves a project site from a subdirectory, so every asset URL
+   * has to carry the repository name. Keyed on the mode rather than on a CI
+   * variable so that any production build is the same deployable output
+   * wherever it runs — and on the mode rather than the command so that
+   * `vite preview` serves it at the path it was built for. The dev server is
+   * `development` and stays at the root.
+   */
+  base: mode === 'production' ? '/aura-battle/' : '/',
   plugins: [react()],
   server: {
     host: true,
@@ -25,4 +34,4 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
   },
-})
+}))

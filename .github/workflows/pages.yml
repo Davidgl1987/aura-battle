@@ -1,0 +1,58 @@
+# Builds the game and publishes it to GitHub Pages on every push to main.
+#
+# The tests run first on purpose. The balance is measured rather than guessed —
+# `rivals.test.ts` fails if the difficulty ladder flattens and `balance.test.ts`
+# fails if the scoring stops producing the spread it was tuned for — so a build
+# that breaks either of those should never reach the web.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never two deploys at once, and never cancel one half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      # `npm run build` typechecks first, so a type error fails here too.
+      - run: npm run build
+
+      # `enablement` turns the Pages site on the first time, so the repository
+      # does not have to be configured by hand before this ever runs.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
