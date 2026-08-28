@@ -1,5 +1,12 @@
 # Builds the game and publishes it to GitHub Pages on every push to main.
 #
+# Pages itself is turned on once, by hand, under Settings -> Pages with the
+# source set to "GitHub Actions". There is a `configure-pages` action that
+# claims to do it from here, but creating the site is not something the
+# workflow token is allowed to do, so it only ever fails with "Resource not
+# accessible by integration". Nothing else in this file needs it: the base
+# path is baked into the build by `vite.config.ts`.
+#
 # The tests run first on purpose. The balance is measured rather than guessed —
 # `rivals.test.ts` fails if the difficulty ladder flattens and `balance.test.ts`
 # fails if the scoring stops producing the spread it was tuned for — so a build
@@ -36,12 +43,6 @@ jobs:
       - run: npm test
       # `npm run build` typechecks first, so a type error fails here too.
       - run: npm run build
-
-      # `enablement` turns the Pages site on the first time, so the repository
-      # does not have to be configured by hand before this ever runs.
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
