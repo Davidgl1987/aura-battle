@@ -9,7 +9,10 @@ import { HandoffScreen } from './ui/HandoffScreen'
 import { MatchScreen } from './ui/MatchScreen'
 import { QteLab } from './ui/QteLab'
 import { SetupScreen } from './ui/SetupScreen'
-import { TitleScreen } from './ui/TitleScreen'
+import { CollectionScreen } from './ui/collection/CollectionScreen'
+import { HomeScreen } from './ui/home/HomeScreen'
+import { SettingsScreen } from './ui/settings/SettingsScreen'
+import { RivalSelectScreen } from './ui/solo/RivalSelectScreen'
 import './ui/styles.css'
 
 function SetupHandoff() {
@@ -55,7 +58,10 @@ export default function App() {
 
   return (
     <div className="app">
-      {screen === 'title' && <TitleScreen />}
+      {screen === 'home' && <HomeScreen />}
+      {screen === 'rivals' && <RivalSelectScreen />}
+      {screen === 'collection' && <CollectionScreen />}
+      {screen === 'settings' && <SettingsScreen />}
       {screen === 'setup' && <SetupScreen />}
       {screen === 'setupHandoff' && <SetupHandoff />}
       {screen === 'match' && <MatchScreen />}

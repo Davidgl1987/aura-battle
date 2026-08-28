@@ -3,12 +3,12 @@ import { INTRO_MS } from './balance'
 /** Nominal time a player spends reading a score sheet before passing over. */
 const READING_MS = 2000
 import { ALL_CARD_IDS, getCard } from './cards'
+import { baseOdds, chooseCard, cpuRoll, judgeQte, oddsFor as cardOdds, type Strategy } from './cpu'
 import { createMatch, qteWindow, step } from './match'
 import { nextRandom, shuffle } from './rng'
 import { freshnessOf } from './scoring'
 import type {
   Card,
-  Difficulty,
   Judgement,
   MatchSettings,
   MatchState,
@@ -39,24 +39,34 @@ export interface Profile {
    * punish.
    */
   mode?: 'random' | 'repeat'
+  /**
+   * When set, the profile stops being a bundle of probabilities and plays the
+   * real CPU: `chooseCard` reads the whole match state and `judgeQte` grades
+   * the QTE. This is how the rival ladder is measured against the brain that
+   * actually ships rather than against a stand-in.
+   */
+  strategy?: Strategy
+  /** A fixed hand rather than a random one, for measuring a real rival. */
+  deck?: string[]
 }
 
 /**
- * Hard cards have to actually be hard, or the bonus for landing one is free
- * money. A profile's numbers describe a difficulty-2 card; easy cards forgive
- * and hard ones punish, which is what makes picking one a real decision.
+ * A profile's odds against one specific card. Re-exported rather than defined:
+ * the difficulty scaling moved to `cpu.ts` when the shipped CPU started
+ * playing to it, and the simulator has to measure the same rival the player
+ * actually meets.
  */
-const PERFECT_SCALE: Record<Difficulty, number> = { 1: 1.25, 2: 1, 3: 0.72 }
-const MISS_SCALE: Record<Difficulty, number> = { 1: 0.5, 2: 1, 3: 1.8 }
+export { oddsFor } from './cpu'
 
-/** A profile's odds against one specific card. */
-export function oddsFor(profile: Profile, card: Card): { perfect: number; good: number } {
-  const perfect = Math.min(0.97, profile.perfect * PERFECT_SCALE[card.difficulty])
-  const miss = Math.min(
-    1 - perfect,
-    (1 - profile.perfect - profile.good) * MISS_SCALE[card.difficulty],
-  )
-  return { perfect, good: 1 - perfect - miss }
+/**
+ * Turns a rival into something the simulator can drive, playing exactly the
+ * brain that ships: `chooseCard` picks the card and `judgeQte` grades it. The
+ * `perfect`/`good` fields are filled in from the same strategy so a profile
+ * still reads on its own in a report.
+ */
+export function rivalProfile(name: string, strategy: Strategy, deck?: string[]): Profile {
+  const odds = baseOdds(strategy)
+  return { name, perfect: odds.perfect, good: odds.good, fresh: 0, freeze: strategy.hesitates, strategy, deck }
 }
 
 export interface MatchSummary {
@@ -101,8 +111,9 @@ class Rolls {
   }
 }
 
-function judge(profile: Profile, card: Card, rolls: Rolls): Judgement {
-  const odds = oddsFor(profile, card)
+function judge(profile: Profile, card: Card, rolls: Rolls, state: MatchState): Judgement {
+  if (profile.strategy) return judgeQte(profile.strategy, card, cpuRoll(state, 1))
+  const odds = cardOdds(profile, card)
   const roll = rolls.next()
   if (roll < odds.perfect) return 'PERFECT'
   return roll < odds.perfect + odds.good ? 'GOOD' : 'MISS'
@@ -114,6 +125,7 @@ function judge(profile: Profile, card: Card, rolls: Rolls): Judgement {
  * something.
  */
 function choose(state: MatchState, profile: Profile, rolls: Rolls): string {
+  if (profile.strategy) return chooseCard(state, profile.strategy)
   const remaining = state.players[state.active].remaining
   const cards = remaining.map(getCard)
 
@@ -137,9 +149,12 @@ export function simulateMatch(
   captureLog?: TurnResult[],
 ): MatchSummary {
   const rolls = new Rolls(seed)
+  // Rolled for both regardless, so giving one side a fixed deck does not
+  // change which random deck the other one gets and shift the comparison.
+  const rolled = [rolls.deck(settings.deckSize), rolls.deck(settings.deckSize)]
   const setups: [PlayerSetup, PlayerSetup] = [
-    { name: profiles[0].name, characterId: 'blocky', deck: rolls.deck(settings.deckSize) },
-    { name: profiles[1].name, characterId: 'noodle', deck: rolls.deck(settings.deckSize) },
+    { name: profiles[0].name, characterId: 'blocky', deck: profiles[0].deck ?? rolled[0] },
+    { name: profiles[1].name, characterId: 'noodle', deck: profiles[1].deck ?? rolled[1] },
   ]
 
   let now = 0
@@ -190,7 +205,7 @@ export function simulateMatch(
         break
 
       case 'qte': {
-        const judgement = judge(profile, getCard(state.phase.cardId), rolls)
+        const judgement = judge(profile, getCard(state.phase.cardId), rolls, state)
         if (judgement === 'PERFECT') perfects[state.active] += 1
         now += Math.min(600, qteWindow(state.phase.cardId) - 100)
         state = step(state, { type: 'QTE_RESULT', judgement, now })

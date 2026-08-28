@@ -13,6 +13,8 @@ import {
   windUpPose,
 } from './animations'
 import { getBuild, type Build } from './builds'
+import { Drip } from './Drip'
+import { dripFor } from './dripAnchors'
 import { SLOTS, actionProgress, type FighterAction, type Slot } from './stageState'
 
 interface Props {
@@ -22,6 +24,8 @@ interface Props {
   action: FighterAction
   /** Lit from within while GOD AURA holds. */
   charged: boolean
+  /** Accessory ids to dress them in. Each is parented to the part it sits on. */
+  accessories?: readonly string[]
   /** Time base shared with the rest of the game. */
   now: () => number
 }
@@ -63,8 +67,18 @@ function Torso({ build, color, charged }: { build: Build; color: string; charged
   )
 }
 
-export function Fighter({ characterId, color, slot, action, charged, now }: Props) {
+export function Fighter({ characterId, color, slot, action, charged, accessories, now }: Props) {
   const build = useMemo(() => getBuild(characterId), [characterId])
+  // Grouped once rather than filtered three times per frame, and keyed on the
+  // ids so a rival changing clothes actually re-groups.
+  const drip = useMemo(
+    () => ({
+      head: dripFor(accessories, 'head'),
+      body: dripFor(accessories, 'body'),
+      root: dripFor(accessories, 'root'),
+    }),
+    [accessories],
+  )
   // Start on the mark rather than sliding in from the origin: otherwise both
   // fighters open the match standing on top of each other.
   const [openingSlot] = useState(() => SLOTS[slot])
@@ -164,8 +178,17 @@ export function Fighter({ characterId, color, slot, action, charged, now }: Prop
       scale={build.scale}
     >
       <group ref={rootRef}>
+        {/* Outside the body group on purpose: squash and stretch belongs to
+            the fighter, not to the ring orbiting them. */}
+        {drip.root.map((a) => (
+          <Drip key={a.id} accessory={a} build={build} charged={charged} now={now} />
+        ))}
+
         <group ref={bodyRef} position={[0, build.legLength, 0]}>
           <Torso build={build} color={color} charged={charged} />
+          {drip.body.map((a) => (
+            <Drip key={a.id} accessory={a} build={build} charged={charged} now={now} />
+          ))}
 
           <group ref={headRef} position={[0, headY, 0]}>
             <mesh>
@@ -187,6 +210,9 @@ export function Fighter({ characterId, color, slot, action, charged, now }: Prop
                 <sphereGeometry args={[eye, 8, 6]} />
                 <meshStandardMaterial color="#0b0713" />
               </mesh>
+            ))}
+            {drip.head.map((a) => (
+              <Drip key={a.id} accessory={a} build={build} charged={charged} now={now} />
             ))}
           </group>
 

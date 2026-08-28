@@ -252,6 +252,21 @@ export function getCard(id: string): Card {
 export const ALL_CARD_IDS: readonly string[] = CARDS.map((c) => c.id)
 
 /**
+ * What you own before you have beaten anybody: the three NORMAL cards of each
+ * kind. The split is the difficulty already on the card rather than a second
+ * list to keep in step — every kind holds three NORMAL and two HARD, so
+ * "starter" and "locked" are one predicate, not fifteen decisions.
+ */
+export function isStarter(card: Card): boolean {
+  return card.difficulty < 3
+}
+
+export const STARTER_CARD_IDS: readonly string[] = CARDS.filter(isStarter).map((c) => c.id)
+export const LOCKED_CARD_IDS: readonly string[] = CARDS.filter((c) => !isStarter(c)).map(
+  (c) => c.id,
+)
+
+/**
  * How hard a card is, in words. Stars implied a scale that starts at one, and
  * the pool has not had a one-star card since the easy tier was cut.
  */

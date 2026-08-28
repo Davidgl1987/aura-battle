@@ -7,7 +7,7 @@ import {
   QTE_GRACE_MS,
 } from './balance'
 import { ALL_CARD_IDS, getCard } from './cards'
-import { CHARACTERS } from './characters'
+import { CHARACTERS, getCharacter } from './characters'
 import { nextRandom } from './rng'
 import type { Play } from './scoring'
 import { applyMomentum, clamp, freshnessOf, scorePlay, streakOf } from './scoring'
@@ -56,6 +56,10 @@ function buildPlayer(id: PlayerId, setup: PlayerSetup): PlayerState {
     id,
     name: setup.name.trim() || (id === 0 ? 'P1' : 'P2'),
     characterId: setup.characterId,
+    // The reducer carries these and never reads them. Every rule below applies
+    // to both sides regardless of who — or what — is answering the QTE.
+    controller: setup.controller ?? 'human',
+    look: setup.look ?? {},
     deck: [...setup.deck],
     remaining: [...setup.deck],
     momentum: 0,
@@ -401,6 +405,19 @@ export function step(state: MatchState, action: Action): MatchState {
 
 export function activePlayer(state: MatchState): PlayerState {
   return state.players[state.active]
+}
+
+/**
+ * What colour to draw a fighter. A rival can override their build's own colour
+ * so that two rivals sharing a body still read as two people.
+ */
+export function playerColor(player: PlayerState): string {
+  return player.look.color ?? getCharacter(player.characterId).color
+}
+
+/** Whether the phone has to change hands before this player can move. */
+export function isHuman(player: PlayerState): boolean {
+  return player.controller === 'human'
 }
 
 export function remainingCards(player: PlayerState): Card[] {

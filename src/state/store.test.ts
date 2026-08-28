@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS } from '../engine/balance'
-import { CARDS } from '../engine/cards'
+import { DEFAULT_SETTINGS, SOLO_SETTINGS } from '../engine/balance'
+import { CARDS, STARTER_CARD_IDS } from '../engine/cards'
+import { getCharacter } from '../engine/characters'
+import { playerColor } from '../engine/match'
+import { RIVALS } from '../engine/rivals'
 import type { PlayerSetup } from '../engine/types'
-import { useGame } from './store'
+import { PLAYER_CHARACTER, useGame } from './store'
+import { useProgress } from './useProgress'
+
+const [ROOKIE] = RIVALS
 
 const deck = CARDS.slice(0, DEFAULT_SETTINGS.deckSize).map((c) => c.id)
 const setups: [PlayerSetup, PlayerSetup] = [
@@ -96,6 +102,83 @@ describe('the store', () => {
     const before = useGame.getState().match
     useGame.getState().rematch()
     expect(useGame.getState().match).toBe(before)
-    expect(useGame.getState().screen).toBe('title')
+    expect(useGame.getState().screen).toBe('home')
+  })
+})
+
+describe('starting a solo battle', () => {
+  beforeEach(() => {
+    useGame.getState().toTitle()
+    useProgress.getState().resetProgress()
+  })
+
+  it('sits the player opposite the rival, in the one solo format', () => {
+    useGame.getState().startBattle({ mode: 'solo', opponentId: ROOKIE.id })
+    const { screen, mode, opponentId, match, settings } = useGame.getState()
+
+    expect(screen).toBe('match')
+    expect(mode).toBe('solo')
+    expect(opponentId).toBe(ROOKIE.id)
+    // Solo runs one format whichever rival it is, so an aura objective means
+    // the same thing all the way up the ladder — and it lives on the match,
+    // not on the store, where it would overwrite the local game's own setup.
+    expect(match.settings).toEqual(SOLO_SETTINGS)
+    expect(settings).toEqual(DEFAULT_SETTINGS)
+    expect(match.players[0].controller).toBe('human')
+    expect(match.players[1].controller).toBe('cpu')
+    expect(match.players[1].deck).toEqual(ROOKIE.deck)
+    expect(match.players[0].deck).toEqual(useProgress.getState().deck)
+  })
+
+  it('dresses the rival in their own colour and drip', () => {
+    useGame.getState().startBattle({ mode: 'solo', opponentId: ROOKIE.id })
+    const rival = useGame.getState().match.players[1]
+
+    expect(rival.look.color).toBe(ROOKIE.look.color)
+    expect(rival.look.accessories).toEqual(ROOKIE.look.accessories)
+    expect(playerColor(rival)).toBe(ROOKIE.look.color)
+    // And the player keeps their own build's colour.
+    expect(playerColor(useGame.getState().match.players[0])).toBe(
+      getCharacter(PLAYER_CHARACTER).color,
+    )
+  })
+
+  it('takes the deck the player has actually saved', () => {
+    const chosen = [...STARTER_CARD_IDS].reverse().slice(0, 5)
+    useProgress.getState().setDeck(chosen)
+    useGame.getState().startBattle({ mode: 'solo', opponentId: ROOKIE.id })
+
+    expect(useGame.getState().match.players[0].deck).toEqual(chosen)
+  })
+
+  it('rematches the same rival rather than the last local setups', () => {
+    useGame.getState().startBattle({ mode: 'solo', opponentId: ROOKIE.id })
+    const before = useGame.getState().match
+
+    useGame.getState().rematch()
+    const after = useGame.getState()
+    expect(after.match).not.toBe(before)
+    expect(after.mode).toBe('solo')
+    expect(after.opponentId).toBe(ROOKIE.id)
+    expect(after.match.players[1].name).toBe(ROOKIE.name)
+  })
+
+  it('forgets the rival on the way back to the hub', () => {
+    useGame.getState().startBattle({ mode: 'solo', opponentId: ROOKIE.id })
+    useGame.getState().toTitle()
+
+    expect(useGame.getState().mode).toBe('local')
+    expect(useGame.getState().opponentId).toBeNull()
+  })
+
+  it('puts a local battle back on the local settings afterwards', () => {
+    // Solo swaps the settings for its own format; a local battle started after
+    // one must not inherit them.
+    useGame.getState().startBattle({ mode: 'solo', opponentId: ROOKIE.id })
+    playThrough()
+
+    expect(useGame.getState().mode).toBe('local')
+    expect(useGame.getState().settings).toEqual(DEFAULT_SETTINGS)
+    expect(useGame.getState().match.players.every((p) => p.controller === 'human')).toBe(true)
   })
 })

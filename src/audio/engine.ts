@@ -9,8 +9,11 @@ import { SOUNDS, type SoundName } from './sounds'
  */
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
+/** The loop's own fader, so music and effects are two switches, not one. */
+let musicBus: GainNode | null = null
 let noise: AudioBuffer | null = null
-let muted = false
+let sfxMuted = false
+let musicMuted = false
 
 type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext }
 /** Safari 16.4+ only, and not in the DOM types yet. */
@@ -74,6 +77,13 @@ export function unlock(): void {
   limiter.release.value = 0.15
 
   master.connect(limiter).connect(ctx.destination)
+
+  // The loop gets its own fader under the master. Without it, muting effects
+  // and muting music are the same switch, and the settings screen offers two.
+  musicBus = ctx.createGain()
+  musicBus.gain.value = musicMuted ? 0 : 1
+  musicBus.connect(master)
+
   followVisibility(ctx)
   void ctx.resume()
 
@@ -84,23 +94,30 @@ export function unlock(): void {
   kick.connect(master)
   kick.start(0)
 
-  // Under the master gain, so the existing mute covers the music too.
-  startMusic(ctx, master)
+  // Under the music fader, itself under the master gain: the global mute still
+  // covers everything, and the music switch covers only the loop.
+  startMusic(ctx, musicBus)
 }
 
-export function setMuted(value: boolean): void {
-  muted = value
-  if (master && ctx) master.gain.setTargetAtTime(value ? 0 : MASTER_GAIN, ctx.currentTime, 0.02)
+/** Judgements, hits and the crowd. The loop keeps playing. */
+export function setSfxMuted(value: boolean): void {
+  sfxMuted = value
+}
+
+/** The loop. Effects keep firing. */
+export function setMusicMuted(value: boolean): void {
+  musicMuted = value
+  if (musicBus && ctx) musicBus.gain.setTargetAtTime(value ? 0 : 1, ctx.currentTime, 0.08)
 }
 
 /** The room reacting. Same gate as everything else: silent until unlocked. */
 export function crowd(reaction: Reaction): void {
-  if (muted || !ctx || !master || ctx.state !== 'running') return
+  if (sfxMuted || !ctx || !master || ctx.state !== 'running') return
   playCrowd(ctx, master, reaction)
 }
 
 export function play(name: SoundName): void {
-  if (muted || !ctx || !master || ctx.state !== 'running') return
+  if (sfxMuted || !ctx || !master || ctx.state !== 'running') return
 
   const sound = SOUNDS[name]
   const now = ctx.currentTime
@@ -143,5 +160,17 @@ export function play(name: SoundName): void {
     source.connect(filter).connect(gain).connect(master)
     source.start(start)
     source.stop(end + 0.02)
+  }
+}
+
+// Dev handle: the synth has no screen of its own, so tuning it means poking at
+// it from the console. Same shape as `window.__game`, and guarded the same way
+// so the module still imports in plain node.
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as { __audio: unknown }).__audio = {
+    state: () => ({ context: ctx?.state ?? 'closed', sfxMuted, musicMuted }),
+    unlock,
+    play,
+    crowd,
   }
 }

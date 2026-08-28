@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { BloomEffect } from 'postprocessing'
 import type { Mesh } from 'three'
-import { getCharacter } from '../engine/characters'
+import { playerColor } from '../engine/match'
 import { now, useGame } from '../state/store'
 import { Fighter } from './Fighter'
 import { Motes } from './Motes'
@@ -86,7 +86,7 @@ function GodAuraGlow({ bloomRef }: { bloomRef: React.RefObject<BloomEffect | nul
 function Cast({ bloomRef }: { bloomRef: React.RefObject<BloomEffect | null> }) {
   const match = useGame((s) => s.match)
   const active = match.players[match.active]
-  const accent = getCharacter(active.characterId).color
+  const accent = playerColor(active)
 
   return (
     <>
@@ -105,7 +105,7 @@ function Cast({ bloomRef }: { bloomRef: React.RefObject<BloomEffect | null> }) {
               1.7,
               SLOTS[slotOf(match, player.id)].z + 1.1,
             ]}
-            color={getCharacter(player.characterId).color}
+            color={playerColor(player)}
             intensity={9}
             distance={7}
           />
@@ -123,10 +123,11 @@ function Cast({ bloomRef }: { bloomRef: React.RefObject<BloomEffect | null> }) {
         <Fighter
           key={player.id}
           characterId={player.characterId}
-          color={getCharacter(player.characterId).color}
+          color={playerColor(player)}
           slot={slotOf(match, player.id)}
           action={fighterAction(match, player.id)}
           charged={player.godAura}
+          accessories={player.look.accessories}
           now={now}
         />
       ))}

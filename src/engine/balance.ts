@@ -123,3 +123,46 @@ export const MOMENTUM_STREAK_STEP = 4
 export const MOMENTUM_STREAK_MAX = 16
 /** Momentum you drop to when a MISS breaks GOD AURA. */
 export const GOD_AURA_BREAK = 55
+
+// --- Solo -------------------------------------------------------------------
+/**
+ * Solo runs one format for every rival. Aura objectives are the reason: a
+ * player's total is driven far more by how many cards they get to play than by
+ * who they played against — the measured median moves 5,350 / 6,600 / 7,950
+ * across decks of 4, 5 and 6 — so a "get 8,000 aura" goal set against a
+ * variable deck size would mean something different every battle.
+ */
+export const SOLO_DECK_SIZE = 5
+
+export const SOLO_SETTINGS: MatchSettings = {
+  deckSize: SOLO_DECK_SIZE,
+  chooseMs: CHOOSE_SECONDS_DEFAULT * 1000,
+}
+
+// --- CPU --------------------------------------------------------------------
+/**
+ * How a card's difficulty bends the odds of the player answering it. A
+ * profile's numbers describe a difficulty-2 card; harder cards punish and
+ * easier ones forgive, which is what makes bringing one a real decision.
+ *
+ * These were the simulator's, and they moved here when the CPU started using
+ * them: the odds that balance the game and the odds a rival actually plays to
+ * have to be the same numbers, or the ladder is measured against a fiction.
+ */
+export const PERFECT_SCALE: Record<Difficulty, number> = { 1: 1.25, 2: 1, 3: 0.72 }
+export const MISS_SCALE: Record<Difficulty, number> = { 1: 0.5, 2: 1, 3: 1.8 }
+
+/** The best a `qteSkill` of 1 is allowed to be: nobody is perfect every time. */
+export const CPU_PERFECT_CEILING = 0.95
+/**
+ * What is left over after PERFECT splits into GOOD and MISS on `consistency`.
+ * A rival at 0 keeps a third of the remainder; at 1, nearly all of it.
+ */
+export const CPU_GOOD_FLOOR = 0.35
+export const CPU_GOOD_SPAN = 0.55
+
+/** How long a rival appears to think before committing to a card. */
+export const CPU_THINK_MIN_MS = 600
+export const CPU_THINK_MAX_MS = 1400
+/** How long a rival leaves its own score sheet up before handing back over. */
+export const CPU_READ_MS = 1500

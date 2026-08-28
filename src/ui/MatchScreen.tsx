@@ -1,8 +1,11 @@
 import { Suspense, lazy } from 'react'
 import { KIND_LABEL, getCard } from '../engine/cards'
 import { getCharacter } from '../engine/characters'
-import { outauraTarget } from '../engine/match'
+import { outauraTarget, playerColor } from '../engine/match'
+import { getRival } from '../engine/rivals'
 import { now, useGame } from '../state/store'
+import { cpuPerformance, useCpuTurn } from '../state/useCpuTurn'
+import { CpuTurn } from './CpuTurn'
 import { AuraBar } from './AuraBar'
 import { Countdown } from './Countdown'
 import { DeckStrip } from './DeckStrip'
@@ -30,11 +33,23 @@ export function MatchScreen() {
   const dispatch = useGame((s) => s.dispatch)
   const paused = useGame((s) => s.paused)
   const setPaused = useGame((s) => s.setPaused)
+  const mode = useGame((s) => s.mode)
+  const opponentId = useGame((s) => s.opponentId)
+  // Plays the rival's turns through the same reducer a thumb drives.
+  useCpuTurn()
 
   const { phase, players, active, lastPlayed, settings } = match
   const player = players[active]
   const rival = players[active === 0 ? 1 : 0]
   const character = getCharacter(player.characterId)
+  // Whether the console is waiting for a thumb or watching one play out. The
+  // battle itself does not change; only who is answering it.
+  const cpuUp = player.controller === 'cpu'
+  const solo = mode === 'solo' && opponentId !== null
+  const accent = playerColor(player)
+  // Derived from the match, not held anywhere: the same question `useCpuTurn`
+  // asks, so the strip and the grade cannot come apart.
+  const cpuBeats = solo && opponentId ? cpuPerformance(match, getRival(opponentId).strategy) : null
 
   // While the judgement is on screen the move has already been counted, so
   // showing movesPlayed + 1 there would skip a number.
@@ -56,7 +71,7 @@ export function MatchScreen() {
         <AuraBar />
         <div className="hud">
           <div className="hud__turn">
-            <strong style={{ color: character.color }}>
+            <strong style={{ color: accent }}>
               {character.emoji} {player.name}
             </strong>{' '}
             · move {move}/{settings.deckSize}
@@ -107,7 +122,26 @@ export function MatchScreen() {
       </div>
 
       <footer className="console" data-mode={phase.kind}>
-        {phase.kind === 'choosing' && (
+        {/* The rival is not holding the phone, so the console reports on them
+            instead of waiting for them. The intro is in here too: leaving it
+            out emptied the console for a beat between the pick and the
+            performance, and the whole panel jumped. */}
+        {cpuUp &&
+          (phase.kind === 'choosing' ||
+            phase.kind === 'performIntro' ||
+            phase.kind === 'qte') && (
+            <CpuTurn
+              rival={player}
+              card={phase.kind === 'choosing' ? null : getCard(phase.cardId)}
+              // Only the QTE has a gesture running, so only the QTE fills the
+              // bar; during the intro it sits at zero.
+              startedAt={phase.kind === 'qte' ? phase.startedAt : Infinity}
+              lastPlayed={lastPlayed}
+              beats={cpuBeats}
+            />
+          )}
+
+        {!cpuUp && phase.kind === 'choosing' && (
           <>
             <div className="prompt">{player.name}, PICK YOUR MOVE</div>
             {/* What the rival just took, and what it costs to top it. The
@@ -129,7 +163,7 @@ export function MatchScreen() {
           </>
         )}
 
-        {phase.kind === 'qte' && (
+        {!cpuUp && phase.kind === 'qte' && (
           <QtePanel
             card={getCard(phase.cardId)}
             startedAt={phase.startedAt}
@@ -141,37 +175,67 @@ export function MatchScreen() {
         {/* The score sheet is the handoff, and it hands over by being dragged
             rather than tapped: the last taps of a long QTE land after it has
             been graded, and a button here would swallow one and skip the turn. */}
-        {settling && (
+        {/* A rival's own score sheet reads itself; see `useCpuTurn`. */}
+        {settling && !cpuUp && (
           <div className="pass" style={{ '--i': phase.result.lines.length + 2 } as React.CSSProperties}>
             <span className="pass__lead">
-              {match.pendingEnd ? 'THAT WAS THE LAST MOVE' : 'TURN OVER · PASS THE PHONE TO'}
+              {match.pendingEnd
+                ? 'THAT WAS THE LAST MOVE'
+                : solo
+                  ? 'TURN OVER'
+                  : 'TURN OVER · PASS THE PHONE TO'}
             </span>
-            {!match.pendingEnd && (
-              <span className="pass__who" style={{ color: getCharacter(rival.characterId).color }}>
+            {!match.pendingEnd && !solo && (
+              <span className="pass__who" style={{ color: playerColor(rival) }}>
                 {getCharacter(rival.characterId).emoji} {rival.name}
               </span>
             )}
-            <SlideToPass
-              color={match.pendingEnd ? 'var(--gold)' : getCharacter(rival.characterId).color}
-              label={match.pendingEnd ? 'SLIDE TO SEE WHO WON' : 'SLIDE WHEN READY'}
-              onComplete={() => dispatch({ type: 'READY', now: now() })}
-            />
+            {/* Sliding is a handover ritual. With nobody to hand it to, it is
+                just a longer tap, so solo gets a button. */}
+            {solo ? (
+              <button
+                className="btn btn--big"
+                onPointerDown={() => dispatch({ type: 'READY', now: now() })}
+              >
+                {match.pendingEnd ? 'SEE THE RESULT' : `${rival.name}'S TURN`}
+              </button>
+            ) : (
+              <SlideToPass
+                color={match.pendingEnd ? 'var(--gold)' : playerColor(rival)}
+                label={match.pendingEnd ? 'SLIDE TO SEE WHO WON' : 'SLIDE WHEN READY'}
+                onComplete={() => dispatch({ type: 'READY', now: now() })}
+              />
+            )}
           </div>
         )}
 
         {/* Not while the phone is changing hands: the next player is looking
             right at this screen to tap the button on it. */}
-        {phase.kind === 'performIntro' && <DeckStrip player={player} label="your deck" />}
+        {!cpuUp && phase.kind === 'performIntro' && <DeckStrip player={player} label="your deck" />}
       </footer>
 
       {/* The handoff and the result sit over a stage that never unmounts, so
           the fighters stay on their marks between turns. */}
-      {phase.kind === 'handoff' && (
+      {/* Solo has nobody to hand the phone to, so the opening beat is a card
+          announcing who you are up against rather than a handover ritual. */}
+      {phase.kind === 'handoff' && !cpuUp && (
         <HandoffScreen
-          name={player.name}
-          color={character.color}
-          emoji={character.emoji}
-          note={`${player.remaining.length} card${player.remaining.length === 1 ? '' : 's'} left`}
+          {...(solo && opponentId
+            ? {
+                lead: 'YOUR OPPONENT',
+                name: getRival(opponentId).name,
+                color: getRival(opponentId).look.color ?? accent,
+                emoji: '⚔️',
+                note: getRival(opponentId).tagline,
+                confirm: 'tap' as const,
+                confirmLabel: 'START',
+              }
+            : {
+                name: player.name,
+                color: accent,
+                emoji: character.emoji,
+                note: `${player.remaining.length} card${player.remaining.length === 1 ? '' : 's'} left`,
+              })}
           onReady={() => dispatch({ type: 'READY', now: now() })}
         />
       )}

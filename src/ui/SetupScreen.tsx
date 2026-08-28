@@ -67,7 +67,7 @@ export function SetupScreen() {
           className="setup__back"
           onPointerDown={() => (step === 'deck' ? setStep('fighter') : toTitle())}
         >
-          ‹ {step === 'deck' ? 'BACK' : 'TITLE'}
+          ‹ {step === 'deck' ? 'BACK' : 'HOME'}
         </button>
         <div className="setup__caption" style={{ color: character.color }}>
           <span className="setup__who">{alias.trim() || fallbackName}</span>

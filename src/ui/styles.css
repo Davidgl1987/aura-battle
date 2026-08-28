@@ -15,17 +15,17 @@
   gap: 10px;
 }
 
-/* --- Title ---------------------------------------------------------------- */
-.screen--title {
+/* --- Home hub -------------------------------------------------------------- */
+.screen--home {
   justify-content: space-between;
   align-items: center;
   text-align: center;
   gap: 12px;
   padding: 24px;
 }
-/* Title at the top, controls at the bottom, cast in the gap between them. */
-.title__top,
-.title__foot {
+/* Who you are at the top, where you are going at the bottom, cast between. */
+.home__top,
+.home__foot {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -34,10 +34,10 @@
 }
 /* Both ends sit in from the edges rather than against them: the cast keeps the
    middle, and an open panel is welcome to cover some of it. */
-.title__top {
+.home__top {
   padding-top: calc(env(safe-area-inset-top) + 7vh);
 }
-.title__foot {
+.home__foot {
   padding-bottom: calc(env(safe-area-inset-bottom) + 6vh);
   gap: 14px;
 }
@@ -72,8 +72,7 @@
   display: block;
   color: var(--gold);
 }
-.title__sub,
-.title__deck {
+.muted-note {
   color: var(--muted);
   font-size: 13px;
   font-family: system-ui, sans-serif;
@@ -1679,18 +1678,18 @@
 }
 
 /* --- Fighters behind the menus -------------------------------------------- */
-.screen--title,
+.screen--home,
 .screen--setup {
   position: relative;
 }
-.screen--title > *:not(.stage__scene),
+.screen--home > *:not(.stage__scene),
 .screen--setup > *:not(.stage__scene) {
   position: relative;
   z-index: 1;
 }
 
-/* The title reads over whatever they are doing back there. */
-.screen--title::before {
+/* The hub reads over whatever they are doing back there. */
+.screen--home::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -1781,4 +1780,874 @@
 }
 .setup__foot .btn--big {
   flex: 1;
+}
+
+/* --- Solo: the hub -------------------------------------------------------- */
+/* The stage owns the middle, so both bands sit against their own edge and the
+   top one lays the logo and the purse out on one line. */
+.home__top {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.coins {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #3b2f63;
+  background: rgba(11, 7, 19, 0.7);
+  font-size: 13px;
+  color: var(--gold);
+}
+.coins__icon {
+  font-size: 14px;
+}
+.coins__value {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.btn--play {
+  min-width: 240px;
+  letter-spacing: 0.12em;
+}
+
+/* Icons, not a stack of labelled buttons: the cast is the point of the screen
+   and a list of words would stand in front of it. */
+.hub {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+.hub__item {
+  position: relative;
+  flex: 1 1 0;
+  max-width: 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: 12px;
+  border: 1px solid #33285c;
+  background: rgba(22, 17, 42, 0.78);
+}
+.hub__item:disabled {
+  opacity: 0.42;
+}
+.hub__icon {
+  font-size: 20px;
+  line-height: 1;
+}
+.hub__label {
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+.hub__soon {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid #3b2f63;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+/* --- Solo: choosing a mode ------------------------------------------------ */
+/* The screen sets `position: relative` on every direct child that is not the
+   canvas, and that rule is more specific than a bare `.sheet` — so the sheet
+   has to out-specify it or it stays in the flex flow and squashes the hub. */
+.screen .sheet,
+.sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.sheet__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 7, 19, 0.72);
+  backdrop-filter: blur(3px);
+}
+.sheet__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Never the whole screen: the cast behind it is what says which game this
+     is, and a sheet that covers them is just a menu. */
+  max-height: 74vh;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: 10px 12px calc(env(safe-area-inset-bottom) + 18px);
+  border-radius: 20px 20px 0 0;
+  border-top: 1px solid #3b2f63;
+  background: var(--bg);
+  animation: sheet-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet__body {
+    animation: none;
+  }
+}
+.sheet__grab {
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 4px;
+  border-radius: 999px;
+  background: #3b2f63;
+}
+
+.mode {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid #33285c;
+  background: var(--panel);
+  text-align: left;
+}
+.mode--solo {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.09), var(--panel));
+}
+.mode__hit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  width: 100%;
+}
+.mode__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mode__name {
+  font-size: 20px;
+  letter-spacing: 0.1em;
+}
+.mode--solo .mode__name {
+  color: var(--gold);
+}
+.mode__count {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.mode__note {
+  font-size: 12px;
+  font-family: system-ui, sans-serif;
+  color: var(--muted);
+}
+.mode__progress {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+}
+.mode__pip {
+  flex: 1 1 0;
+  height: 3px;
+  border-radius: 999px;
+  background: #2a2150;
+}
+.mode__pip[data-done='true'] {
+  background: var(--gold);
+}
+.settings--inline {
+  max-width: none;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #2a2150;
+  gap: 4px;
+}
+/* Sized for a screen of their own originally; in here they are furniture. */
+.settings--inline .stepper {
+  padding-block: 4px;
+}
+.settings--inline .stepper__label {
+  font-size: 10px;
+}
+.settings--inline .stepper__btn {
+  width: 34px;
+  height: 34px;
+}
+
+/* --- Solo: picking a rival ------------------------------------------------ */
+.screen--rivals {
+  position: relative;
+  gap: 0;
+  padding: 0 12px;
+}
+.screen--rivals > *:not(.stage__scene) {
+  position: relative;
+  z-index: 1;
+}
+.rivals__top {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: calc(env(safe-area-inset-top) + 8px);
+}
+.back {
+  align-self: flex-start;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid #3b2f63;
+  background: rgba(11, 7, 19, 0.72);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+/* Six of them across a phone, so each is a disc rather than a card. */
+.roster {
+  display: flex;
+  gap: 6px;
+}
+.roster__pick {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 2px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: rgba(11, 7, 19, 0.6);
+}
+.roster__pick[data-selected='true'] {
+  border-color: var(--who);
+  background: color-mix(in srgb, var(--who) 16%, rgba(11, 7, 19, 0.8));
+}
+.roster__face {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--who) 24%, #16112a);
+  border: 1px solid color-mix(in srgb, var(--who) 55%, transparent);
+  color: var(--who);
+  font-size: 14px;
+}
+.roster__pick[data-locked='true'] .roster__face {
+  background: #1a1533;
+  border-color: #33285c;
+  color: var(--dim, #6f6491);
+  filter: grayscale(1);
+}
+.roster__done {
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* Everything a second screen would have held, in the sheet under the fighter. */
+.rivals__sheet {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px calc(env(safe-area-inset-bottom) + 14px);
+  margin-inline: -12px;
+  border-radius: 18px 18px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--who) 40%, transparent);
+  background: linear-gradient(to top, rgba(11, 7, 19, 0.97) 62%, rgba(11, 7, 19, 0.82));
+}
+.rival__id {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.rival__name {
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  color: var(--who);
+}
+.rival__dots {
+  display: flex;
+  gap: 4px;
+}
+.rival__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #2a2150;
+}
+.rival__dot[data-on='true'] {
+  background: var(--who);
+}
+.rival__tagline {
+  font-size: 12px;
+  font-family: system-ui, sans-serif;
+  color: var(--muted);
+}
+.rival__signature {
+  font-size: 11px;
+  font-family: system-ui, sans-serif;
+  color: var(--muted);
+  text-align: center;
+}
+.rival__signature strong {
+  color: var(--ink);
+}
+.rival__locked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 0 6px;
+  font-size: 13px;
+  font-family: system-ui, sans-serif;
+  color: var(--muted);
+}
+
+/* --- Objectives ----------------------------------------------------------- */
+.objectives {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+}
+.objective {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: baseline;
+  column-gap: 9px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  border: 1px solid #2a2150;
+  background: rgba(22, 17, 42, 0.72);
+}
+.objective[data-done='true'] {
+  border-color: rgba(74, 222, 128, 0.4);
+}
+.objective[data-fresh='true'] {
+  border-color: var(--gold);
+  background: rgba(251, 191, 36, 0.12);
+  animation: objective-in 420ms ease both;
+  animation-delay: calc(var(--i) * 140ms + 260ms);
+}
+@keyframes objective-in {
+  from {
+    transform: scale(0.96);
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .objective[data-fresh='true'] {
+    animation: none;
+  }
+}
+.objective__tick {
+  color: var(--dim, #6f6491);
+  font-size: 12px;
+}
+.objective[data-done='true'] .objective__tick {
+  color: var(--perfect);
+}
+.objective__what {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+.objective__reward {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  font-size: 10px;
+  font-family: system-ui, sans-serif;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.objective[data-fresh='true'] .objective__reward {
+  color: var(--gold);
+}
+.objective__new {
+  grid-row: 1;
+  grid-column: 3;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #2a1c00;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+/* --- The rival's turn ----------------------------------------------------- */
+.cpu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0 2px;
+  animation: cpu-in 220ms ease both;
+}
+@keyframes cpu-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cpu {
+    animation: none;
+  }
+}
+.cpu__who {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.cpu__left {
+  font-size: 10px;
+  font-family: system-ui, sans-serif;
+  color: var(--dim, #6f6491);
+}
+.cpu__dots {
+  display: flex;
+  gap: 7px;
+}
+.cpu__dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--p1);
+  animation: cpu-think 1.05s ease-in-out infinite;
+}
+.cpu__dots i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.cpu__dots i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+@keyframes cpu-think {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cpu__dots i {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* The same face a card in hand shows, so what they played reads the same way
+   yours does — including whether it answered you. */
+.cpu__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 190px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 2px solid var(--kind-color, #33285c);
+}
+.cpu__card[data-kind='timing'] {
+  --kind-color: var(--timing);
+}
+.cpu__card[data-kind='speed'] {
+  --kind-color: var(--speed);
+}
+.cpu__card[data-kind='control'] {
+  --kind-color: var(--control);
+}
+.cpu__emoji {
+  font-size: 26px;
+  line-height: 1.1;
+}
+.cpu__name {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+.cpu__meta {
+  font-size: 9px;
+  font-family: system-ui, sans-serif;
+  color: var(--muted);
+}
+.cpu__fresh {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid #3b2f63;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+/* Beat by beat, resolving in time with the gesture. Green is landed, amber is
+   scraped, red is dropped — the same three colours a judgement uses, because
+   it is the same three outcomes. */
+.cpu__beats {
+  display: flex;
+  gap: 5px;
+  height: 10px;
+  align-items: center;
+}
+.cpu__beat {
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+  background: #2a2150;
+  border: 1px solid transparent;
+  transition: background 90ms ease, transform 90ms ease, border-color 90ms ease;
+}
+.cpu__beat[data-beat='hit'] {
+  background: var(--perfect);
+  transform: scaleY(1.35);
+}
+.cpu__beat[data-beat='soft'] {
+  background: var(--good);
+}
+.cpu__beat[data-beat='slip'] {
+  background: transparent;
+  border-color: var(--miss);
+  transform: scaleY(0.6);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cpu__beat {
+    transition: none;
+    transform: none;
+  }
+  .cpu__beat[data-beat='hit'],
+  .cpu__beat[data-beat='slip'] {
+    transform: none;
+  }
+}
+
+.cpu__track {
+  width: 190px;
+  height: 4px;
+  border-radius: 999px;
+  background: #2a2150;
+  overflow: hidden;
+}
+.cpu__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--p1);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+/* --- Solo results --------------------------------------------------------- */
+/* The local result sits at the bottom over a stage that is still worth
+   seeing, so it fades in from below. The solo one is a receipt: it fills the
+   screen, and it has to cover the top bar or the aura meters read straight
+   through the headline. */
+.screen--result-solo {
+  justify-content: center;
+  gap: 14px;
+  padding: 24px 16px calc(env(safe-area-inset-bottom) + 18px);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  /* Opaque, not a veil: the aura bar and the played strip sat right under the
+     headline and read straight through it. */
+  background: var(--bg);
+}
+.screen--result-solo .result__winner {
+  max-width: 340px;
+  text-wrap: balance;
+}
+.tally {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.tally__aura {
+  font-size: 34px;
+  line-height: 1;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.tally__aura span {
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.tally__gap {
+  font-size: 12px;
+  font-family: system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--miss);
+}
+.tally__gap[data-ahead='true'] {
+  color: var(--perfect);
+}
+.tally__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 4px;
+}
+.badge {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid #3b2f63;
+  background: rgba(22, 17, 42, 0.8);
+  font-size: 9px;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+.badge--god {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.result__objectives {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  text-align: left;
+}
+.result__heading {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--dim, #6f6491);
+}
+/* One column, one width. The two that start a battle differ by colour, not by
+   size: which of them is the obvious next move is the point of the screen. */
+.screen--result-solo .result__actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+}
+.screen--result-solo .result__actions .btn--big {
+  width: 100%;
+  font-size: 15px;
+  padding-block: 13px;
+}
+/* Not the next thing to do, but still worth a real target. */
+.btn--flat {
+  background: none;
+  border: 1px solid #3b2f63;
+  color: var(--muted);
+}
+.btn--big[data-primary='false'] {
+  background: var(--panel-2);
+  border: 1px solid #4a3b7d;
+  color: var(--ink);
+}
+
+/* --- Collection ----------------------------------------------------------- */
+.screen--collection {
+  position: relative;
+  gap: 0;
+  padding-top: 0;
+}
+.screen--collection > *:not(.stage__scene) {
+  position: relative;
+  z-index: 1;
+}
+.collection__stage {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  height: 27vh;
+  min-height: 180px;
+  margin: 0 -12px;
+  overflow: hidden;
+}
+.collection__stage::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 44px;
+  background: linear-gradient(to top, var(--bg), transparent);
+  pointer-events: none;
+}
+.collection__caption {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.collection__count {
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.collection__owned {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.collection__body {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-block: 6px calc(env(safe-area-inset-bottom) + 16px);
+}
+.collection__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.collection__kind {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.collection__kind[data-kind='timing'] {
+  color: var(--timing);
+}
+.collection__kind[data-kind='speed'] {
+  color: var(--speed);
+}
+.collection__kind[data-kind='control'] {
+  color: var(--control);
+}
+/* A locked move still shows its shape and who is holding it: it is a thing to
+   go and win, not an empty slot. */
+.pick[data-locked='true'] {
+  opacity: 0.4;
+  border-style: dashed;
+  border-color: #33285c;
+}
+.pick[data-locked='true'] .pick__meta {
+  color: var(--gold);
+}
+
+/* --- Settings ------------------------------------------------------------- */
+.screen--settings {
+  padding-top: calc(env(safe-area-inset-top) + 10px);
+  gap: 16px;
+}
+.sub__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sub__title {
+  font-size: 15px;
+  letter-spacing: 0.14em;
+}
+.settings__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+}
+/* Over a paused battle there is no room for explanations, and nobody is
+   reading them mid-match anyway. */
+.settings__list[data-compact='true'] .setting {
+  padding-block: 9px;
+}
+.settings__list[data-compact='true'] .setting__note {
+  display: none;
+}
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: 12px;
+  border: 1px solid #2a2150;
+  background: var(--panel);
+  text-align: left;
+}
+.setting--static {
+  opacity: 0.75;
+}
+.setting__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.setting__label {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+.setting__note {
+  font-size: 11px;
+  font-family: system-ui, sans-serif;
+  color: var(--muted);
+}
+.setting__value {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.setting__switch {
+  flex: none;
+  width: 44px;
+  height: 26px;
+  padding: 3px;
+  border-radius: 999px;
+  background: #2a2150;
+  transition: background 140ms ease;
+}
+.setting__switch[data-on='true'] {
+  background: var(--perfect);
+}
+.setting__knob {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--ink);
+  transition: transform 140ms ease;
+}
+.setting__switch[data-on='true'] .setting__knob {
+  transform: translateX(18px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .setting__switch,
+  .setting__knob {
+    transition: none;
+  }
 }

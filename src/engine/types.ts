@@ -157,11 +157,56 @@ export interface MatchSettings {
   chooseMs: number
 }
 
+/**
+ * Who answers the QTEs. The reducer never branches on it — every rule applies
+ * to both sides — but the shell needs to know whether to wait for a thumb or
+ * for the CPU, and whether the phone is changing hands at all.
+ */
+export type Controller = 'human' | 'cpu'
+
+/** Where an accessory sits on a fighter. One item per slot at a time. */
+export type AccessorySlot =
+  | 'hair'
+  | 'head'
+  | 'glasses'
+  | 'neck'
+  | 'top'
+  | 'bottom'
+  | 'shoes'
+  | 'extras'
+  | 'aura'
+
+export interface Accessory {
+  id: string
+  name: string
+  emoji: string
+  slot: AccessorySlot
+  /** Names the small procedural mesh the stage draws. Not a model file. */
+  shape: 'cap' | 'shades' | 'chain' | 'jacket' | 'charm' | 'auraRing'
+  color: string
+}
+
+/**
+ * Cosmetics carried through the match so the stage can dress a fighter. The
+ * engine does not read any of it; it rides along with the setup because
+ * `characterId` and `name` already do, and splitting presentation across two
+ * places would mean the stage looking a fighter up somewhere else mid-battle.
+ */
+export interface Look {
+  /** Overrides the character's own colour, for rivals that share a build. */
+  color?: string
+  /** Accessory ids, from the catalogue in `accessories.ts`. */
+  accessories?: string[]
+}
+
 export interface PlayerSetup {
   name: string
   characterId: string
   /** Exactly `settings.deckSize` card ids, in pick order. */
   deck: string[]
+  /** Defaults to 'human'. */
+  controller?: Controller
+  look?: Look
 }
 
 export interface PlayedCard {
@@ -191,6 +236,8 @@ export interface PlayerState {
   id: PlayerId
   name: string
   characterId: string
+  controller: Controller
+  look: Look
   /** The cards brought to the battle. Never changes: it is the match record. */
   deck: string[]
   /** Still playable. A card leaves only by being played. */

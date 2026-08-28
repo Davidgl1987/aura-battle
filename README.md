@@ -1,8 +1,8 @@
 # Aura Battle
 
-Two players, one phone. Answer the rival's move with a different kind of
-gesture, nail the QTE, and push the shared aura bar onto their side before both
-decks run dry.
+Answer the rival's move with a different kind of gesture, nail the QTE, and
+push the shared aura bar onto their side before both decks run dry. Two players
+on one phone, or one player up a ladder of six rivals.
 
 ## Run it
 
@@ -21,20 +21,69 @@ npm run balance -- --disable-console-intercept   # the balance table, printed
 
 **QTE range** (dev only): `?qte` opens a range where you can repeat one card's
 QTE as many times as it takes to tune it — `?qte=sturdy` starts on that card,
-and the row of chips switches between all ten. `window.__game` is the live
-store, for driving a phase from the console without playing up to it.
+and the row of chips switches between all fifteen. `window.__game` is the live
+store, for driving a phase from the console without playing up to it, and
+`window.__audio` is the synth, for firing a sound without earning it.
 
 ## A match, start to finish
 
 ```
-TITLE ──→ P1 builds a deck ──→ pass the phone ──→ P2 builds a deck ──→ BATTLE
+HOME ─┬─ PLAY ─┬─ SOLO  ──→ pick a rival ──────────────→ BATTLE ──→ RESULTS
+      │        └─ LOCAL ──→ P1 deck → pass → P2 deck ──→ BATTLE ──→ RESULTS
+      ├─ COLLECTION (what you own, and the deck you take in)
+      └─ SETTINGS   (music, sfx, vibration, language)
 ```
 
-On the title screen both players agree on two things: **cards per deck** (4–6)
+There is one battle. Solo and local are the same reducer, the same QTEs and
+the same scoring; the only difference is a field on the player:
+
+```js
+player.controller = 'human'   //  waits for a thumb
+player.controller = 'cpu'     //  answered by engine/cpu.ts
+```
+
+### Local
+
+Both players agree on two things: **cards per deck** (4–6)
 and **time to choose** (3–5 s). Then each player picks a fighter — no two
 players can take the same one — an optional alias, and their deck out of the
-10 gestures. Both decks are open information: you can see what the rival
+15 gestures. Both decks are open information: you can see what the rival
 brought and count what they have left.
+
+### Solo
+
+Six rivals, hardest last. Each one is data — nine strategy weights and a deck —
+so no rival has code of its own:
+
+```js
+strategy: {
+  prefersFresh: 0.9,       // value on breaking the kind on the table
+  prefersHighAura: 0.95,   // the best expected bill this turn
+  prefersDifficulty: 0.55, // appetite for hard cards regardless
+  prefersSafeCards: 0.4,   // weight on not fumbling
+  chasesOutaura: 0.6,
+  chasesMomentum: 0.8,
+  qteSkill: 0.74,          // → PERFECT / GOOD / MISS odds
+  consistency: 0.9,
+  hesitates: 0,            // chance of freezing on the clock
+}
+```
+
+The CPU never touches the glass: `judgeQte` draws its grade from the same
+difficulty-scaled odds the balance simulation is measured with, so the rival a
+player meets is the rival the numbers were tuned against. `rivals.test.ts`
+measures the whole ladder with the shipped brain and fails if the climb
+flattens — against a competent player it runs 88 / 74 / 54 / 49 / 41 / 15%.
+
+Each rival always asks for three independent things: win the battle (a new
+move), reach an aura total (Aura Coins), and one challenge (the accessory that
+rival is wearing while you fail to do it). Every reward is paid once. Beating
+them is what opens the next rival; the other two are optional, which is what
+makes a rematch worth playing.
+
+Nine of the fifteen moves are yours from the start — the three NORMAL cards of
+each kind — and the six HARD ones are what the six rivals are holding. A rival
+brings the move it is going to lose, so you watch it before you own it.
 
 Every turn:
 
@@ -100,14 +149,22 @@ src/
   engine/     pure TS, no React and no clock reads — the whole game is a reducer
     types.ts       state, actions, events
     balance.ts     every tunable number lives here
-    cards.ts       the 10 gestures: 4 timing, 3 speed, 3 control
+    cards.ts       the 15 gestures: five of each kind, three NORMAL and two HARD
     simulate.ts    plays whole matches between skill profiles, headless
     recap.ts       turns a finished match into its story
+    stats.ts       a finished match as plain numbers, for objectives to read
     characters.ts  the 4 fighters (and the brief for their F4 models)
+    accessories.ts the wardrobe: nine slots, six items
     scoring.ts     freshness, aura, momentum
     match.ts       the turn state machine
+    cpu.ts         chooseCard and judgeQte, from weights
+    rivals.ts      the 6 of them, as data
+    objectives.ts  what a rival asks, answered from stats alone
+    rewards.ts     what it pays
   audio/      a synthesiser: every sound is oscillators and noise, no files
   state/      zustand store, setup flow, and the rAF clock driving the reducer
+    useProgress.ts   the only thing that survives closing the tab
+    useCpuTurn.ts    plays the rival's turns through the same reducer
   scene/      the react-three-fiber stage
     pose.ts        a whole body in fifteen numbers, and how to blend two
     builds.ts      what each fighter is assembled from
@@ -116,8 +173,12 @@ src/
     Motes.tsx      the aura you can see: bursts, and a stream under god aura
     StageShell.tsx canvas, air, floor and glow — shared by every screen
     Showcase.tsx   the same fighters, warming up behind the menus
-  ui/         DOM overlay: title, setup, handoff, hand, aura bar, judgements
+  ui/         DOM overlay: home, setup, handoff, hand, aura bar, judgements
     qte/           one widget per QTE kind, plus the pure maths behind each
+    home/          the hub, and the sheet that picks a mode
+    solo/          the rival carousel and its objectives
+    collection/    what you own and the deck you take in
+    settings/      four rows
 ```
 
 Three rules keep the feel honest:
@@ -190,7 +251,13 @@ drains that bus, and everything loud hangs off it.
   separate things: the first gesture of any kind opens the context, a sample of
   silence is played inside that gesture so iOS really opens the tap, and
   `navigator.audioSession` is set to `playback` so an iPhone with its ringer
-  switch flipped is not silent. 🔇 on the title screen.
+  switch flipped is not silent. The loop sits on its own fader under the
+  master, so MUSIC and SFX in Settings are two switches rather than one, and
+  both of them are in the pause menu as well — mid-battle is when somebody
+  actually reaches for them. Nothing waits for a tap that the browser did not
+  ask for: the context is opened on load and again on the first gesture,
+  because a page that is allowed to make noise should not sit silent until
+  something is clicked.
 - **Motes** burst on a judgement in its own colour and stream upward for as
   long as GOD AURA holds. One fixed pool, additive blending, no allocation
   mid-battle.
@@ -238,3 +305,7 @@ future tweak that quietly flattens the game fails a test instead of shipping.
 - [x] **F4** react-three-fiber scene: stage, the 4 procedural fighters, camera
 - [x] **F5** Juice: particles, shake, post-FX, GOD AURA mode, SFX
 - [x] **F6** Results recap, and a balance pass driven by simulation
+- [x] **F7** Solo: six rivals as data, a measured ladder, objectives and
+      rewards, persistent progress, and the hub the modes hang off
+- [ ] **F8** Customize: the wardrobe screen behind the slots the rivals already
+      wear, and a shop for the coins to go into
