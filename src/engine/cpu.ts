@@ -3,13 +3,15 @@ import {
   CPU_GOOD_SPAN,
   CPU_PERFECT_CEILING,
   CPU_THINK_MAX_MS,
+  CPU_PACE_FLOOR,
+  CPU_PACE_SPAN,
   CPU_THINK_MIN_MS,
   MISS_SCALE,
   QTE_FORM_SWING,
   PERFECT_SCALE,
 } from './balance'
 import { getCard } from './cards'
-import { EMPTY, opportunities, rampAt, record, runFor, settle, type Beat } from './qte'
+import { EMPTY, opportunities, pacingOf, rampAt, record, runFor, settle, type Beat } from './qte'
 import { outauraTarget } from './match'
 import { nextRandom } from './rng'
 import { freshnessOf, momentumDelta, scorePlay } from './scoring'
@@ -252,7 +254,7 @@ export function chooseCard(state: MatchState, strategy: Strategy): string {
  */
 export function performQte(strategy: Strategy, card: Card, roll: number): QteOutcome {
   const odds = cpuOdds(strategy, card)
-  const total = opportunities(card)
+  const total = attemptsFor(strategy, card)
 
   // How this particular card is going for them. Drawn once and applied to
   // every beat in it, so a run holds together the way a person's does.
@@ -265,6 +267,20 @@ export function performQte(strategy: Strategy, card: Card, roll: number): QteOut
     ledger = record(ledger, beatFor(odds, i, total, at, form))
   }
   return settle(card, ledger)
+}
+
+/**
+ * How many chances a rival actually takes at a card.
+ *
+ * A counted gesture offers what it offers. An open-ended one runs for as long
+ * as you can keep it going, so how many taps a rival gets out of it is a
+ * matter of how quick their hands are: a slow one never reaches the bar and a
+ * fast one goes past it.
+ */
+export function attemptsFor(strategy: Strategy, card: Card): number {
+  const total = opportunities(card)
+  if (pacingOf(card) === 'counted') return total
+  return Math.max(1, Math.round(total * (CPU_PACE_FLOOR + CPU_PACE_SPAN * strategy.qteSkill)))
 }
 
 /** The grade alone, for anything that only needs to know how it went. */

@@ -102,9 +102,17 @@ battle ends when both sides are out of cards.
 
 **A gesture is a run, not a verdict.** It lasts exactly as long as the
 animation, it never ends early, and every opportunity inside it either pays or
-costs. Ignoring one costs the same as fumbling one, so standing still is not a
-way to keep a clean sheet. It gets harder as it goes: the sweep quickens after
-every hit, the notes close up, the ring drifts faster.
+costs. It gets harder as it goes: the sweep quickens after every hit, the notes
+close up, the ring drifts faster.
+
+Three of them are **counted** — the chart has its notes, the ring has its
+quarter-seconds, and ignoring one costs what fumbling one costs, so standing
+still is not a way to keep a clean sheet. The other three are **open-ended**:
+the sweep, the mash and the number run take as many chances as your hands
+manage. They ask for one count to score at all and a higher one for a clean run
+to be flawless, and everything past that still pays, up to a cap. A card must
+also physically offer more than it asks for — a bar that crosses the centre
+three times cannot demand six taps, and a test holds every sweep card to it.
 
 - **Accuracy** — what the run was worth, over what was on offer. Every card is
   divided by its own opportunity count, so a long animation cannot out-earn a

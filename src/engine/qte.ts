@@ -2,12 +2,13 @@ import {
   QTE_GOOD_RATIO,
   QTE_OPPORTUNITIES_MAX,
   QTE_OPPORTUNITIES_MIN,
+  QTE_OVERSHOOT_MAX,
   QTE_MISTAKE_COST,
   QTE_RAMP,
   QTE_SCRAPPY_VALUE,
   QTE_TICK_MS,
 } from './balance'
-import type { Card, Judgement, QteOutcome } from './types'
+import type { Card, Judgement, QtePacing, QteOutcome } from './types'
 
 /**
  * How a gesture is scored, for all six of them.
@@ -43,26 +44,56 @@ const VALUE: Record<Beat, number> = {
  * fixed clock rather than per frame — a phone that drops to 30fps must not
  * score differently from one holding 60.
  */
+/**
+ * Whether a gesture has a fixed number of chances in it, or runs for as long
+ * as you can keep it going.
+ *
+ * A chart has six notes and that is all it will ever have; a mash has as many
+ * taps as your thumbs manage. The difference changes how a run is graded, so
+ * it is asked once here rather than switched on twice further down.
+ */
+export function pacingOf(card: Card): QtePacing {
+  switch (card.qte.game) {
+    case 'sweep':
+    case 'mash':
+    case 'order':
+      return 'open'
+    default:
+      return 'counted'
+  }
+}
+
+/**
+ * What a flawless run is measured against.
+ *
+ * For a counted gesture it is how many chances the card holds. For an
+ * open-ended one it is `perfectAt` — the point at which a clean run has done
+ * enough — and going past it is what the overshoot is for.
+ */
 export function opportunities(card: Card): number {
   const params = card.qte
-  const declared = (() => {
-    switch (params.game) {
-      case 'sweep':
-        return params.hits
-      case 'lanes':
-        return params.notes
-      case 'mash':
-        return params.targetTaps
-      case 'order':
-        return params.count
-      case 'zone':
-      case 'paths':
-        // Continuous gestures have no beats of their own, so they are cut into
-        // stretches of roughly a quarter second.
-        return Math.round(card.durationMs / QTE_TICK_MS)
-    }
-  })()
-  return Math.min(QTE_OPPORTUNITIES_MAX, Math.max(QTE_OPPORTUNITIES_MIN, declared))
+  switch (params.game) {
+    case 'sweep':
+    case 'mash':
+    case 'order':
+      return params.perfectAt
+    case 'lanes':
+      return Math.min(QTE_OPPORTUNITIES_MAX, Math.max(QTE_OPPORTUNITIES_MIN, params.notes))
+    case 'zone':
+    case 'paths':
+      // Continuous gestures have no beats of their own, so they are cut into
+      // stretches of roughly a quarter second.
+      return Math.min(
+        QTE_OPPORTUNITIES_MAX,
+        Math.max(QTE_OPPORTUNITIES_MIN, Math.round(card.durationMs / QTE_TICK_MS)),
+      )
+  }
+}
+
+/** What it takes to score at all on an open-ended gesture. */
+export function goodAtOf(card: Card): number {
+  const params = card.qte
+  return 'goodAt' in params ? params.goodAt : 0
 }
 
 /**
@@ -126,10 +157,13 @@ export function ignored(ledger: Ledger, total: number): Ledger {
  * run that had already cleared the bar back under it — which is the point: the
  * threshold is not a checkpoint you keep once you reach it.
  */
-export function accuracyOf(ledger: Ledger, total: number): number {
+export function accuracyOf(ledger: Ledger, total: number, open = false): number {
   if (total <= 0) return 0
   const net = ledger.value - ledger.mistakes * QTE_MISTAKE_COST
-  return Math.min(1, Math.max(0, net / total))
+  // An open-ended gesture keeps paying past the point it needed to reach, up
+  // to a ceiling: doing more than enough is worth something, but not enough
+  // for the gesture you were asked for to decide the score.
+  return Math.min(open ? QTE_OVERSHOOT_MAX : 1, Math.max(0, net / total))
 }
 
 /**
@@ -141,12 +175,26 @@ export function accuracyOf(ledger: Ledger, total: number): number {
  */
 export function settle(card: Card, ledger: Ledger): QteOutcome {
   const total = opportunities(card)
-  const full = ignored(ledger, total)
-  const accuracy = accuracyOf(full, total)
+  const open = pacingOf(card) === 'open'
+
+  // A counted gesture charges for chances that came and went. An open-ended
+  // one cannot: there is no number it was supposed to reach and stop at, so
+  // falling short simply scores less rather than counting as fumbles.
+  const full = open ? ledger : ignored(ledger, total)
+  const accuracy = accuracyOf(full, total, open)
   const perfectEligible = full.mistakes === 0
 
-  const judgement: Judgement =
-    accuracy < QTE_GOOD_RATIO ? 'MISS' : perfectEligible ? 'PERFECT' : 'GOOD'
+  const judgement: Judgement = open
+    ? full.successes < goodAtOf(card)
+      ? 'MISS'
+      : perfectEligible && full.successes >= total
+        ? 'PERFECT'
+        : 'GOOD'
+    : accuracy < QTE_GOOD_RATIO
+      ? 'MISS'
+      : perfectEligible
+        ? 'PERFECT'
+        : 'GOOD'
 
   return {
     judgement,

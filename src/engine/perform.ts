@@ -18,13 +18,20 @@ export type Beat = 'hit' | 'soft' | 'slip'
  * notes going by and watching them play Mewing shows two taps.
  */
 export function beatsOf(card: Card): number {
+  return Math.min(MAX_BEATS, declaredBeats(card))
+}
+
+/** More than this on a phone-width strip and you can no longer count them. */
+const MAX_BEATS = 8
+
+function declaredBeats(card: Card): number {
   switch (card.qte.game) {
     case 'sweep':
-      return card.qte.hits
+      return card.qte.perfectAt
     case 'lanes':
       return card.qte.notes
     case 'order':
-      return card.qte.count
+      return card.qte.perfectAt
     // A mash and a hold have no beats of their own, so they get a fixed strip
     // that reads as effort over time rather than as a count of anything.
     case 'mash':

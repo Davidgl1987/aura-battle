@@ -123,7 +123,7 @@ describe('what the ladder unlocks', () => {
  * `chooseCard` and `judgeQte` with the real deck, so this is the rival a
  * player actually meets — not a stand-in that happens to be nearby.
  *
- * Measured against `solid`: 95 / 88 / 49 / 50 / 35 / 16. The bounds below are
+ * Measured against `solid`: 93 / 78 / 51 / 47 / 33 / 14. The bounds below are
  * those numbers with room, so a strategy tweak that quietly flattens the climb
  * fails here instead of shipping.
  *

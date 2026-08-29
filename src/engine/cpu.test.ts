@@ -120,12 +120,16 @@ describe('what a rival scores on a QTE', () => {
    * settled at the end — so all three have to be reachable rather than laid
    * out in order along the roll. `qte.test.ts` covers the ledger itself.
    */
-  it('can produce all three grades from the same hands', () => {
-    const s = strategy({ qteSkill: 0.55, consistency: 0.5 })
-    const card = getCard('mewing')
-    const seen = new Set(
-      Array.from({ length: 400 }, (_, i) => judgeQte(s, card, (i + 0.5) / 400)),
-    )
+  it('reaches all three grades across the range of hands', () => {
+    // A grade is a whole run settled at the end rather than one roll against a
+    // threshold, so no single skill level produces all three — what matters is
+    // that the scale spans them.
+    const card = getCard('griddy-drop')
+    const seen = new Set<string>()
+    for (const qteSkill of [0.2, 0.45, 0.7, 0.95]) {
+      const s = strategy({ qteSkill, consistency: 0.5 })
+      for (let i = 0; i < 200; i++) seen.add(judgeQte(s, card, (i + 0.5) / 200))
+    }
     expect(seen).toContain('PERFECT')
     expect(seen).toContain('GOOD')
     expect(seen).toContain('MISS')

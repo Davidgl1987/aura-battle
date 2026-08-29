@@ -45,14 +45,23 @@ export interface AuraBreakdown {
  */
 export type QteGame = 'sweep' | 'lanes' | 'mash' | 'order' | 'zone' | 'paths'
 
-/** Tap once (or `hits` times) while a cursor sweeps across the target window. */
+/**
+ * A cursor sweeps the bar; tap it dead centre, as many times as you can before
+ * the animation runs out.
+ *
+ * Open-ended, like the mash and the number run: `goodAt` is what it takes to
+ * score at all and `perfectAt` what a clean run needs, and every hit past that
+ * still pays. The bar has to pass the centre comfortably more often than
+ * `perfectAt` asks for, or a flawless run is not something the card allows —
+ * see `crossings` in `ui/qte/timing.ts`, which a test holds it to.
+ */
 export interface TimingParams {
   kind: 'timing'
   game: 'sweep'
   /** Time for the cursor to cross the bar once. */
   sweepMs: number
-  /** How many successful taps the card requires. */
-  hits: number
+  goodAt: number
+  perfectAt: number
   /** Half-width of the PERFECT / GOOD windows, in ms. */
   perfectMs: number
   goodMs: number
@@ -75,26 +84,40 @@ export interface LanesParams {
   goodMs: number
 }
 
-/** Mash (or alternate between two zones) as fast as possible. */
+/**
+ * Alternate between two pads as fast and as long as you can.
+ *
+ * Open-ended: there is no number of taps the card asks for and then stops. You
+ * keep going for the whole animation, `goodAt` is what it takes to score at
+ * all and `perfectAt` what it takes for a clean run to count as flawless — and
+ * anything past that still pays.
+ */
 export interface SpeedParams {
   kind: 'speed'
   game: 'mash'
-  targetTaps: number
+  goodAt: number
+  perfectAt: number
   /** When true, tapping the same zone twice in a row does not count. */
   alternating: boolean
 }
 
-/** Scattered numbers; press them in order, as fast as you can find them. */
+/**
+ * Scattered numbers; press them in order, as fast as you can find them. Press
+ * the lowest and it goes, and the next of the run appears somewhere else.
+ *
+ * Open-ended, like the mash: the run does not stop at the number of buttons on
+ * the pad. `goodAt` is what it takes to score, `perfectAt` what a clean run
+ * needs, and every number past that still pays.
+ */
 export interface OrderParams {
   kind: 'speed'
   game: 'order'
-  /** How many buttons, numbered 1 upward. */
-  count: number
-  /** Finish inside this to be PERFECT, inside `goodMs` to be GOOD. */
-  perfectMs: number
-  goodMs: number
-  /** What a press out of order adds to your time. */
-  mistakeMs: number
+  /** How many are on the pad at once. */
+  visible: number
+  goodAt: number
+  perfectAt: number
+  /** How long one number is on offer before it goes. */
+  windowMs: number
 }
 
 /** Keep the finger inside a drifting zone for as long as possible. */
@@ -156,6 +179,13 @@ export interface Card {
  * one of these, so the engine, the CPU and the balance simulation all read a
  * performance the same way.
  */
+/**
+ * Whether a gesture has a fixed number of chances in it or runs for as long as
+ * you can keep it going. It changes how a run is graded, so `engine/qte.ts`
+ * asks the card rather than switching on the game a second time.
+ */
+export type QtePacing = 'counted' | 'open'
+
 export interface QteMetrics {
   /** Opportunities answered at all, cleanly or not. */
   successes: number

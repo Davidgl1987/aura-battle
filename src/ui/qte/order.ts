@@ -1,5 +1,5 @@
 import { nextRandom } from '../../engine/rng'
-import type { Judgement, OrderParams } from '../../engine/types'
+
 
 /** One numbered button, and where it sits on the pad. */
 export interface Spot {
@@ -78,19 +78,4 @@ export function orderLayout(count: number, variation: number): Spot[] {
   return spots
 }
 
-/**
- * A press out of order does not end the card — it costs time. Running out of
- * numbers to press is the only way to fail outright, which keeps a fumbled
- * start recoverable.
- */
-export function gradeOrder(
-  completed: boolean,
-  elapsedMs: number,
-  mistakes: number,
-  params: OrderParams,
-): Judgement {
-  if (!completed) return 'MISS'
-  const effective = elapsedMs + mistakes * params.mistakeMs
-  if (effective <= params.perfectMs) return 'PERFECT'
-  return effective <= params.goodMs ? 'GOOD' : 'MISS'
-}
+

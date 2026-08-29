@@ -88,6 +88,16 @@ export const QTE_TICK_MS = 250
 export const QTE_OPPORTUNITIES_MIN = 6
 export const QTE_OPPORTUNITIES_MAX = 8
 
+/**
+ * How far past "enough" an open-ended gesture can still pay.
+ *
+ * The sweep, the mash and the number run have no number they stop at — you
+ * keep going for the whole animation and the extras keep scoring. Uncapped,
+ * that would hand those three a permanent edge over the three that end when
+ * their chart does, which is the one thing the normalisation exists to stop.
+ */
+export const QTE_OVERSHOOT_MAX = 1.25
+
 /** What a landed-but-scrappy opportunity is worth against a clean one. */
 export const QTE_SCRAPPY_VALUE = 0.55
 
@@ -236,6 +246,14 @@ export const CPU_PERFECT_CEILING = 0.95
  */
 export const CPU_GOOD_FLOOR = 0.35
 export const CPU_GOOD_SPAN = 0.55
+
+/**
+ * How much of an open-ended gesture a rival gets through, from the slowest
+ * hands to the quickest. Below 1 they never reach the bar it asks for; above
+ * it they are into the overshoot.
+ */
+export const CPU_PACE_FLOOR = 0.45
+export const CPU_PACE_SPAN = 0.8
 
 /** How long a rival appears to think before committing to a card. */
 export const CPU_THINK_MIN_MS = 600

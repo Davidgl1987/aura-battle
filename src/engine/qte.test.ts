@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { QTE_GOOD_RATIO, QTE_OPPORTUNITIES_MAX, QTE_OPPORTUNITIES_MIN } from './balance'
+import {
+  QTE_GOOD_RATIO,
+  QTE_OPPORTUNITIES_MAX,
+  QTE_OPPORTUNITIES_MIN,
+  QTE_OVERSHOOT_MAX,
+} from './balance'
 import { CARDS, getCard } from './cards'
-import { baseOdds, cpuOdds, performQte, type Strategy } from './cpu'
+import { attemptsFor, baseOdds, cpuOdds, performQte, type Strategy } from './cpu'
 import { NO_STRATEGY } from './cpu'
 import {
   EMPTY,
   accuracyOf,
+  goodAtOf,
   ignored,
   opportunities,
+  pacingOf,
   rampAt,
   record,
   runFor,
@@ -33,14 +40,30 @@ describe('what a card offers', () => {
    * fumbles in it, so a card offering twice as many chances is twice as likely
    * to lose one — a systematic penalty for nothing but being longer.
    */
-  it('gives every card the same handful of chances', () => {
-    for (const card of CARDS) {
+  it('gives every counted card the same handful of chances', () => {
+    const counted = CARDS.filter((c) => pacingOf(c) === 'counted')
+    for (const card of counted) {
       const n = opportunities(card)
       expect(n, card.name).toBeGreaterThanOrEqual(QTE_OPPORTUNITIES_MIN)
       expect(n, card.name).toBeLessThanOrEqual(QTE_OPPORTUNITIES_MAX)
     }
-    const counts = CARDS.map(opportunities)
+    const counts = counted.map(opportunities)
     expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(2)
+  })
+
+  /**
+   * An open-ended gesture has no count to hold in a band — it runs for as long
+   * as you can keep it going. What keeps it fair is the denominator: a clean
+   * run normalises to 1 whatever the card asked for, and `balance.test.ts`
+   * measures that the same hands reach the same accuracy on all of them.
+   */
+  it('asks an open gesture for more to be flawless than to score', () => {
+    for (const card of CARDS) {
+      if (pacingOf(card) !== 'open') continue
+      expect(opportunities(card), card.name).toBe(goodAtOf(card) + (opportunities(card) - goodAtOf(card)))
+      expect(opportunities(card), card.name).toBeGreaterThan(goodAtOf(card))
+      expect(goodAtOf(card), card.name).toBeGreaterThan(0)
+    }
   })
 
   it('cuts a continuous gesture into stretches of its own length', () => {
@@ -128,19 +151,41 @@ describe('settling a run', () => {
       const outcome = unplayed(card)
       expect(outcome.judgement, card.name).toBe('MISS')
       expect(outcome.score, card.name).toBe(0)
-      // Ignoring the gesture costs exactly what fumbling it costs, or standing
-      // still would be a way to keep a clean sheet.
-      expect(outcome.metrics.mistakes, card.name).toBe(opportunities(card))
-      expect(outcome.perfectEligible, card.name).toBe(false)
+      expect(outcome.perfectEligible, card.name).toBe(pacingOf(card) === 'open')
     }
   })
 
-  it('charges for chances that came and went', () => {
-    const card = getCard('mewing')
+  it('charges a counted gesture for chances that came and went', () => {
+    // Ignoring one costs exactly what fumbling it costs, or standing still
+    // would be a way to keep a clean sheet.
+    const card = getCard('beat-drop')
     const half = Math.floor(opportunities(card) / 2)
     const walked = play(card, Array.from({ length: half }, () => 'clean'))
     expect(walked.metrics.mistakes).toBe(opportunities(card) - half)
     expect(ignored(EMPTY, 5).mistakes).toBe(5)
+  })
+
+  it('does not charge an open gesture for stopping', () => {
+    // There is no number it was supposed to reach and stop at, so falling
+    // short scores less rather than counting as fumbles — it just is not
+    // enough to clear the bar.
+    const card = getCard('six-seven')
+    const few = play(card, Array.from({ length: 3 }, () => 'clean'))
+    expect(few.metrics.mistakes).toBe(0)
+    expect(few.judgement).toBe('MISS')
+  })
+
+  it('keeps paying an open gesture past the point it needed to reach', () => {
+    const card = getCard('six-seven')
+    const bar = opportunities(card)
+    const enough = play(card, Array.from({ length: bar }, () => 'clean'))
+    const more = play(card, Array.from({ length: bar + 6 }, () => 'clean'))
+    expect(enough.judgement).toBe('PERFECT')
+    expect(more.judgement).toBe('PERFECT')
+    expect(more.score).toBeGreaterThan(enough.score)
+    // Capped, so the three open gestures cannot out-earn the three counted
+    // ones simply by having no end.
+    expect(more.metrics.accuracy).toBeLessThanOrEqual(QTE_OVERSHOOT_MAX)
   })
 
   it('never reports an accuracy outside 0..1', () => {
@@ -181,8 +226,11 @@ describe('the run a rival plays', () => {
     for (const card of CARDS) {
       for (const skill of [0.2, 0.5, 0.8]) {
         for (const roll of [0.1, 0.5, 0.9]) {
-          const outcome = performQte(strategy({ qteSkill: skill, consistency: 0.6 }), card, roll)
-          expect(outcome.metrics.successes + outcome.metrics.mistakes).toBe(opportunities(card))
+          const s = strategy({ qteSkill: skill, consistency: 0.6 })
+          const outcome = performQte(s, card, roll)
+          // Counted cards answer every chance; open ones answer as many as the
+          // hands manage, which is what `attemptsFor` decides.
+          expect(outcome.metrics.successes + outcome.metrics.mistakes).toBe(attemptsFor(s, card))
           expect(outcome.perfectEligible).toBe(outcome.metrics.mistakes === 0)
           if (outcome.judgement === 'PERFECT') expect(outcome.perfectEligible).toBe(true)
           if (outcome.judgement === 'MISS') expect(outcome.score).toBe(0)

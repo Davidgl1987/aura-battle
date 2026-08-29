@@ -1,15 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { OrderParams } from '../../engine/types'
-import { gradeOrder, nextSpot, orderLayout, orderRolls, spotFor, type Spot } from './order'
-
-const params: OrderParams = {
-  kind: 'speed',
-  game: 'order',
-  count: 5,
-  perfectMs: 2600,
-  goodMs: 4200,
-  mistakeMs: 500,
-}
+import { nextSpot, orderLayout, orderRolls, spotFor, type Spot } from './order'
 
 describe('scattering the numbers', () => {
   it('lays out one button per number, in order', () => {
@@ -43,23 +33,6 @@ describe('scattering the numbers', () => {
   })
 })
 
-describe('grading the order', () => {
-  it('fails a card that was never finished, however fast it went', () => {
-    expect(gradeOrder(false, 100, 0, params)).toBe('MISS')
-  })
-
-  it('rewards finding them quickly', () => {
-    expect(gradeOrder(true, 2000, 0, params)).toBe('PERFECT')
-    expect(gradeOrder(true, 3500, 0, params)).toBe('GOOD')
-  })
-
-  it('charges for pressing out of order rather than ending the card', () => {
-    // Fast enough for a PERFECT, until the wrong presses are counted.
-    expect(gradeOrder(true, 2400, 0, params)).toBe('PERFECT')
-    expect(gradeOrder(true, 2400, 1, params)).toBe('GOOD')
-    expect(gradeOrder(true, 2400, 4, params)).toBe('MISS')
-  })
-})
 
 /**
  * The pad holds a rolling window, not the whole run: press the lowest number

@@ -65,7 +65,8 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
   }, [startedAt, card.durationMs, edge, arming, run])
 
   const tap = (event: React.PointerEvent) => {
-    if (run.done || run.ledger.taken >= run.total) return
+    // No ceiling: tap the centre as many times as the bar comes past.
+    if (run.done) return
     // The native timestamp is the moment the finger landed, not the moment
     // React got around to us — that difference is a whole judgement grade.
     const t = event.nativeEvent.timeStamp ? stamp(event.nativeEvent.timeStamp) : now()
@@ -85,7 +86,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
       // Faster, but not restarted: the cursor carries on from exactly where it
       // is, in the direction it was already going. Re-anchoring the phase is
       // what keeps the stroke unbroken while the pace changes.
-      const step = 1 - (QTE_RAMP - 1) / (params.hits - 1) / QTE_RAMP
+      const step = 1 - (QTE_RAMP - 1) / Math.max(1, params.perfectAt - 1) / QTE_RAMP
       const next = Math.max(180, sweep.current * step)
       phase.current = rephase(t, phase.current, sweep.current, next, edge)
       sweep.current = next
@@ -105,7 +106,9 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
         <em className="qte__hint-grab">
           TAP TO START <b ref={armRef} className="qte__count" />
         </em>
-        <em className="qte__hint-live">{params.hits} TAPS · IT SPEEDS UP</em>
+        <em className="qte__hint-live">
+          {params.goodAt} TO SCORE, {params.perfectAt} CLEAN · IT SPEEDS UP
+        </em>
       </div>
 
       <div className="qte__timer">
@@ -119,7 +122,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
       </div>
 
       <div className="qte__hits" ref={hitsRef}>
-        {Array.from({ length: params.hits }, (_, i) => (
+        {Array.from({ length: params.perfectAt }, (_, i) => (
           <span key={i} className="qte__hit" data-hit="pending" />
         ))}
       </div>

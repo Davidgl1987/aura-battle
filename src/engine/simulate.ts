@@ -3,8 +3,17 @@ import { INTRO_MS, QTE_FORM_SWING } from './balance'
 /** Nominal time a player spends reading a score sheet before passing over. */
 const READING_MS = 2000
 import { ALL_CARD_IDS, getCard } from './cards'
-import { baseOdds, chooseCard, cpuRoll, oddsFor as cardOdds, performQte, type Strategy } from './cpu'
-import { EMPTY, opportunities, rampAt, record, settle } from './qte'
+import {
+  NO_STRATEGY,
+  attemptsFor,
+  baseOdds,
+  chooseCard,
+  cpuRoll,
+  oddsFor as cardOdds,
+  performQte,
+  type Strategy,
+} from './cpu'
+import { EMPTY, rampAt, record, settle } from './qte'
 import { createMatch, qteWindow, step } from './match'
 import { nextRandom, shuffle } from './rng'
 import { freshnessOf } from './scoring'
@@ -121,7 +130,9 @@ function perform(profile: Profile, card: Card, rolls: Rolls, state: MatchState):
   if (profile.strategy) return performQte(profile.strategy, card, cpuRoll(state, 1))
 
   const odds = cardOdds(profile, card)
-  const total = opportunities(card)
+  // Open-ended gestures take as many chances as the hands manage; see
+  // `attemptsFor`. The profile's own `perfect` stands in for its pace.
+  const total = attemptsFor({ ...NO_STRATEGY, qteSkill: profile.perfect }, card)
   // How this card is going for them, drawn once and felt on every beat of it.
   const form = (rolls.next() - 0.5) * QTE_FORM_SWING
   let ledger = EMPTY

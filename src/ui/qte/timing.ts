@@ -57,6 +57,20 @@ export function errorAt(t: number, startedAt: number, sweepMs: number, edge = 0)
   return Math.abs(cursorAt(t, startedAt, sweepMs, edge) - 0.5) * sweepMs
 }
 
+/**
+ * How many times the cursor passes dead centre inside the card, at its opening
+ * pace and before any of the speeding-up a landed tap brings.
+ *
+ * The conservative count on purpose: a card must offer comfortably more
+ * crossings than `perfectAt` asks for, or a flawless run is not something the
+ * card allows however well it is played. `timing.test.ts` holds every sweep
+ * card to it, which is how a tuning pass that quietens the bar cannot quietly
+ * make its own PERFECT unreachable.
+ */
+export function crossings(durationMs: number, params: TimingParams): number {
+  return Math.floor(durationMs / params.sweepMs)
+}
+
 export function gradeHit(errorMs: number, params: TimingParams): Judgement {
   if (errorMs <= params.perfectMs) return 'PERFECT'
   if (errorMs <= params.goodMs) return 'GOOD'

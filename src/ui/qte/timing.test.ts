@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { getCard } from '../../engine/cards'
 import type { TimingParams } from '../../engine/types'
-import { combine, cursorAt, errorAt, gradeHit, rephase, startEdge } from './timing'
+import { CARDS } from '../../engine/cards'
+import { combine, crossings, cursorAt, errorAt, gradeHit, rephase, startEdge } from './timing'
 
 const params = getCard('mewing').qte as TimingParams
 
@@ -70,7 +71,7 @@ describe('grading', () => {
     const hard = getCard('griddy-drop').qte as TimingParams
     expect(hard.perfectMs).toBeLessThan(easy.perfectMs)
     expect(hard.sweepMs).toBeLessThan(easy.sweepMs)
-    expect(hard.hits).toBeGreaterThan(easy.hits)
+    expect(hard.perfectAt).toBeGreaterThan(easy.perfectAt)
   })
 })
 
@@ -129,5 +130,36 @@ describe('changing pace mid-sweep', () => {
     const seen = Array.from({ length: 200 }, (_, i) => cursorAt(1300 + i * 6, phase, faster))
     expect(Math.min(...seen)).toBeLessThan(0.05)
     expect(Math.max(...seen)).toBeGreaterThan(0.95)
+  })
+})
+
+/**
+ * A card cannot ask for more taps than the bar will offer. The sweep used to
+ * demand six hits inside an animation the cursor only crossed the centre three
+ * times in, which made a flawless run something the card refused to allow
+ * however well it was played.
+ */
+describe('a bar that comes past often enough', () => {
+  it('crosses the centre more often than a clean run needs', () => {
+    for (const card of CARDS) {
+      if (card.qte.game !== 'sweep') continue
+      const passes = crossings(card.durationMs, card.qte)
+      // Comfortably more, not exactly enough: at its opening pace, before any
+      // of the speeding-up a landed tap brings.
+      expect(passes, `${card.name} perfect`).toBeGreaterThan(card.qte.perfectAt)
+      expect(passes, `${card.name} good`).toBeGreaterThan(card.qte.goodAt)
+    }
+  })
+
+  it('asks for more to be flawless than it does to score', () => {
+    for (const card of CARDS) {
+      if (card.qte.game !== 'sweep') continue
+      expect(card.qte.perfectAt, card.name).toBeGreaterThan(card.qte.goodAt)
+    }
+  })
+
+  it('counts what the bar offers, not what it was asked for', () => {
+    expect(crossings(1000, { ...params, sweepMs: 250 })).toBe(4)
+    expect(crossings(1000, { ...params, sweepMs: 400 })).toBe(2)
   })
 })
