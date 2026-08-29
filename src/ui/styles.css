@@ -1298,6 +1298,28 @@
   transform: translate(-50%, -50%);
   touch-action: none;
 }
+/* A slip takes nothing off the pad — losing the number you were reaching for
+   loses your place in the sequence too, which is a second punishment nobody
+   asked for. The whole pad says so at once instead. */
+.qte__area.order[data-wrong='true'] .order__key {
+  animation: order-wrong 320ms ease-out;
+}
+@keyframes order-wrong {
+  0%,
+  60% {
+    border-color: var(--miss);
+    color: var(--miss);
+  }
+  100% {
+    border-color: var(--speed);
+    color: var(--ink);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qte__area.order[data-wrong='true'] .order__key {
+    animation-duration: 1ms;
+  }
+}
 .order__key[data-done='true'] {
   opacity: 0.28;
   border-color: var(--perfect);

@@ -7,7 +7,15 @@ import {
   QTE_SCRAPPY_VALUE,
   QTE_TICK_MS,
 } from './balance'
-import type { Card, Difficulty, Judgement, QteOutcome, QtePacing, TimingParams } from './types'
+import type {
+  Card,
+  Difficulty,
+  Judgement,
+  LanesParams,
+  QteOutcome,
+  QtePacing,
+  TimingParams,
+} from './types'
 
 /**
  * How a gesture is scored, for all six of them.
@@ -111,7 +119,7 @@ export function chancesIn(card: Card): number {
   const params = card.qte
   switch (params.game) {
     case 'lanes':
-      return params.notes
+      return notesInside(card, params)
     case 'sweep':
       return crossings(card.durationMs, params)
     case 'zone':
@@ -120,9 +128,28 @@ export function chancesIn(card: Card): number {
         QTE_OPPORTUNITIES_MAX,
         Math.max(QTE_OPPORTUNITIES_MIN, Math.round(card.durationMs / QTE_TICK_MS)),
       )
-    default:
-      return opportunities(card)
+    // A mash and a number pad have no ceiling of their own, so the ceiling is
+    // the one the score already has: exactly as many chances as the overshoot
+    // will pay for. Answering all of them is a flawless run, and the tap after
+    // that is worth nothing either way.
+    case 'mash':
+    case 'order':
+      return Math.round(params.goodAt * QTE_OVERSHOOT_MAX)
   }
+}
+
+/**
+ * How many of a chart's notes actually reach the line while the card is still
+ * running. A chart used to be allowed to outlast its own animation, and the
+ * notes past the end were charged to the player as dropped — a fumble on a
+ * note that never arrived, which is not something anyone can be asked to fix.
+ */
+function notesInside(card: Card, params: LanesParams): number {
+  let inside = 0
+  for (let i = 0; i < params.notes; i++) {
+    if (params.travelMs + i * params.gapMs + params.goodMs <= card.durationMs) inside += 1
+  }
+  return Math.max(1, inside)
 }
 
 /**
@@ -131,7 +158,7 @@ export function chancesIn(card: Card): number {
  * number of pieces and neither is penalised for its length.
  */
 export function tickLength(card: Card): number {
-  return card.durationMs / opportunities(card)
+  return card.durationMs / chancesIn(card)
 }
 
 /**
@@ -211,7 +238,15 @@ export function settle(card: Card, ledger: Ledger): QteOutcome {
   // it was supposed to reach and stop at, so falling short simply scores less.
   const full = open ? ledger : ignored(ledger, chancesIn(card))
   const accuracy = accuracyOf(full, total, true)
-  const perfectEligible = full.mistakes === 0
+
+  // PERFECT is a clean run that was still going at the end. Clearing the bar
+  // and stopping there is a GOOD however tidy it was: the card was still
+  // offering chances and you did not take them. A counted gesture gets this
+  // for free — `ignored` has already charged the ones that went by — but an
+  // open one has to be asked outright, or "do the nine and put the phone down"
+  // would be the best way to play it.
+  const answered = full.taken >= chancesIn(card)
+  const perfectEligible = full.mistakes === 0 && answered
 
   /**
    * The same shape either way, and it is worth saying plainly: PERFECT is not
@@ -256,9 +291,9 @@ export function runFor(card: Card, judgement: Judgement): QteOutcome {
   }
 
   if (judgement === 'PERFECT') {
-    // Everything the card holds, cleanly. An open gesture is played a little
-    // past its bar, which is what anyone does who is not counting.
-    add(open ? bar + 1 : held, 'clean')
+    // Everything the card holds, cleanly — including an open one, which is
+    // only flawless if it was still being played when the animation ended.
+    add(held, 'clean')
   } else if (judgement === 'GOOD') {
     // Over the bar with one fumble in it, which is exactly what a GOOD is.
     // An open gesture buys the room by going further; a counted one has to

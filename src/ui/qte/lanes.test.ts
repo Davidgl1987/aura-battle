@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { CARDS } from '../../engine/cards'
+import { chancesIn } from '../../engine/qte'
 import type { Judgement, LanesParams } from '../../engine/types'
 import { chart, chartLength, combineNotes, gradeNote, noteProgress } from './lanes'
 
@@ -83,5 +85,21 @@ describe('the card as a whole', () => {
     expect(combineNotes([...all('GOOD', 4), ...all('MISS', 2)], 6)).toBe('GOOD')
     expect(combineNotes([...all('GOOD', 3), ...all('MISS', 3)], 6)).toBe('MISS')
     expect(combineNotes([], 6)).toBe('MISS')
+  })
+})
+
+/**
+ * A chart cannot outlast the card it belongs to. Both of them used to schedule
+ * a last note that reached the line after the animation had already finished,
+ * and that note was then charged to the player as one they dropped.
+ */
+describe('a chart that fits its own card', () => {
+  it('brings every note to the line before the card ends', () => {
+    for (const card of CARDS) {
+      if (card.qte.game !== 'lanes') continue
+      expect(chartLength(card.qte), card.name).toBeLessThanOrEqual(card.durationMs)
+      // And the engine counts them all, because they all arrived.
+      expect(chancesIn(card), card.name).toBe(card.qte.notes)
+    }
   })
 })

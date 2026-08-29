@@ -143,9 +143,14 @@ describe('a bar that comes past often enough', () => {
   it('comes past more often than it asks to be hit', () => {
     for (const card of CARDS) {
       if (card.qte.game !== 'sweep') continue
-      // At its opening pace, before any of the quickening a landed tap brings,
-      // so the real headroom is wider than this.
-      expect(crossings(card.durationMs, card.qte), card.name).toBeGreaterThan(card.qte.goodAt)
+      // Two more than it asks for, at its opening pace and before any of the
+      // quickening a landed tap brings: one for the fumble a GOOD is allowed
+      // and one for the room above the bar. At exactly the bar plus one, a
+      // single slip was already a MISS and the sweeps were the harshest cards
+      // in the game.
+      expect(crossings(card.durationMs, card.qte), card.name).toBeGreaterThanOrEqual(
+        card.qte.goodAt + 2,
+      )
     }
   })
 

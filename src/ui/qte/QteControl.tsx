@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { play } from '../../audio/engine'
 import { now } from '../../state/store'
-import { QTE_TICK_MS } from '../../engine/balance'
 import type { Card, ControlParams, QteOutcome } from '../../engine/types'
 import { useRun } from './run'
 import { useArming } from './arming'
@@ -103,8 +102,13 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
       // Banked on a fixed clock rather than per frame, and each tick is
       // judged on the share of itself that was held — one dropped frame is
       // sixteen milliseconds and must not cost a PERFECT.
+      //
+      // The whole animation is banked, not just the bar's worth of it. Ticking
+      // only as far as the bar meant the run held exactly as many chances as it
+      // had to clear, so the first wobble put it out of reach for good and the
+      // card was unloseable or unwinnable with nothing in between.
       if (armedAt !== null) {
-        while (elapsed >= (ticks.current + 1) * QTE_TICK_MS && ticks.current < run.total) {
+        while (elapsed >= (ticks.current + 1) * run.tickMs && ticks.current < run.chances) {
           ticks.current += 1
           run.hold(inTick.current)
           inTick.current = 0
@@ -128,8 +132,14 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
 
   const grab = (event: React.PointerEvent<HTMLDivElement>) => {
     // Capture so a finger that slides off the pad still reports as "out"
-    // instead of silently ending the gesture.
-    event.currentTarget.setPointerCapture(event.pointerId)
+    // instead of silently ending the gesture. It throws if the pointer has
+    // already gone, and an exception here would take the whole press with it —
+    // the finger would land on the ring and nothing would happen.
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // Carry on without capture; tracking still works inside the pad.
+    }
     track(event)
   }
 

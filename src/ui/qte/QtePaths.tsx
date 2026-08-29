@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import { now } from '../../state/store'
-import { QTE_TICK_MS } from '../../engine/balance'
 import type { Card, PathsParams, QteOutcome } from '../../engine/types'
 import { useRun } from './run'
 import { isDown } from '../pointers'
@@ -138,7 +137,7 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
       run.paint(rootRef.current)
 
       if (armedAt !== null) {
-        while (live >= (ticks.current + 1) * QTE_TICK_MS && ticks.current < run.total) {
+        while (live >= (ticks.current + 1) * run.tickMs && ticks.current < run.chances) {
           ticks.current += 1
           // A card played with one thumb is a refusal to attempt it, so a tick
           // with only one marker down banks as nothing at all.

@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { play } from '../../audio/engine'
-import { QTE_TICK_MS } from '../../engine/balance'
-import { EMPTY, accuracyOf, opportunities, record, settle, tickBeat } from '../../engine/qte'
+import {
+  EMPTY,
+  accuracyOf,
+  chancesIn,
+  opportunities,
+  record,
+  settle,
+  tickBeat,
+  tickLength,
+} from '../../engine/qte'
 import type { Beat, Ledger } from '../../engine/qte'
 import type { Card, QteOutcome } from '../../engine/types'
 
@@ -19,8 +27,12 @@ import type { Card, QteOutcome } from '../../engine/types'
  */
 export interface Run {
   readonly ledger: Ledger
-  /** Chances the card offers in total. */
+  /** The bar the card asks you to clear. */
   readonly total: number
+  /** How many chances it actually holds, which is never fewer than the bar. */
+  readonly chances: number
+  /** How long one chance of a continuous gesture lasts. */
+  readonly tickMs: number
   /** False the moment anything is fumbled. */
   readonly perfect: boolean
   /** 0..1 so far, for the performance bar. */
@@ -52,6 +64,8 @@ export function useRun(card: Card, onResult: (outcome: QteOutcome) => void): Run
     let ledger = EMPTY
     let done = false
     const total = opportunities(card)
+    const chances = chancesIn(card)
+    const tickMs = tickLength(card)
 
     const announce = (beat: Beat) => {
       // The first fumble is the whole difference between PERFECT and GOOD, so
@@ -65,6 +79,8 @@ export function useRun(card: Card, onResult: (outcome: QteOutcome) => void): Run
         return ledger
       },
       total,
+      chances,
+      tickMs,
       get perfect() {
         return ledger.mistakes === 0
       },
@@ -81,9 +97,9 @@ export function useRun(card: Card, onResult: (outcome: QteOutcome) => void): Run
         announce(beat)
       },
 
-      hold(insideMs, tickMs = QTE_TICK_MS) {
+      hold(insideMs, over = tickMs) {
         if (done) return
-        const beat = tickBeat(insideMs, tickMs)
+        const beat = tickBeat(insideMs, over)
         ledger = record(ledger, beat)
         // Continuous gestures tick four times a second; a sound on every one
         // of them is a buzz, so only the slips speak.

@@ -42,7 +42,20 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
   const armRef = useRef<HTMLElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
   const [taken, setTaken] = useState(0)
-  const [wrong, setWrong] = useState(0)
+  const padRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * Every number goes red for a moment. Clearing the attribute and reading a
+   * layout property in between is what forces the restyle — without it a second
+   * slip changes nothing and the animation never plays again.
+   */
+  const flashPad = () => {
+    const pad = padRef.current
+    if (!pad) return
+    pad.dataset.wrong = ''
+    void pad.offsetWidth
+    pad.dataset.wrong = 'true'
+  }
 
   /**
    * One number leaves the pad and the next of the run takes its place, in a
@@ -104,12 +117,12 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
     if (arming.armedAt === null) arming.arm(t)
 
     if (n !== next.current) {
-      // A press out of order costs a chance the way running out of time on one
-      // would. The number you pressed stays where it is; the one you should
-      // have pressed is the one you lose.
+      // A slip costs a chance, but it must not change the pad. Retiring the
+      // number you were reaching for left you hunting for one that was no
+      // longer there, so a single mistake cost you the thread as well. The
+      // whole pad flashes red instead and the target stays put.
       run.beat('missed')
-      retire(next.current)
-      setWrong(run.ledger.mistakes)
+      flashPad()
       return
     }
 
@@ -133,7 +146,7 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
 
-      <div className="qte__area order" data-wrong={wrong}>
+      <div className="qte__area order" ref={padRef}>
         {spots.map((spot) => (
           <button
             key={spot.n}

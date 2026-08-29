@@ -76,7 +76,7 @@ describe('what a card offers', () => {
     for (const card of CARDS) {
       if (card.qte.game !== 'zone' && card.qte.game !== 'paths') continue
       // The whole animation is covered, whatever the card's duration.
-      expect(tickLength(card) * opportunities(card)).toBeCloseTo(card.durationMs, 5)
+      expect(tickLength(card) * chancesIn(card)).toBeCloseTo(card.durationMs, 5)
     }
   })
 
@@ -192,7 +192,9 @@ describe('settling a run', () => {
       const outcome = unplayed(card)
       expect(outcome.judgement, card.name).toBe('MISS')
       expect(outcome.score, card.name).toBe(0)
-      expect(outcome.perfectEligible, card.name).toBe(pacingOf(card) === 'open')
+      // Not even vacuously flawless: a gesture nobody touched answered none
+      // of the chances it held.
+      expect(outcome.perfectEligible, card.name).toBe(false)
     }
   })
 
@@ -221,7 +223,9 @@ describe('settling a run', () => {
     const bar = opportunities(card)
     const enough = play(card, Array.from({ length: bar }, () => 'clean'))
     const more = play(card, Array.from({ length: bar + 6 }, () => 'clean'))
-    expect(enough.judgement).toBe('PERFECT')
+    // Clearing the bar and stopping there is a GOOD, however clean it was:
+    // the card was still offering chances and they went unanswered.
+    expect(enough.judgement).toBe('GOOD')
     expect(more.judgement).toBe('PERFECT')
     expect(more.score).toBeGreaterThan(enough.score)
     // Capped, so the three open gestures cannot out-earn the three counted
@@ -259,6 +263,67 @@ describe('settling a run', () => {
     expect(tickBeat(150, 250)).toBe('scrappy')
     expect(tickBeat(20, 250)).toBe('missed')
     expect(tickBeat(0, 0)).toBe('missed')
+  })
+})
+
+/**
+ * The bug this exists to catch: the two continuous gestures were cut into
+ * exactly as many stretches as they had to clear, so the first wobble put the
+ * bar out of reach for the rest of the card and every play of them was a MISS.
+ * A card with no room above its bar is not a hard card, it is a broken one.
+ */
+describe('room to slip', () => {
+  const whole = (card: Card, missed: number) =>
+    play(card, [
+      ...Array.from({ length: chancesIn(card) - missed }, () => 'clean' as Beat),
+      ...Array.from({ length: missed }, () => 'missed' as Beat),
+    ])
+
+  it('holds more chances than it asks you to clear', () => {
+    for (const card of CARDS) {
+      expect(chancesIn(card), card.name).toBeGreaterThan(opportunities(card))
+    }
+  })
+
+  it('still scores a run that was played the whole way with a fumble in it', () => {
+    for (const card of CARDS) {
+      expect(whole(card, 0).judgement, card.name).toBe('PERFECT')
+      expect(whole(card, 1).judgement, card.name).toBe('GOOD')
+    }
+  })
+
+  it('sinks a run that fumbled most of what it was offered', () => {
+    for (const card of CARDS) {
+      expect(whole(card, chancesIn(card) - 1).judgement, card.name).toBe('MISS')
+    }
+  })
+})
+
+/**
+ * "Do the good and stop" was the best way to play an open gesture: the bar was
+ * cleared, nothing had been fumbled, so it came out flawless with half the
+ * animation still to run.
+ */
+describe('stopping once the bar is cleared', () => {
+  it('scores the bar but is never flawless', () => {
+    for (const card of CARDS) {
+      if (pacingOf(card) !== 'open') continue
+      const stopped = play(
+        card,
+        Array.from({ length: opportunities(card) }, () => 'clean' as Beat),
+      )
+      expect(stopped.judgement, card.name).toBe('GOOD')
+      expect(stopped.perfectEligible, card.name).toBe(false)
+    }
+  })
+
+  it('is worth less than the same run played out to the end', () => {
+    for (const card of CARDS) {
+      if (pacingOf(card) !== 'open') continue
+      const stopped = play(card, Array.from({ length: opportunities(card) }, () => 'clean' as Beat))
+      const carried = play(card, Array.from({ length: chancesIn(card) }, () => 'clean' as Beat))
+      expect(carried.score, card.name).toBeGreaterThan(stopped.score)
+    }
   })
 })
 
