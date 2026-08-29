@@ -4,7 +4,7 @@ import { QTE_GOOD_RATIO, QTE_RAMP } from '../../engine/balance'
 import type { Card, QteOutcome, SpeedParams } from '../../engine/types'
 import { schedule, useRun } from './run'
 import { useArming } from './arming'
-import { countsAsTap } from './speed'
+import { countsAsTap, gradePace } from './speed'
 
 interface Props {
   card: Card
@@ -15,8 +15,8 @@ interface Props {
   onResult: (outcome: QteOutcome) => void
 }
 
-/** How far off the beat still counts for something. */
-const WINDOW_MS = 170
+/** How far behind the pace still counts for something. */
+const WINDOW_MS = 220
 
 export function QteSpeed({ card, params, startedAt, onResult }: Props) {
   const run = useRun(card, onResult)
@@ -90,12 +90,10 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
       return
     }
 
-    // How close to the beat it landed. The beats tighten as the card runs, so
-    // the same hand gets less room the further in it gets.
-    const error = Math.abs(t - armedAt - beats.current[next.current])
+    const late = t - armedAt - beats.current[next.current]
     next.current += 1
     lastZone.current = zone
-    run.beat(error <= WINDOW_MS * 0.45 ? 'clean' : error <= WINDOW_MS ? 'scrappy' : 'missed')
+    run.beat(gradePace(late, WINDOW_MS))
   }
 
   const zones = params.alternating ? [0, 1] : [0]

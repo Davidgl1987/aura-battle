@@ -1,15 +1,18 @@
-import type { Judgement, SpeedParams } from '../../engine/types'
+import type { Beat } from '../../engine/qte'
 
-/** Falling short of the target still scores, down to this share of it. */
-export const SPEED_GOOD_RATIO = 0.7
-
-export function goodThreshold(params: SpeedParams): number {
-  return Math.ceil(params.targetTaps * SPEED_GOOD_RATIO)
-}
-
-export function gradeSpeed(taps: number, params: SpeedParams): Judgement {
-  if (taps >= params.targetTaps) return 'PERFECT'
-  return taps >= goodThreshold(params) ? 'GOOD' : 'MISS'
+/**
+ * How an alternation is graded. Only being late costs anything.
+ *
+ * Tap as fast as you like: the gesture is a six and a seven, one in each hand,
+ * and going quicker is the whole point of it. What you cannot do is fall
+ * behind, and each alternation has a deadline that tightens as the card runs.
+ *
+ * This was graded on the absolute distance from the beat for a while, which
+ * meant playing it well — getting ahead of the pace — was scored as a fumble.
+ */
+export function gradePace(lateMs: number, windowMs: number): Beat {
+  if (lateMs <= 0) return 'clean'
+  return lateMs <= windowMs ? 'scrappy' : 'missed'
 }
 
 /**

@@ -1,37 +1,39 @@
 import { describe, expect, it } from 'vitest'
-import { getCard } from '../../engine/cards'
-import type { SpeedParams } from '../../engine/types'
-import { countsAsTap, goodThreshold, gradeSpeed } from './speed'
+import { countsAsTap, gradePace } from './speed'
 
-const mash = getCard('six-seven').qte as SpeedParams
-const alternate = getCard('sturdy').qte as SpeedParams
-
-describe('grading a mash', () => {
-  it('is PERFECT at the target and beyond', () => {
-    expect(gradeSpeed(mash.targetTaps, mash)).toBe('PERFECT')
-    expect(gradeSpeed(mash.targetTaps + 5, mash)).toBe('PERFECT')
-  })
-
-  it('drops to GOOD short of the target and MISS well short', () => {
-    expect(gradeSpeed(goodThreshold(mash), mash)).toBe('GOOD')
-    expect(gradeSpeed(goodThreshold(mash) - 1, mash)).toBe('MISS')
-    expect(gradeSpeed(0, mash)).toBe('MISS')
-  })
-
-  it('asks for more taps as difficulty goes up', () => {
-    expect(alternate.targetTaps).toBeGreaterThan(mash.targetTaps)
-  })
-})
-
-describe('alternating pads', () => {
-  it('takes any tap when the card does not alternate', () => {
-    expect(countsAsTap(0, 0, false)).toBe(true)
-    expect(countsAsTap(1, 1, false)).toBe(true)
-  })
-
-  it('ignores a second tap on the same pad', () => {
+describe('two thumbs, not one', () => {
+  it('ignores a second tap on the same pad when the card alternates', () => {
     expect(countsAsTap(0, null, true)).toBe(true)
     expect(countsAsTap(1, 0, true)).toBe(true)
     expect(countsAsTap(0, 0, true)).toBe(false)
+  })
+
+  it('takes any tap on a card that does not alternate', () => {
+    expect(countsAsTap(0, 0, false)).toBe(true)
+  })
+})
+
+/**
+ * The rule that broke: the gesture is a speed test, so getting ahead of the
+ * pace is playing it well. Only falling behind may cost anything.
+ */
+describe('keeping the pace', () => {
+  const window = 220
+
+  it('counts an early tap as clean, however early', () => {
+    for (const late of [-1, -50, -500, -5000]) {
+      expect(gradePace(late, window), `${late}ms`).toBe('clean')
+    }
+    expect(gradePace(0, window)).toBe('clean')
+  })
+
+  it('lets a little lateness through as scrappy', () => {
+    expect(gradePace(1, window)).toBe('scrappy')
+    expect(gradePace(window, window)).toBe('scrappy')
+  })
+
+  it('only fumbles a tap that missed its deadline outright', () => {
+    expect(gradePace(window + 1, window)).toBe('missed')
+    expect(gradePace(9999, window)).toBe('missed')
   })
 })

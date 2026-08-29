@@ -22,6 +22,36 @@ export function cursorAt(t: number, startedAt: number, sweepMs: number, edge = 0
   return p <= 1 ? p : 2 - p
 }
 
+/**
+ * Where in its stroke the cursor is: 0 to 2 across a there-and-back, so it
+ * carries the direction as well as the position.
+ */
+export function strokeAt(t: number, startedAt: number, sweepMs: number, edge = 0): number {
+  const span = 2 * sweepMs
+  const shifted = t - startedAt + edge * sweepMs
+  return (((shifted % span) + span) % span) / sweepMs
+}
+
+/**
+ * A new phase origin that leaves the cursor exactly where it is, moving the
+ * way it was, while the sweep changes speed.
+ *
+ * The bar speeds up after every hit, and without this the stroke restarted
+ * from the tap — the cursor jumped to the middle and set off again, which read
+ * as the card resetting under you. It sweeps side to side without pause now,
+ * whether the tap landed or not; only the pace changes.
+ */
+export function rephase(
+  t: number,
+  startedAt: number,
+  sweepMs: number,
+  nextSweepMs: number,
+  edge = 0,
+): number {
+  const stroke = strokeAt(t, startedAt, sweepMs, edge)
+  return t + edge * nextSweepMs - stroke * nextSweepMs
+}
+
 /** How far the tap landed from the centre of the bar, in milliseconds. */
 export function errorAt(t: number, startedAt: number, sweepMs: number, edge = 0): number {
   return Math.abs(cursorAt(t, startedAt, sweepMs, edge) - 0.5) * sweepMs

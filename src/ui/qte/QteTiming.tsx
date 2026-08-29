@@ -4,7 +4,7 @@ import { now, stamp } from '../../state/store'
 import type { Card, QteOutcome, TimingParams } from '../../engine/types'
 import { useArming } from './arming'
 import { useRun } from './run'
-import { cursorAt, errorAt, gradeHit, startEdge } from './timing'
+import { cursorAt, errorAt, gradeHit, rephase, startEdge } from './timing'
 
 interface Props {
   card: Card
@@ -82,10 +82,13 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
     run.beat(hit === 'PERFECT' ? 'clean' : hit === 'GOOD' ? 'scrappy' : 'missed')
 
     if (hit !== 'MISS') {
-      // Speeding up from the tap that earned it, so the cursor does not jump.
+      // Faster, but not restarted: the cursor carries on from exactly where it
+      // is, in the direction it was already going. Re-anchoring the phase is
+      // what keeps the stroke unbroken while the pace changes.
       const step = 1 - (QTE_RAMP - 1) / (params.hits - 1) / QTE_RAMP
-      sweep.current = Math.max(180, sweep.current * step)
-      phase.current = t
+      const next = Math.max(180, sweep.current * step)
+      phase.current = rephase(t, phase.current, sweep.current, next, edge)
+      sweep.current = next
     }
 
     const dot = hitsRef.current?.children[run.ledger.taken - 1] as HTMLElement | undefined

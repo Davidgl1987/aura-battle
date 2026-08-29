@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { now, stamp } from '../../state/store'
 import { QTE_RAMP } from '../../engine/balance'
 import type { Card, OrderParams, QteOutcome } from '../../engine/types'
 import { schedule, useRun } from './run'
 import { useArming } from './arming'
-import { orderLayout } from './order'
+import { spotFor, type Spot } from './order'
 
 interface Props {
   card: Card
@@ -14,9 +14,30 @@ interface Props {
   onResult: (outcome: QteOutcome) => void
 }
 
+/** How many are on the pad at once. The run is longer than the pad is. */
+const VISIBLE = 5
+
 export function QteOrder({ card, params, startedAt, variation, onResult }: Props) {
   const arming = useArming(startedAt)
-  const spots = useMemo(() => orderLayout(params.count, variation), [params.count, variation])
+
+  /**
+   * A rolling window rather than the whole sequence laid out at once. Five are
+   * on the pad; press the lowest and it goes, and the next number of the run
+   * appears somewhere else. Otherwise the pad empties as you play and the last
+   * couple of numbers are the only things left to look at.
+   */
+  /**
+   * The pad is worked out in the handler and only handed to React to draw.
+   * Choosing a spot used to advance a shared generator, which made both the
+   * state updater and the render impure — under StrictMode each ran twice and
+   * the number that should have appeared never did.
+   */
+  const [spots, setSpots] = useState<Spot[]>(() => {
+    const out: Spot[] = []
+    for (let n = 1; n <= Math.min(VISIBLE, params.count); n++) out.push(spotFor(n, out, variation))
+    return out
+  })
+  const pad = useRef<Spot[] | null>(null)
 
   const run = useRun(card, onResult)
   const next = useRef(1)
@@ -28,6 +49,28 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
   const timeRef = useRef<HTMLDivElement>(null)
   const [taken, setTaken] = useState(0)
   const [wrong, setWrong] = useState(0)
+
+  /**
+   * One number leaves the pad and the next of the run takes its place, in a
+   * spot chosen away from whatever else is still down.
+   */
+  const retire = (n: number) => {
+    next.current = n + 1
+    setTaken(n)
+
+    const current = pad.current ?? spots
+    const left = current.filter((spot) => spot.n !== n)
+    const highest = current.reduce((top, spot) => Math.max(top, spot.n), 0)
+    pad.current = highest < params.count ? [...left, spotFor(highest + 1, left, variation)] : left
+    setSpots(pad.current)
+  }
+
+  // Held in a ref so the frame loop can call it without being rebuilt every
+  // render, the way `useGameEvents` keeps its own handler current.
+  const retireRef = useRef(retire)
+  useEffect(() => {
+    retireRef.current = retire
+  })
 
   useEffect(() => {
     let raf = 0
@@ -50,9 +93,8 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
       if (armedAt !== null) {
         const elapsed = t - armedAt
         while (next.current <= params.count && elapsed > deadlines.current[next.current - 1]) {
-          next.current += 1
+          retireRef.current(next.current)
           run.beat('missed')
-          setTaken(next.current - 1)
         }
       }
 
@@ -80,12 +122,12 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
     const armedAt = arming.armedAt ?? t
 
     if (n !== next.current) {
-      // A press out of order costs the chance the way running out of time on
-      // it would, and the number stays: you still have to find it.
+      // A press out of order costs a chance the way running out of time on one
+      // would. The number you pressed stays where it is; the one you should
+      // have pressed is the one you lose.
       run.beat('missed')
-      next.current += 1
+      retire(next.current)
       setWrong(run.ledger.mistakes)
-      setTaken(next.current - 1)
       return
     }
 
@@ -93,9 +135,7 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
     const window = deadlines.current[n - 1] - (n > 1 ? deadlines.current[n - 2] : 0)
     const spent = t - armedAt - (n > 1 ? deadlines.current[n - 2] : 0)
     run.beat(spent <= window * 0.6 ? 'clean' : 'scrappy')
-
-    next.current += 1
-    setTaken(n)
+    retire(n)
   }
 
   return (
@@ -118,7 +158,7 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
             key={spot.n}
             type="button"
             className="order__key"
-            data-done={spot.n <= taken}
+            data-next={spot.n === taken + 1}
             style={{ left: `${spot.x * 100}%`, top: `${spot.y * 100}%` }}
             onPointerDown={press(spot.n)}
           >

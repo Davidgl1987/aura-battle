@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getCard } from '../../engine/cards'
 import type { TimingParams } from '../../engine/types'
-import { combine, cursorAt, errorAt, gradeHit, startEdge } from './timing'
+import { combine, cursorAt, errorAt, gradeHit, rephase, startEdge } from './timing'
 
 const params = getCard('mewing').qte as TimingParams
 
@@ -80,5 +80,54 @@ describe('combining multi-tap cards', () => {
     expect(combine(['PERFECT', 'GOOD'])).toBe('GOOD')
     expect(combine(['PERFECT', 'MISS'])).toBe('MISS')
     expect(combine([])).toBe('MISS')
+  })
+})
+
+/**
+ * The bar speeds up after every hit and it must not restart doing it. The
+ * cursor used to jump back to the tap and set off again, which read as the
+ * card resetting under you rather than tightening.
+ */
+describe('changing pace mid-sweep', () => {
+  const sweep = 900
+  const faster = 600
+
+  it('leaves the cursor exactly where it was', () => {
+    for (const edge of [0, 1]) {
+      for (const at of [0, 120, 450, 899, 1200, 1750]) {
+        const t = 1000 + at
+        const before = cursorAt(t, 1000, sweep, edge)
+        const phase = rephase(t, 1000, sweep, faster, edge)
+        expect(cursorAt(t, phase, faster, edge), `edge ${edge} at ${at}`).toBeCloseTo(before, 6)
+      }
+    }
+  })
+
+  it('leaves it going the way it was going', () => {
+    for (const at of [200, 700, 1100, 1600]) {
+      const t = 1000 + at
+      const step = 1
+      const wasRising = cursorAt(t + step, 1000, sweep) > cursorAt(t, 1000, sweep)
+
+      const phase = rephase(t, 1000, sweep, faster)
+      const isRising = cursorAt(t + step, phase, faster) > cursorAt(t, phase, faster)
+      expect(isRising, `at ${at}`).toBe(wasRising)
+    }
+  })
+
+  it('actually runs faster afterwards', () => {
+    const t = 1300
+    const phase = rephase(t, 1000, sweep, faster)
+    const travel = (p: number, ms: number) =>
+      Math.abs(cursorAt(t + 20, p, ms) - cursorAt(t, p, ms))
+    expect(travel(phase, faster)).toBeGreaterThan(travel(1000, sweep))
+  })
+
+  it('keeps sweeping side to side rather than parking', () => {
+    // A whole stroke of the faster sweep still reaches both ends.
+    const phase = rephase(1300, 1000, sweep, faster)
+    const seen = Array.from({ length: 200 }, (_, i) => cursorAt(1300 + i * 6, phase, faster))
+    expect(Math.min(...seen)).toBeLessThan(0.05)
+    expect(Math.max(...seen)).toBeGreaterThan(0.95)
   })
 })
