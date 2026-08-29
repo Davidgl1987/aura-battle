@@ -52,7 +52,7 @@ export const CHOOSE_SECONDS_DEFAULT = 4
  * landed, and a run that goes past the bar is worth more still — the median
  * went half again, so this had to as well or a battle was over in three moves.
  */
-export const MOGGED_THRESHOLD = 13000
+export const MOGGED_THRESHOLD = 11000
 
 /**
  * How hard the bar leans toward whoever is ahead. The needle is a curve, not a
@@ -103,8 +103,43 @@ export const QTE_OPPORTUNITIES_MAX = 8
  */
 export const QTE_OVERSHOOT_MAX = 1.25
 
-/** What a landed-but-scrappy opportunity is worth against a clean one. */
-export const QTE_SCRAPPY_VALUE = 0.55
+/**
+ * What a landed-but-scrappy opportunity is worth against a clean one.
+ *
+ * Nearly all of it. Taking the lesser target costs you the flawless run and
+ * that is the whole of what it costs — charging the score for it as well left
+ * the two gestures that have a lesser target worth half what the four without
+ * one were worth for the same hands.
+ */
+export const QTE_SCRAPPY_VALUE = 0.85
+
+/**
+ * Share of a stretch that has to be held for the stretch to count.
+ *
+ * Below this the stretch is simply dropped: a hold has no lesser target to
+ * take, so it has no scrappy grade either — see `tickBeat`.
+ */
+export const QTE_HOLD_CLEAN = 0.6
+
+/**
+ * The fewest chances past the bar an open gesture ever holds.
+ *
+ * A card whose ceiling sat at the bar plus one had no room for the single
+ * fumble a GOOD is allowed: the run cleared or it did not, with nothing in
+ * between. Same rule the sweep gets from its crossings.
+ */
+export const QTE_OPEN_HEADROOM = 2
+
+/**
+ * What share of a card's chances its bar sits at.
+ *
+ * Only the two gestures with no ceiling of their own need this — a sweep gets
+ * its ceiling from how often the cursor comes back and a chart from how many
+ * notes it has — but the number is theirs too, and keeping it in one place is
+ * what stops a mash from asking for four fifths of its taps while a hold asks
+ * for half.
+ */
+export const QTE_BAR_SHARE = 0.6
 
 /**
  * What one fumble costs, in opportunities. At 1 a mistake cancels a clean hit,
@@ -167,7 +202,7 @@ export const FRESH_AURA = 400
  * often, so at 400 a good player was better off never bringing one — which
  * would have made the whole difficulty axis decoration.
  */
-export const HARD_AURA: Record<Difficulty, number> = { 1: 0, 2: 250, 3: 1300 }
+export const HARD_AURA: Record<Difficulty, number> = { 1: 0, 2: 250, 3: 1800 }
 
 /** Consecutive PERFECTs needed before the streak is worth anything. */
 export const STREAK_MIN = 2
@@ -186,7 +221,7 @@ export const OUTAURA_RATIO = 1.5
  * again what theirs did, and paying a bonus on top of that paid twice for the
  * same thing. Momentum instead, so the reward is a step toward god aura.
  */
-export const OUTAURA_MOMENTUM = 1
+export const OUTAURA_MOMENTUM = 25
 
 /** Aura multiplier while GOD AURA is active. Whole bill, not just the base. */
 export const GOD_AURA_MULT = 2
@@ -262,18 +297,9 @@ export const CPU_GOOD_SPAN = 0.55
  * working as intended, but a rival that stopped at the bar could only ever
  * come out PERFECT or MISS, with no GOOD in between.
  */
-export const CPU_PACE_FLOOR = 0.55
-export const CPU_PACE_SPAN = 1.5
+export const CPU_PACE_FLOOR = 0.05
+export const CPU_PACE_SPAN = 1.15
 
-/**
- * The fewest chances past the bar an open gesture is ever played for.
- *
- * A low bar is not a short gesture — a two-centre sweep still runs the whole
- * animation — so pacing off the bar alone had a rival stop after two taps of a
- * card that came past five times, and made the low-bar cards far harsher than
- * the rest for no reason a player would recognise.
- */
-export const CPU_OPEN_HEADROOM = 3
 
 /**
  * How much likelier a rival is to fumble a gesture that tests aim than one
@@ -285,7 +311,7 @@ export const CPU_OPEN_HEADROOM = 3
  * chance is a fresh test of aim. Modelling all six the same way made a long
  * clean run impossible for reasons that have nothing to do with playing them.
  */
-export const CPU_SLIP_SCALE = 0.22
+export const CPU_SLIP_SCALE = 0.5
 
 /** How long a rival appears to think before committing to a card. */
 export const CPU_THINK_MIN_MS = 600

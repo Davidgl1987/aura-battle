@@ -54,7 +54,14 @@ export interface ClaimResult {
  */
 export function defaultDeck(): string[] {
   const byKind = new Map<QteKind, string[]>()
-  for (const id of STARTER_CARD_IDS) {
+  // Strongest first within each kind. Taken in pool order the deck filled up
+  // with the easiest card of every gesture, which is a deck handed to you
+  // already losing: the last rival plays nothing but HARD cards.
+  const ranked = [...STARTER_CARD_IDS].sort(
+    (a, b) =>
+      getCard(b).difficulty - getCard(a).difficulty || getCard(b).baseAura - getCard(a).baseAura,
+  )
+  for (const id of ranked) {
     const kind = getCard(id).kind
     byKind.set(kind, [...(byKind.get(kind) ?? []), id])
   }

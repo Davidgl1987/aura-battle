@@ -479,8 +479,12 @@
 }
 .qte__zone {
   position: absolute;
+  top: 0;
   height: 100%;
   border-radius: 6px;
+  /* `left` is the centre of the zone, not its edge, so a card can carry three
+     of them at even spacing without arithmetic at every call site. */
+  transform: translateX(-50%);
 }
 .qte__zone--good {
   background: rgba(251, 191, 36, 0.28);
@@ -1279,6 +1283,69 @@
   overflow: hidden;
   touch-action: none;
 }
+/* --- The meter: what the card asks for, and how far past it you are -------- */
+.meter {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.meter__track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.meter__fill {
+  height: 100%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+  border-radius: 999px;
+  transition: background 140ms linear;
+}
+/* Green while a flawless run is still on the table, amber once it is not.
+   That is the whole feedback the yellow zone needed: the moment you scrape one
+   the meter tells you what it cost, rather than waiting for the score sheet. */
+.meter__fill {
+  background: var(--perfect);
+}
+.meter[data-flawless='false'] .meter__fill {
+  background: var(--good);
+}
+/* Where the bar sits. Everything to the right of it is the run toward
+   flawless, which is why the track does not end at it. */
+.meter__mark {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--ink);
+  opacity: 0.75;
+}
+.meter__legend {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+.meter__legend b {
+  flex: none;
+  white-space: nowrap;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.meter__legend em {
+  text-align: right;
+}
+.meter__legend em {
+  font-style: normal;
+  opacity: 0.6;
+}
+
 /* --- Speed: find the numbers ---------------------------------------------- */
 .qte__area.order {
   border-color: var(--speed);

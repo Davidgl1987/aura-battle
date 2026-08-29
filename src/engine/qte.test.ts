@@ -102,15 +102,23 @@ describe('settling a run', () => {
     }
   })
 
-  it('is worth exactly the card for doing exactly what it asked', () => {
-    // Open gestures only: a counted one has chances it must answer whether it
-    // has cleared the bar or not, so stopping at the bar is walking away from
-    // the rest of the chart.
+  it('is worth the share of the card that was actually landed', () => {
+    // The card is worth its full aura for a run that answered everything it
+    // held, and proportionally less for one that only reached the bar. That
+    // proportion is the same on every card, which is what stops a long gesture
+    // out-earning a short one.
     for (const card of CARDS) {
+      const whole = play(card, Array.from({ length: chancesIn(card) }, () => 'clean'))
+      expect(whole.metrics.accuracy, card.name).toBeCloseTo(1, 5)
+      expect(whole.score, card.name).toBe(card.baseAura)
+
       if (pacingOf(card) !== 'open') continue
       const bar = play(card, Array.from({ length: opportunities(card) }, () => 'clean'))
-      expect(bar.metrics.accuracy, card.name).toBeCloseTo(1, 5)
-      expect(bar.score, card.name).toBe(card.baseAura)
+      expect(bar.metrics.accuracy, card.name).toBeCloseTo(
+        opportunities(card) / chancesIn(card),
+        5,
+      )
+      expect(bar.score, card.name).toBeLessThan(whole.score)
     }
   })
 
@@ -139,7 +147,9 @@ describe('settling a run', () => {
       ]),
     )
     // The threshold is not a checkpoint you keep once you have passed it.
-    expect(grades[0].judgement).toBe('PERFECT')
+    // The clean run here stops short of everything the card holds, so it is a
+    // GOOD rather than a flawless one — see 'stopping once the bar is cleared'.
+    expect(grades[0].judgement).toBe('GOOD')
     expect(grades[1].judgement).toBe('GOOD')
     expect(grades[total].judgement).toBe('MISS')
     for (let i = 1; i < grades.length; i++) {
@@ -160,7 +170,8 @@ describe('settling a run', () => {
       ...Array.from({ length: bar + 1 }, () => 'clean' as Beat),
     ])
     expect(scraped.judgement).toBe('GOOD')
-    expect(scraped.metrics.accuracy).toBeCloseTo(1, 6)
+    // Exactly the bar's worth of the card: the fumble ate the spare.
+    expect(scraped.metrics.accuracy).toBeCloseTo(bar / chancesIn(card), 6)
 
     // One fewer clean beat and the same fumble drops it under.
     const short = play(card, [
@@ -257,10 +268,13 @@ describe('settling a run', () => {
    * A tick is a quarter of a second and a dropped frame is sixteen
    * milliseconds. One hitched frame must not cost a PERFECT.
    */
-  it('forgives a dropped frame inside a held stretch', () => {
+  it('is held or dropped, with no grade in between', () => {
+    // A dropped frame is sixteen milliseconds and must not cost anything; a
+    // hold has no lesser target to take, so there is no scrape to record.
     expect(tickBeat(250, 250)).toBe('clean')
     expect(tickBeat(250 - 16, 250)).toBe('clean')
-    expect(tickBeat(150, 250)).toBe('scrappy')
+    expect(tickBeat(160, 250)).toBe('clean')
+    expect(tickBeat(140, 250)).toBe('missed')
     expect(tickBeat(20, 250)).toBe('missed')
     expect(tickBeat(0, 0)).toBe('missed')
   })
@@ -337,7 +351,9 @@ describe('the run a rival plays', () => {
           // Counted cards answer every chance; open ones answer as many as the
           // hands manage, which is what `attemptsFor` decides.
           expect(outcome.metrics.successes + outcome.metrics.mistakes).toBe(attemptsFor(s, card))
-          expect(outcome.perfectEligible).toBe(outcome.metrics.mistakes === 0)
+          // Flawless needs more than a clean sheet: every chance the card
+          // held, answered, and none of them scraped.
+          if (outcome.perfectEligible) expect(outcome.metrics.mistakes).toBe(0)
           if (outcome.judgement === 'PERFECT') expect(outcome.perfectEligible).toBe(true)
           if (outcome.judgement === 'MISS') expect(outcome.score).toBe(0)
         }

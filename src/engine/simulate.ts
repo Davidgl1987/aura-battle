@@ -1,7 +1,4 @@
 import { INTRO_MS, QTE_FORM_SWING } from './balance'
-
-/** Nominal time a player spends reading a score sheet before passing over. */
-const READING_MS = 2000
 import { ALL_CARD_IDS, getCard } from './cards'
 import {
   NO_STRATEGY,
@@ -10,11 +7,12 @@ import {
   chooseCard,
   cpuRoll,
   oddsFor as cardOdds,
+  beatFor,
   performQte,
   slipScale,
   type Strategy,
 } from './cpu'
-import { EMPTY, rampAt, record, settle } from './qte'
+import { EMPTY, record, scrapeable, settle } from './qte'
 import { createMatch, qteWindow, step } from './match'
 import { nextRandom, shuffle } from './rng'
 import { freshnessOf } from './scoring'
@@ -27,6 +25,9 @@ import type {
   PlayerSetup,
   TurnResult,
 } from './types'
+
+/** Nominal time a player spends reading a score sheet before passing over. */
+const READING_MS = 2000
 
 /**
  * A player, as far as the numbers are concerned. Everything the balance cares
@@ -136,14 +137,13 @@ function perform(profile: Profile, card: Card, rolls: Rolls, state: MatchState):
   const total = attemptsFor({ ...NO_STRATEGY, qteSkill: profile.perfect }, card)
   // How this card is going for them, drawn once and felt on every beat of it.
   const form = (rolls.next() - 0.5) * QTE_FORM_SWING
+  // The same beat model the rivals run on. It used to be written out again
+  // here, and the copy quietly stopped matching the original.
+  const slip = slipScale(card)
+  const twoTier = scrapeable(card)
   let ledger = EMPTY
   for (let i = 0; i < total; i++) {
-    // The gesture tightens as it runs, exactly as it does on screen.
-    const ramp = rampAt(i, total)
-    const clean = odds.perfect / ramp + form
-    const missing = Math.min(0.9, (1 - odds.perfect - odds.good) * ramp * slipScale(card))
-    const roll = rolls.next()
-    ledger = record(ledger, roll < clean ? 'clean' : roll < 1 - missing ? 'scrappy' : 'missed')
+    ledger = record(ledger, beatFor(odds, i, total, rolls.next(), form, slip, twoTier))
   }
   return settle(card, ledger)
 }

@@ -3,6 +3,7 @@ import { play } from '../../audio/engine'
 import { now } from '../../state/store'
 import type { Card, ControlParams, QteOutcome } from '../../engine/types'
 import { useRun } from './run'
+import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
 import { drifted, zoneAt } from './control'
 
@@ -31,7 +32,6 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
   const areaRef = useRef<HTMLDivElement>(null)
   const zoneRef = useRef<HTMLDivElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
-  const holdRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let raf = 0
@@ -96,7 +96,6 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
         const left = armedAt === null ? 1 : Math.max(0, 1 - elapsed / card.durationMs)
         timeRef.current.style.transform = `scaleX(${left})`
       }
-      if (holdRef.current) holdRef.current.style.transform = `scaleX(${run.accuracy})`
       run.paint(rootRef.current)
 
       // Banked on a fixed clock rather than per frame, and each tick is
@@ -160,14 +159,7 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
       <div className="qte__timer">
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
-      <div className="qte__progress">
-        <div ref={holdRef} className="qte__progress-fill" />
-        <div className="qte__mark" style={{ left: `${params.goodRatio * 100}%` }} />
-        <div
-          className="qte__mark qte__mark--perfect"
-          style={{ left: `${params.perfectRatio * 100}%` }}
-        />
-      </div>
+      <QteMeter run={run} unit="HELD" />
 
       <div
         ref={areaRef}

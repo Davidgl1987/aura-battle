@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { now, stamp } from '../../state/store'
 import type { Card, OrderParams, QteOutcome } from '../../engine/types'
 import { useRun } from './run'
+import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
 import { spotFor, type Spot } from './order'
 
@@ -137,14 +138,14 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
         <em className="qte__hint-grab">
           PRESS 1 TO START <b ref={armRef} className="qte__count" />
         </em>
-        <em className="qte__hint-live">
-          IN ORDER — {taken} · {params.goodAt} TO SCORE, NO SLIPS TO BE FLAWLESS
-        </em>
+        <em className="qte__hint-live">IN ORDER — NEXT IS {taken + 1}</em>
       </div>
 
       <div className="qte__timer">
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
+
+      <QteMeter run={run} unit="NUMBERS" />
 
       <div className="qte__area order" ref={padRef}>
         {spots.map((spot) => (

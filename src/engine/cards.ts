@@ -1,38 +1,51 @@
 import type { Card, Difficulty, QteKind } from './types'
 
 /**
- * The card pool: 15 cards — five of each kind, and every kind holds the same
- * spread of three NORMAL and two HARD.
+ * The card pool: eighteen cards, three of each gesture, one at each tier.
+ *
+ * Every gesture now carries its own difficulty axis rather than borrowing one
+ * from the clock — the sweep puts more zones on the bar, the chart lets shorter
+ * notes in, the mash adds a pad to walk along, the number pad holds more at
+ * once, the ring shrinks and the driving lanes narrow. A hard card is one you
+ * can see is hard before you touch it.
  *
  * The counts on each QTE are opportunity counts: a gesture is scored over its
- * whole length now, so `hits`, `notes`, `targetTaps` and `count` all say the
- * same thing — how many chances the card offers between the first frame of the
- * animation and the last. They sit in the same band on purpose, because
- * `engine/qte.ts` divides every ledger by its own card's number and a card with
- * far more chances than the rest would be a card with far more to go wrong. Each player builds a
- * deck of 4 to 6 of these before the battle; both may pick the same card.
+ * whole length, so `goodAt`, `notes` and `visible` all say the same thing —
+ * how many chances the card offers between the first frame of the animation
+ * and the last. They sit in the same band on purpose, because `engine/qte.ts`
+ * divides every ledger by its own card's number and a card with far more
+ * chances than the rest would be a card with far more to go wrong.
  *
  * `kind` is what freshness is measured on, and it stays at three. `game` is the
  * minigame the card actually runs, and there are two of those per kind: adding
  * minigames without adding kinds is what keeps varying your answers worth the
  * same as it was worth before they existed.
  *
- * Nothing here is an easy card any more. That tier was cut on purpose; MEWING
- * and SIX SEVEN survived it as recognisable moves and were pulled up to NORMAL
- * to do it.
+ * The HARD of each gesture is the card a rival hands over, which is why there
+ * are exactly six of them and exactly six rivals.
  */
 export const CARDS: readonly Card[] = [
-  // --- Timing ---------------------------------------------------------------
+  // --- Timing: the sweeping bar ----------------------------------------------
+  // A bar must come past the centre at least twice more often than it asks to
+  // be hit: once for the fumble a GOOD is allowed, once for the room above it.
   {
     id: 'mewing',
     name: 'Mewing',
     emoji: '😤',
     kind: 'timing',
-    difficulty: 2,
+    difficulty: 1,
     durationMs: 3300,
-    baseAura: 1300,
+    baseAura: 900,
     animation: 'mewing',
-    qte: { kind: 'timing', game: 'sweep', sweepMs: 800, goodAt: 2, perfectMs: 62, goodMs: 145 },
+    qte: {
+      kind: 'timing',
+      game: 'sweep',
+      sweepMs: 800,
+      zones: 1,
+      goodAt: 2,
+      perfectMs: 90,
+      goodMs: 130,
+    },
   },
   {
     id: 'sigma-stare',
@@ -40,10 +53,18 @@ export const CARDS: readonly Card[] = [
     emoji: '🕶️',
     kind: 'timing',
     difficulty: 2,
-    durationMs: 2900,
+    durationMs: 3300,
     baseAura: 1300,
     animation: 'stare',
-    qte: { kind: 'timing', game: 'sweep', sweepMs: 700, goodAt: 2, perfectMs: 55, goodMs: 130 },
+    qte: {
+      kind: 'timing',
+      game: 'sweep',
+      sweepMs: 640,
+      zones: 2,
+      goodAt: 3,
+      perfectMs: 62,
+      goodMs: 92,
+    },
   },
   {
     id: 'griddy-drop',
@@ -54,18 +75,28 @@ export const CARDS: readonly Card[] = [
     durationMs: 3200,
     baseAura: 2000,
     animation: 'griddy',
-    qte: { kind: 'timing', game: 'sweep', sweepMs: 620, goodAt: 3, perfectMs: 52, goodMs: 124 },
+    qte: {
+      kind: 'timing',
+      game: 'sweep',
+      sweepMs: 560,
+      zones: 3,
+      goodAt: 3,
+      perfectMs: 44,
+      goodMs: 66,
+    },
   },
 
   // --- Timing: three lanes ---------------------------------------------------
+  // The chart has to finish before the animation does, or its last notes are
+  // charged to a player who was never shown them.
   {
-    id: 'beat-drop',
-    name: 'Beat Drop',
-    emoji: '🎵',
+    id: 'vibe-check',
+    name: 'Vibe Check',
+    emoji: '✨',
     kind: 'timing',
-    difficulty: 2,
-    durationMs: 3300,
-    baseAura: 1300,
+    difficulty: 1,
+    durationMs: 3400,
+    baseAura: 900,
     animation: 'beatDrop',
     qte: {
       kind: 'timing',
@@ -74,9 +105,32 @@ export const CARDS: readonly Card[] = [
       notes: 6,
       goodAt: 3,
       travelMs: 950,
-      gapMs: 430,
-      perfectMs: 75,
+      gapMs: 440,
+      subdivisions: 1,
+      perfectMs: 120,
       goodMs: 165,
+    },
+  },
+  {
+    id: 'beat-drop',
+    name: 'Beat Drop',
+    emoji: '🎵',
+    kind: 'timing',
+    difficulty: 2,
+    durationMs: 3400,
+    baseAura: 1300,
+    animation: 'beatDrop',
+    qte: {
+      kind: 'timing',
+      game: 'lanes',
+      lanes: 3,
+      notes: 7,
+      goodAt: 4,
+      travelMs: 860,
+      gapMs: 340,
+      subdivisions: 2,
+      perfectMs: 95,
+      goodMs: 135,
     },
   },
   {
@@ -85,7 +139,7 @@ export const CARDS: readonly Card[] = [
     emoji: '🎧',
     kind: 'timing',
     difficulty: 3,
-    durationMs: 3350,
+    durationMs: 3200,
     baseAura: 2000,
     animation: 'hyperpop',
     qte: {
@@ -93,15 +147,28 @@ export const CARDS: readonly Card[] = [
       game: 'lanes',
       lanes: 3,
       notes: 8,
-      goodAt: 3,
-      travelMs: 780,
-      gapMs: 340,
-      perfectMs: 55,
-      goodMs: 125,
+      goodAt: 4,
+      travelMs: 760,
+      gapMs: 270,
+      subdivisions: 4,
+      perfectMs: 72,
+      goodMs: 105,
     },
   },
 
-  // --- Speed ----------------------------------------------------------------
+  // --- Speed: the pads -------------------------------------------------------
+  // One pad is a mash, two is a six and a seven, three has to be walked.
+  {
+    id: 'rizz-clap',
+    name: 'Rizz Clap',
+    emoji: '👏',
+    kind: 'speed',
+    difficulty: 1,
+    durationMs: 2200,
+    baseAura: 900,
+    animation: 'clap',
+    qte: { kind: 'speed', game: 'mash', goodAt: 7, pads: 1 },
+  },
   {
     id: 'six-seven',
     name: 'Six Seven',
@@ -111,20 +178,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 2200,
     baseAura: 1300,
     animation: 'sixSeven',
-    // Two pads: the gesture is a six and a seven, one in each hand, so the
-    // card asks for both thumbs the way the move does.
-    qte: { kind: 'speed', game: 'mash', goodAt: 9, alternating: true },
-  },
-  {
-    id: 'rizz-clap',
-    name: 'Rizz Clap',
-    emoji: '👏',
-    kind: 'speed',
-    difficulty: 2,
-    durationMs: 2350,
-    baseAura: 1300,
-    animation: 'clap',
-    qte: { kind: 'speed', game: 'mash', goodAt: 10, alternating: true },
+    qte: { kind: 'speed', game: 'mash', goodAt: 8, pads: 2 },
   },
   {
     id: 'sturdy',
@@ -135,10 +189,21 @@ export const CARDS: readonly Card[] = [
     durationMs: 2600,
     baseAura: 2000,
     animation: 'sturdy',
-    qte: { kind: 'speed', game: 'mash', goodAt: 13, alternating: true },
+    qte: { kind: 'speed', game: 'mash', goodAt: 9, pads: 3 },
   },
 
-  // --- Speed: find them in order ---------------------------------------------
+  // --- Speed: find the numbers -----------------------------------------------
+  {
+    id: 'npc-mode',
+    name: 'NPC Mode',
+    emoji: '🤖',
+    kind: 'speed',
+    difficulty: 1,
+    durationMs: 3200,
+    baseAura: 900,
+    animation: 'tierList',
+    qte: { kind: 'speed', game: 'order', visible: 5, goodAt: 4 },
+  },
   {
     id: 'tier-list',
     name: 'Tier List',
@@ -148,9 +213,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 3200,
     baseAura: 1300,
     animation: 'tierList',
-    // `goodMs` sits at the card's own length, so simply finishing is a GOOD and
-    // only pressing the wrong number can drag it below that.
-    qte: { kind: 'speed', game: 'order', visible: 5, goodAt: 6 },
+    qte: { kind: 'speed', game: 'order', visible: 6, goodAt: 5 },
   },
   {
     id: 'speedrun',
@@ -161,33 +224,28 @@ export const CARDS: readonly Card[] = [
     durationMs: 3400,
     baseAura: 2000,
     animation: 'speedrun',
-    qte: { kind: 'speed', game: 'order', visible: 5, goodAt: 8 },
+    qte: { kind: 'speed', game: 'order', visible: 7, goodAt: 6 },
   },
 
-  // --- Control --------------------------------------------------------------
+  // --- Control: hold the ring ------------------------------------------------
   {
     id: 'lean',
     name: 'Lean',
     emoji: '🫠',
     kind: 'control',
-    difficulty: 2,
-    durationMs: 1680,
-    baseAura: 1300,
+    difficulty: 1,
+    durationMs: 1900,
+    baseAura: 900,
     animation: 'lean',
-    qte: { kind: 'control', game: 'zone', zoneRadius: 0.15, driftSpeed: 0.7, perfectRatio: 0.85, goodRatio: 0.5 },
+    qte: {
+      kind: 'control',
+      game: 'zone',
+      zoneRadius: 0.22,
+      driftSpeed: 0.6,
+      perfectRatio: 0.85,
+      goodRatio: 0.5,
+    },
   },
-  {
-    id: 'levitate',
-    name: 'Levitate',
-    emoji: '🧘',
-    kind: 'control',
-    difficulty: 3,
-    durationMs: 2050,
-    baseAura: 2000,
-    animation: 'levitate',
-    qte: { kind: 'control', game: 'zone', zoneRadius: 0.12, driftSpeed: 0.85, perfectRatio: 0.85, goodRatio: 0.55 },
-  },
-
   {
     id: 'locked-in',
     name: 'Locked In',
@@ -200,14 +258,53 @@ export const CARDS: readonly Card[] = [
     qte: {
       kind: 'control',
       game: 'zone',
-      zoneRadius: 0.17,
-      driftSpeed: 0.6,
-      perfectRatio: 0.82,
+      zoneRadius: 0.145,
+      driftSpeed: 0.75,
+      perfectRatio: 0.85,
       goodRatio: 0.5,
+    },
+  },
+  {
+    id: 'levitate',
+    name: 'Levitate',
+    emoji: '🧘',
+    kind: 'control',
+    difficulty: 3,
+    durationMs: 2050,
+    baseAura: 2000,
+    animation: 'levitate',
+    qte: {
+      kind: 'control',
+      game: 'zone',
+      zoneRadius: 0.105,
+      driftSpeed: 0.85,
+      perfectRatio: 0.85,
+      goodRatio: 0.55,
     },
   },
 
   // --- Control: two fingers, two paths ---------------------------------------
+  // Roughly one full bend per card at these speeds: enough to have to steer,
+  // not so much that it turns into a blur.
+  {
+    id: 'cruise-control',
+    name: 'Cruise Control',
+    emoji: '🚗',
+    kind: 'control',
+    difficulty: 1,
+    durationMs: 2300,
+    baseAura: 900,
+    animation: 'splitFocus',
+    qte: {
+      kind: 'control',
+      game: 'paths',
+      laneWidth: 0.24,
+      wander: 0.3,
+      speed: 1.3,
+      perfectRatio: 0.8,
+      goodRatio: 0.5,
+    },
+  },
   {
     id: 'split-focus',
     name: 'Split Focus',
@@ -217,14 +314,12 @@ export const CARDS: readonly Card[] = [
     durationMs: 2300,
     baseAura: 1300,
     animation: 'splitFocus',
-    // Roughly one full bend per card at this speed: enough to have to steer,
-    // not so much that it turns into a blur.
     qte: {
       kind: 'control',
       game: 'paths',
-      laneWidth: 0.17,
+      laneWidth: 0.155,
       wander: 0.32,
-      speed: 1.6,
+      speed: 1.7,
       perfectRatio: 0.8,
       goodRatio: 0.5,
     },
@@ -241,7 +336,7 @@ export const CARDS: readonly Card[] = [
     qte: {
       kind: 'control',
       game: 'paths',
-      laneWidth: 0.115,
+      laneWidth: 0.095,
       wander: 0.36,
       speed: 2.3,
       perfectRatio: 0.85,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ACCESSORIES, getAccessory } from './accessories'
 import { SOLO_DECK_SIZE, SOLO_SETTINGS } from './balance'
-import { LOCKED_CARD_IDS, STARTER_CARD_IDS, getCard } from './cards'
+import { CARDS, LOCKED_CARD_IDS, STARTER_CARD_IDS, getCard } from './cards'
 import { getCharacter } from './characters'
 import { RIVALS, getRival, nextRival, rivalIndex } from './rivals'
 import { PROFILES, rivalProfile, tally, type Tally } from './simulate'
@@ -89,12 +89,20 @@ describe('what the ladder unlocks', () => {
   })
 
   it('covers the pool between what you start with and what you win', () => {
-    expect(STARTER_CARD_IDS).toHaveLength(9)
+    expect(STARTER_CARD_IDS).toHaveLength(12)
     expect(LOCKED_CARD_IDS).toHaveLength(6)
-    // Three of each kind to start, so a deck can be built out of the box.
+    // Four of each kind to start, so a deck can be built out of the box, and
+    // one HARD per gesture behind the ladder — which is why there are exactly
+    // as many locked cards as there are rivals.
     for (const kind of ['timing', 'speed', 'control'] as const) {
-      expect(STARTER_CARD_IDS.filter((id) => getCard(id).kind === kind)).toHaveLength(3)
+      expect(STARTER_CARD_IDS.filter((id) => getCard(id).kind === kind)).toHaveLength(4)
       expect(LOCKED_CARD_IDS.filter((id) => getCard(id).kind === kind)).toHaveLength(2)
+    }
+    // One card per gesture at each tier: every minigame is playable from the
+    // start and every one of them has something left to win.
+    for (const game of ['sweep', 'lanes', 'mash', 'order', 'zone', 'paths']) {
+      const trio = CARDS.filter((c) => c.qte.game === game)
+      expect(trio.map((c) => c.difficulty).sort(), game).toEqual([1, 2, 3])
     }
     expect(STARTER_CARD_IDS.length).toBeGreaterThanOrEqual(SOLO_DECK_SIZE)
   })

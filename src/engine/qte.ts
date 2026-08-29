@@ -1,8 +1,10 @@
 import {
   QTE_OPPORTUNITIES_MAX,
   QTE_OPPORTUNITIES_MIN,
-  QTE_OVERSHOOT_MAX,
+  QTE_BAR_SHARE,
+  QTE_HOLD_CLEAN,
   QTE_MISTAKE_COST,
+  QTE_OPEN_HEADROOM,
   QTE_RAMP,
   QTE_SCRAPPY_VALUE,
   QTE_TICK_MS,
@@ -59,6 +61,18 @@ const VALUE: Record<Beat, number> = {
  * taps as your thumbs manage. The difference changes how a run is graded, so
  * it is asked once here rather than switched on twice further down.
  */
+/**
+ * Whether the card offers a lesser target as well as the one you want.
+ *
+ * The sweep has amber around its green and the chart has a note caught off the
+ * beat; everything else either lands or does not. It matters because taking the
+ * lesser target is what puts a flawless run out of reach, so a gesture with no
+ * lesser target can never lose one that way.
+ */
+export function scrapeable(card: Card): boolean {
+  return card.qte.game === 'sweep' || card.qte.game === 'lanes'
+}
+
 export function pacingOf(card: Card): QtePacing {
   switch (card.qte.game) {
     case 'sweep':
@@ -128,13 +142,14 @@ export function chancesIn(card: Card): number {
         QTE_OPPORTUNITIES_MAX,
         Math.max(QTE_OPPORTUNITIES_MIN, Math.round(card.durationMs / QTE_TICK_MS)),
       )
-    // A mash and a number pad have no ceiling of their own, so the ceiling is
-    // the one the score already has: exactly as many chances as the overshoot
-    // will pay for. Answering all of them is a flawless run, and the tap after
-    // that is worth nothing either way.
+    // A mash and a number pad have no ceiling of their own, so they take the
+    // one every other gesture already has: the bar is the same share of what
+    // the card holds here as it is on a chart or a hold. Set from the overshoot
+    // instead, the bar sat at four fifths of the chances and the hardest of
+    // them could not survive the single fumble a GOOD is allowed.
     case 'mash':
     case 'order':
-      return Math.round(params.goodAt * QTE_OVERSHOOT_MAX)
+      return Math.max(params.goodAt + QTE_OPEN_HEADROOM, Math.round(params.goodAt / QTE_BAR_SHARE))
   }
 }
 
@@ -179,6 +194,8 @@ export function rampAt(i: number, total: number): number {
 /** A running tally of one gesture, fed an opportunity at a time. */
 export interface Ledger {
   readonly successes: number
+  /** Of those, the ones that were not merely scraped. */
+  readonly clean: number
   readonly mistakes: number
   /** Sum of what each landed opportunity was worth. */
   readonly value: number
@@ -186,11 +203,12 @@ export interface Ledger {
   readonly taken: number
 }
 
-export const EMPTY: Ledger = { successes: 0, mistakes: 0, value: 0, taken: 0 }
+export const EMPTY: Ledger = { successes: 0, clean: 0, mistakes: 0, value: 0, taken: 0 }
 
 export function record(ledger: Ledger, beat: Beat): Ledger {
   return {
     successes: ledger.successes + (beat === 'missed' ? 0 : 1),
+    clean: ledger.clean + (beat === 'clean' ? 1 : 0),
     mistakes: ledger.mistakes + (beat === 'missed' ? 1 : 0),
     value: ledger.value + VALUE[beat],
     taken: ledger.taken + 1,
@@ -212,14 +230,16 @@ export function ignored(ledger: Ledger, total: number): Ledger {
  * charged for. A mistake costs a whole opportunity, so enough of them drag a
  * run that had already cleared the bar back under it — which is the point: the
  * threshold is not a checkpoint you keep once you reach it.
+ *
+ * Measured against everything the card held, not against the bar. Against the
+ * bar it needed a ceiling to stop a long gesture running away with the score,
+ * and every card that could reach that ceiling sat on it — which took the
+ * spread out of the scores and left the battles being decided by nothing.
  */
-export function accuracyOf(ledger: Ledger, total: number, open = false): number {
+export function accuracyOf(ledger: Ledger, total: number): number {
   if (total <= 0) return 0
   const net = ledger.value - ledger.mistakes * QTE_MISTAKE_COST
-  // An open-ended gesture keeps paying past the point it needed to reach, up
-  // to a ceiling: doing more than enough is worth something, but not enough
-  // for the gesture you were asked for to decide the score.
-  return Math.min(open ? QTE_OVERSHOOT_MAX : 1, Math.max(0, net / total))
+  return Math.min(1, Math.max(0, net / total))
 }
 
 /**
@@ -236,17 +256,26 @@ export function settle(card: Card, ledger: Ledger): QteOutcome {
   // A counted gesture charges for chances that came and went — a note you let
   // go past is one you dropped. An open-ended one cannot: there is no number
   // it was supposed to reach and stop at, so falling short simply scores less.
-  const full = open ? ledger : ignored(ledger, chancesIn(card))
-  const accuracy = accuracyOf(full, total, true)
+  const held = chancesIn(card)
+  const full = open ? ledger : ignored(ledger, held)
+  // Against the whole card: a flawless run is worth 1 and a run that scraped
+  // the bar is worth roughly the share of the card the bar represents.
+  const accuracy = accuracyOf(full, held)
 
-  // PERFECT is a clean run that was still going at the end. Clearing the bar
-  // and stopping there is a GOOD however tidy it was: the card was still
-  // offering chances and you did not take them. A counted gesture gets this
-  // for free — `ignored` has already charged the ones that went by — but an
-  // open one has to be asked outright, or "do the nine and put the phone down"
-  // would be the best way to play it.
-  const answered = full.taken >= chancesIn(card)
-  const perfectEligible = full.mistakes === 0 && answered
+  // PERFECT is a clean run that was still going at the end.
+  //
+  // Clean means clean: a chance you scraped is not one you took well, and on
+  // the sweep that is the whole point of the yellow — landing in it scores,
+  // and it also ends any claim on a flawless run. Nothing is special-cased for
+  // the sweep; every gesture is read the same way.
+  //
+  // And clearing the bar and stopping there is a GOOD however tidy it was: the
+  // card was still offering chances and you did not take them. A counted
+  // gesture gets this for free — `ignored` has already charged the ones that
+  // went by — but an open one has to be asked outright, or "do the nine and
+  // put the phone down" would be the best way to play it.
+  const answered = full.taken >= held
+  const perfectEligible = full.clean === full.taken && answered
 
   /**
    * The same shape either way, and it is worth saying plainly: PERFECT is not
@@ -318,11 +347,17 @@ export function unplayed(card: Card): QteOutcome {
  * A tick is a quarter of a second and a dropped frame is sixteen milliseconds,
  * so an instantaneous reading would let one hitched frame cost a PERFECT. The
  * tick is judged on the share of itself that was spent inside.
+ *
+ * Held or not, with no grade in between. `scrappy` is for a gesture that
+ * offered you two targets and you took the lesser one — the amber on the sweep,
+ * a note caught off the beat — and taking it is what puts a flawless run out of
+ * reach. Half a second of hold is not a lesser target, it is less hold, and
+ * grading it as a scrape would have made a flawless hold something no thumb
+ * could produce.
  */
 export function tickBeat(insideMs: number, tickMs = QTE_TICK_MS): Beat {
   const share = tickMs <= 0 ? 0 : insideMs / tickMs
-  if (share >= 0.75) return 'clean'
-  return share >= 0.4 ? 'scrappy' : 'missed'
+  return share >= QTE_HOLD_CLEAN ? 'clean' : 'missed'
 }
 
 /**

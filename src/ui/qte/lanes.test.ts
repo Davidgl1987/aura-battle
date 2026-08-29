@@ -10,6 +10,7 @@ const params: LanesParams = {
   lanes: 3,
   notes: 6,
   goodAt: 3,
+  subdivisions: 1,
   travelMs: 900,
   gapMs: 400,
   perfectMs: 70,

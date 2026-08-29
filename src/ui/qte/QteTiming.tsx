@@ -3,7 +3,8 @@ import { now, stamp } from '../../state/store'
 import type { Card, QteOutcome, TimingParams } from '../../engine/types'
 import { useArming } from './arming'
 import { useRun } from './run'
-import { cursorAt, errorAt, gradeHit, rephase, startEdge } from './timing'
+import { QteMeter } from './QteMeter'
+import { cursorAt, gradeHit, rephase, startEdge, zoneCentres, zoneErrorAt } from './timing'
 
 interface Props {
   card: Card
@@ -82,7 +83,8 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
       return
     }
 
-    const hit = gradeHit(errorAt(t, phase.current, sweep.current, edge), params)
+    // Against the nearest green zone, of which there may be one, two or three.
+    const hit = gradeHit(zoneErrorAt(t, phase.current, sweep.current, params, edge), params)
     run.beat(hit === 'PERFECT' ? 'clean' : hit === 'GOOD' ? 'scrappy' : 'missed')
 
     if (hit !== 'MISS') {
@@ -100,8 +102,12 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
     if (dot) dot.dataset.hit = hit
   }
 
+  // The cursor covers the whole bar in one sweep, so a window measured in
+  // milliseconds is a share of the width. Doubled because the numbers are
+  // half-widths: the window opens on both sides of the zone.
   const goodWidth = (params.goodMs / params.sweepMs) * 200
   const perfectWidth = (params.perfectMs / params.sweepMs) * 200
+  const centres = zoneCentres(params.zones)
 
   return (
     <div className="qte" ref={rootRef} data-live="false" data-perfect="true" onPointerDown={tap}>
@@ -111,7 +117,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
           TAP TO START <b ref={armRef} className="qte__count" />
         </em>
         <em className="qte__hint-live">
-          {params.goodAt} TO SCORE · KEEP GOING, IT SPEEDS UP
+          KEEP GOING, IT SPEEDS UP · AMBER SCORES BUT IS NOT CLEAN
         </em>
       </div>
 
@@ -120,16 +126,38 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
       </div>
 
       <div className="qte__bar">
-        <div className="qte__zone qte__zone--good" style={{ width: `${goodWidth}%` }} />
-        <div className="qte__zone qte__zone--perfect" style={{ width: `${perfectWidth}%` }} />
+        {/* Amber outside, green inside. Landing on the amber still scores, and
+            it is also the moment a flawless run stops being one — so it is
+            drawn as the border of the target rather than as a target of its
+            own. Both are placed against the bar itself: the widths are shares
+            of the bar, so a wrapper of its own would have nothing to be a
+            share of. */}
+        {centres.map((centre, i) => (
+          <div
+            key={`good-${i}`}
+            className="qte__zone qte__zone--good"
+            style={{ left: `${centre * 100}%`, width: `${goodWidth}%` }}
+          />
+        ))}
+        {centres.map((centre, i) => (
+          <div
+            key={`perfect-${i}`}
+            className="qte__zone qte__zone--perfect"
+            style={{ left: `${centre * 100}%`, width: `${perfectWidth}%` }}
+          />
+        ))}
         <div ref={cursorRef} className="qte__cursor" />
       </div>
 
+      {/* One dot per pass the bar makes, so the count you are keeping is the
+          same count the card is keeping. */}
       <div className="qte__hits" ref={hitsRef}>
-        {Array.from({ length: params.goodAt }, (_, i) => (
+        {Array.from({ length: run.chances }, (_, i) => (
           <span key={i} className="qte__hit" data-hit="pending" />
         ))}
       </div>
+
+      <QteMeter run={run} unit="HITS" />
     </div>
   )
 }

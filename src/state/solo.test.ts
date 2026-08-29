@@ -23,6 +23,17 @@ import { runFor } from '../engine/qte'
 const [ROOKIE, KID] = RIVALS
 
 /** Plays a battle out. `script` decides the human's grade, turn by turn. */
+/**
+ * Something that breaks the last kind played, the way a competent player
+ * answers. Always reaching for `remaining[0]` made the scripted player flawless
+ * at the QTE and hopeless at the game: it threw away every freshness bonus, and
+ * freshness is what god aura is built out of.
+ */
+function freshPick(match: MatchState): string {
+  const mine = match.players[0].remaining
+  return mine.find((id) => getCard(id).kind !== match.lastPlayed?.kind) ?? mine[0]
+}
+
 function playSolo(
   opponentId: string,
   script: (turn: number) => Judgement | 'FREEZE',
@@ -60,7 +71,12 @@ function playSolo(
           now += match.settings.chooseMs
           break
         }
-        dispatch({ type: 'SELECT_CARD', cardId: match.players[0].remaining[0], now })
+        // Answer with something that breaks the last kind played, the way a
+        // competent player does. Always reaching for `remaining[0]` made the
+        // scripted player flawless at the QTE and hopeless at the game: it
+        // threw away every freshness bonus, and freshness is what god aura is
+        // built out of.
+        dispatch({ type: 'SELECT_CARD', cardId: freshPick(match), now })
         break
       }
       case 'performIntro':
@@ -189,7 +205,7 @@ describe('a solo battle, start to finish', () => {
       }
       expect(hasCard(useProgress.getState(), rival.signatureCardId), rival.name).toBe(true)
     }
-    expect(useProgress.getState().unlockedCards).toHaveLength(15)
+    expect(useProgress.getState().unlockedCards).toHaveLength(18)
   })
 
   it('does not hand the last rival over to a clean sheet alone', () => {
@@ -229,7 +245,12 @@ describe('a solo battle, start to finish', () => {
       // The human's side, played straight through.
       switch (match.phase.kind) {
         case 'choosing':
-          dispatch({ type: 'SELECT_CARD', cardId: match.players[0].remaining[0], now })
+          // Answer with something that breaks the last kind played, the way a
+        // competent player does. Always reaching for `remaining[0]` made the
+        // scripted player flawless at the QTE and hopeless at the game: it
+        // threw away every freshness bonus, and freshness is what god aura is
+        // built out of.
+        dispatch({ type: 'SELECT_CARD', cardId: freshPick(match), now })
           break
         case 'performIntro':
           dispatch({ type: 'TICK', now: (now += 500) })

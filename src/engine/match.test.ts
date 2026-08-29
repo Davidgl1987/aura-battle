@@ -399,9 +399,11 @@ describe('momentum and god aura', () => {
       if (!over()) d.turn('GOOD', 'speed')
     }
 
-    // It took a run to get there, and every play in the run was a fresh one.
+    // Every play on the way there was a fresh one. There is no minimum run
+    // any more: out-scoring the rival is worth a quarter of the way to god
+    // aura on its own, so a big enough opening play can get there by itself.
     const mine = d.s.log.filter((r) => r.player === 0)
-    expect(mine.length).toBeGreaterThanOrEqual(3)
+    expect(mine.length).toBeGreaterThanOrEqual(1)
     expect(mine.every((r) => r.freshness === 'FRESH')).toBe(true)
     expect(d.s.players[0].godAura).toBe(true)
     expect(d.s.players[1].godAura).toBe(false)

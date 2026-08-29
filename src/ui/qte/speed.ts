@@ -16,9 +16,16 @@ export function gradePace(lateMs: number, windowMs: number): Beat {
 }
 
 /**
- * Alternating cards want two thumbs: a second tap on the same pad is dead
- * input, which is what stops you from just drumming one finger.
+ * Whether a tap on `zone` is the one the card was waiting for.
+ *
+ * One rule covers all three pad counts, because they are all the same gesture
+ * at different widths: the next pad is a neighbour of the last one. On two pads
+ * that is the alternation a six and a seven already was; on three it walks left,
+ * middle, right, middle, left and back again, which is the only path that never
+ * repeats a pad and never jumps one. On a single pad there is no neighbour to
+ * find, so every tap counts.
  */
-export function countsAsTap(zone: number, lastZone: number | null, alternating: boolean): boolean {
-  return !alternating || lastZone === null || zone !== lastZone
+export function countsAsTap(zone: number, lastZone: number | null, pads: number): boolean {
+  if (pads <= 1 || lastZone === null) return true
+  return Math.abs(zone - lastZone) === 1
 }

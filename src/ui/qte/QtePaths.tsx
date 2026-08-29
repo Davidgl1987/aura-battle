@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { now } from '../../state/store'
 import type { Card, PathsParams, QteOutcome } from '../../engine/types'
 import { useRun } from './run'
+import { QteMeter } from './QteMeter'
 import { isDown } from '../pointers'
 import { useArming } from './arming'
 import { bothHands, laneCentre, laneRange, onTrack } from './paths'
@@ -44,10 +45,6 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
   const markRefs = useRef<(HTMLDivElement | null)[]>([])
   const knobRefs = useRef<(HTMLDivElement | null)[]>([])
   const timeRef = useRef<HTMLDivElement>(null)
-  const holdRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-  })
 
   useEffect(() => {
     let raf = 0
@@ -132,7 +129,6 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
 
       const remaining = armedAt === null ? 1 : 1 - live / card.durationMs
       if (timeRef.current) timeRef.current.style.transform = `scaleX(${Math.max(0, remaining)})`
-      if (holdRef.current) holdRef.current.style.transform = `scaleX(${run.accuracy})`
 
       run.paint(rootRef.current)
 
@@ -253,9 +249,7 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
         </div>
       </div>
 
-      <div className="qte__hold">
-        <div ref={holdRef} className="qte__hold-fill" />
-      </div>
+      <QteMeter run={run} unit="HELD" />
     </div>
   )
 }

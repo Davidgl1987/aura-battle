@@ -58,7 +58,13 @@ export interface TimingParams {
   game: 'sweep'
   /** Time for the cursor to cross the bar once, before it starts quickening. */
   sweepMs: number
-  /** Centres landed to score at all. */
+  /**
+   * How many green zones sit on the bar, spread evenly across it. One is a
+   * single target in the middle; three is a bar you have to read before you
+   * can aim at it.
+   */
+  zones: number
+  /** Zones landed to score at all. */
   goodAt: number
   /** Half-width of the PERFECT / GOOD windows, in ms. */
   perfectMs: number
@@ -77,8 +83,15 @@ export interface LanesParams {
   goodAt: number
   /** How long a note takes to cross the board, entering to hit line. */
   travelMs: number
-  /** Gap between one note and the next. */
+  /** Gap between one beat and the next: the length of a quarter note. */
   gapMs: number
+  /**
+   * The shortest note the chart may use, as a division of `gapMs`. 1 is
+   * quarter notes all the way down, 2 lets eighths in, 4 lets sixteenths in.
+   * A chart of nothing but quarters is a metronome; the difficulty of this
+   * gesture is reading a rhythm, not reacting faster.
+   */
+  subdivisions: number
   /** Half-width of the PERFECT / GOOD windows, in ms. */
   perfectMs: number
   goodMs: number
@@ -97,8 +110,13 @@ export interface SpeedParams {
   game: 'mash'
   /** Alternations landed to score at all. */
   goodAt: number
-  /** When true, tapping the same zone twice in a row does not count. */
-  alternating: boolean
+  /**
+   * How many pads are on the glass. One is a plain mash; two is a six and a
+   * seven, one in each hand; three has to be walked along and back — left,
+   * middle, right, middle, left — so the next pad is always a neighbour of
+   * the last.
+   */
+  pads: number
 }
 
 /**

@@ -1,15 +1,48 @@
 import { describe, expect, it } from 'vitest'
 import { countsAsTap, gradePace } from './speed'
 
-describe('two thumbs, not one', () => {
-  it('ignores a second tap on the same pad when the card alternates', () => {
-    expect(countsAsTap(0, null, true)).toBe(true)
-    expect(countsAsTap(1, 0, true)).toBe(true)
-    expect(countsAsTap(0, 0, true)).toBe(false)
+describe('walking the pads', () => {
+  it('takes any tap when there is only one pad', () => {
+    expect(countsAsTap(0, null, 1)).toBe(true)
+    expect(countsAsTap(0, 0, 1)).toBe(true)
   })
 
-  it('takes any tap on a card that does not alternate', () => {
-    expect(countsAsTap(0, 0, false)).toBe(true)
+  it('takes either pad to open, whatever the card', () => {
+    for (const pads of [1, 2, 3]) {
+      for (const zone of [0, 1, 2].slice(0, pads)) {
+        expect(countsAsTap(zone, null, pads), `${pads} pads, zone ${zone}`).toBe(true)
+      }
+    }
+  })
+
+  it('alternates on two pads', () => {
+    expect(countsAsTap(1, 0, 2)).toBe(true)
+    expect(countsAsTap(0, 1, 2)).toBe(true)
+    expect(countsAsTap(0, 0, 2)).toBe(false)
+    expect(countsAsTap(1, 1, 2)).toBe(false)
+  })
+
+  /**
+   * Left, middle, right, middle, left — the only path across three pads that
+   * never repeats one and never skips one, which is what makes it a walk
+   * rather than a second alternation.
+   */
+  it('walks three pads without repeating or skipping', () => {
+    expect(countsAsTap(1, 0, 3)).toBe(true)
+    expect(countsAsTap(2, 1, 3)).toBe(true)
+    expect(countsAsTap(1, 2, 3)).toBe(true)
+    expect(countsAsTap(0, 1, 3)).toBe(true)
+    // Same pad twice, and the jump from one end to the other.
+    expect(countsAsTap(1, 1, 3)).toBe(false)
+    expect(countsAsTap(2, 0, 3)).toBe(false)
+    expect(countsAsTap(0, 2, 3)).toBe(false)
+  })
+
+  it('accepts the walk it describes, all the way along and back', () => {
+    const walk = [0, 1, 2, 1, 0, 1, 2, 1, 0]
+    for (let i = 1; i < walk.length; i++) {
+      expect(countsAsTap(walk[i], walk[i - 1], 3), `step ${i}`).toBe(true)
+    }
   })
 })
 

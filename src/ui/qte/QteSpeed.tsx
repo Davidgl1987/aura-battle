@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { now, stamp } from '../../state/store'
-import { QTE_GOOD_RATIO } from '../../engine/balance'
 import type { Card, QteOutcome, SpeedParams } from '../../engine/types'
 import { useRun } from './run'
+import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
 import { countsAsTap } from './speed'
 
@@ -27,8 +27,6 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const armRef = useRef<HTMLElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
-  const fillRef = useRef<HTMLDivElement>(null)
-  const countRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
     let raf = 0
@@ -44,9 +42,6 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
       }
       if (timeRef.current) timeRef.current.style.transform = `scaleX(${Math.max(0, left)})`
       run.paint(rootRef.current)
-
-      if (fillRef.current) fillRef.current.style.transform = `scaleX(${run.accuracy})`
-      if (countRef.current) countRef.current.textContent = String(run.ledger.successes)
 
       if (armedAt !== null && left <= 0) {
         run.finish()
@@ -70,7 +65,7 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
 
     // Drumming one thumb is not the gesture: the move is a six and a seven,
     // one in each hand, so the same side twice is a beat thrown away.
-    if (!countsAsTap(zone, lastZone.current, params.alternating)) {
+    if (!countsAsTap(zone, lastZone.current, params.pads)) {
       run.beat('missed')
       event.currentTarget.dataset.dead = 'true'
       window.setTimeout(() => event.currentTarget?.removeAttribute('data-dead'), 120)
@@ -84,18 +79,25 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
     run.beat('clean')
   }
 
-  const zones = params.alternating ? [0, 1] : [0]
+  const zones = Array.from({ length: params.pads }, (_, i) => i)
+  /** Left, middle, right — or just the two hands, or the one pad. */
+  const label = (zone: number) =>
+    params.pads === 1 ? 'TAP' : params.pads === 2 ? (zone === 0 ? 'L' : 'R') : 'LMR'[zone]
 
   return (
     <div className="qte" ref={rootRef} data-live="false">
       <div className="qte__title">
         {card.emoji} {card.name}
         <em className="qte__hint-grab">
-          {params.alternating ? 'TAP EITHER PAD TO START' : 'TAP TO START'}{' '}
+          {params.pads === 1 ? 'TAP TO START' : 'TAP ANY PAD TO START'}{' '}
           <b ref={armRef} className="qte__count" />
         </em>
         <em className="qte__hint-live">
-          {params.alternating ? 'ALTERNATE BOTH PADS' : 'MASH IT'}
+          {params.pads === 1
+            ? 'MASH IT'
+            : params.pads === 2
+              ? 'ALTERNATE BOTH PADS'
+              : 'WALK THEM — L M R M L'}
         </em>
       </div>
 
@@ -103,20 +105,12 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
 
-      <div className="qte__tally">
-        <span ref={countRef}>0</span> · {params.goodAt} TO SCORE
-        <em> · KEEP ALTERNATING, EVERY EXTRA COUNTS</em>
-      </div>
-      {/* The performance bar, not a tap count: it can go down. */}
-      <div className="qte__progress">
-        <div ref={fillRef} className="qte__progress-fill" />
-        <div className="qte__mark" style={{ left: `${QTE_GOOD_RATIO * 100}%` }} />
-      </div>
+      <QteMeter run={run} unit="TAPS" />
 
       <div className="qte__pads">
         {zones.map((zone) => (
           <button key={zone} className="pad" onPointerDown={tap(zone)}>
-            {params.alternating ? (zone === 0 ? 'L' : 'R') : 'TAP'}
+            {label(zone)}
           </button>
         ))}
       </div>

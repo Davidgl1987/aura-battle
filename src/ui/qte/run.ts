@@ -85,7 +85,7 @@ export function useRun(card: Card, onResult: (outcome: QteOutcome) => void): Run
         return ledger.mistakes === 0
       },
       get accuracy() {
-        return accuracyOf(ledger, total)
+        return accuracyOf(ledger, chances)
       },
       get done() {
         return done
@@ -110,7 +110,7 @@ export function useRun(card: Card, onResult: (outcome: QteOutcome) => void): Run
         if (!root) return
         root.dataset.perfect = String(ledger.mistakes === 0)
         root.dataset.slipped = String(ledger.mistakes > 0)
-        root.style.setProperty('--acc', accuracyOf(ledger, total).toFixed(3))
+        root.style.setProperty('--acc', accuracyOf(ledger, chances).toFixed(3))
         root.style.setProperty('--taken', String(ledger.taken))
       },
 

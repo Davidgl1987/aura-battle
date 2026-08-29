@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { play } from '../../audio/engine'
 import { now, stamp } from '../../state/store'
 import type { Card, Judgement, LanesParams, QteOutcome } from '../../engine/types'
 import { useRun } from './run'
+import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
 import { chart, gradeNote, noteProgress } from './lanes'
 
@@ -24,7 +25,6 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
   const arming = useArming(startedAt)
   const notes = useMemo(() => chart(params, variation), [params, variation])
 
-  const hits = useRef<Judgement[]>([])
   /** How every note already dealt with turned out, hit or gone by. */
   const settled = useRef<Map<number, Judgement>>(new Map())
   const run = useRun(card, onResult)
@@ -36,10 +36,6 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([])
   const boardRef = useRef<HTMLDivElement>(null)
   const noteRefs = useRef<(HTMLSpanElement | null)[]>([])
-  const [scored, setScored] = useState(0)
-
-  useEffect(() => {
-  })
 
   /**
    * Replays a one-shot animation. Clearing the attribute and reading a layout
@@ -82,7 +78,9 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
         // Once it is past the window it can no longer be hit; count it lost.
         if (armedAt !== null && !settled.current.has(i) && elapsed - note.atMs > params.goodMs) {
           settled.current.set(i, 'MISS')
-          hits.current = [...hits.current, 'MISS']
+          // Told to the ledger as it happens rather than swept up at the end,
+          // so the meter shows a dropped note the moment it goes past.
+          run.beat('missed')
           node.dataset.hit = 'MISS'
           flash(laneNodes.current[note.lane], 'MISS')
         }
@@ -137,10 +135,7 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
     const grade = gradeNote(closest, params)
     settled.current.set(pick, grade)
     run.beat(grade === 'PERFECT' ? 'clean' : grade === 'GOOD' ? 'scrappy' : 'missed')
-    const hit = settled.current.get(pick)!
-    hits.current = [...hits.current, hit]
-    setScored(hits.current.length)
-
+    const hit = grade
     const node = noteRefs.current[pick]
     if (node) node.dataset.hit = hit
     flash(laneNodes.current[lane], hit)
@@ -155,14 +150,14 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
         <em className="qte__hint-grab">
           TAP A LANE TO START <b ref={armRef} className="qte__count" />
         </em>
-        <em className="qte__hint-live">
-          HIT THEM ON THE LINE — {scored}/{notes.length}
-        </em>
+        <em className="qte__hint-live">HIT THEM ON THE LINE</em>
       </div>
 
       <div className="qte__timer">
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
+
+      <QteMeter run={run} unit="NOTES" />
 
       <div className="lanes" ref={boardRef}>
         {Array.from({ length: params.lanes }, (_, lane) => (

@@ -72,3 +72,37 @@ export function combine(hits: Judgement[]): Judgement {
 }
 
 export { crossings } from '../../engine/qte'
+
+/**
+ * Where each green zone sits along the bar, as a share of its width.
+ *
+ * Spread evenly with a margin at both ends, so a zone is never so close to a
+ * turn that the cursor is standing still inside it. One zone sits dead centre,
+ * which is what a timing bar has always been; three make you read the bar
+ * before you can aim at it.
+ */
+export function zoneCentres(zones: number): number[] {
+  if (zones <= 1) return [0.5]
+  const margin = 0.5 / (zones + 1)
+  const span = 1 - 2 * margin
+  return Array.from({ length: zones }, (_, i) => margin + (span * i) / (zones - 1))
+}
+
+/**
+ * How far the tap was from the nearest zone, in milliseconds of cursor travel.
+ *
+ * Distance is measured along the bar and converted back to time, which is the
+ * same thing the single-centre version measured — the cursor covers the bar at
+ * a constant rate, so a share of the width is a share of the sweep.
+ */
+export function zoneErrorAt(
+  t: number,
+  startedAt: number,
+  sweepMs: number,
+  params: TimingParams,
+  edge = 0,
+): number {
+  const x = cursorAt(t, startedAt, sweepMs, edge)
+  const nearest = Math.min(...zoneCentres(params.zones).map((c) => Math.abs(x - c)))
+  return nearest * sweepMs
+}

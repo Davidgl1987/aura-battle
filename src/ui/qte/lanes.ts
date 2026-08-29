@@ -30,15 +30,54 @@ export function chart(params: LanesParams, variation: number): Note[] {
     return next.value
   }
 
+  // The tail of the current run of short notes: whatever the roll started
+  // carries on to the end of the pair before another is drawn.
+  const run: number[] = []
   const notes: Note[] = []
   let last = -1
+  let at = params.travelMs
   for (let i = 0; i < params.notes; i++) {
     let lane = Math.floor(roll() * params.lanes)
     if (lane === last) lane = (lane + 1 + Math.floor(roll() * (params.lanes - 1))) % params.lanes
     last = lane
-    notes.push({ lane, atMs: params.travelMs + i * params.gapMs })
+    notes.push({ lane, atMs: at })
+    at += params.gapMs / divisionAt(i, params, roll, run)
   }
   return notes
+}
+
+/**
+ * How the gap after note `i` is divided: 1 for a quarter, 2 for an eighth, 4
+ * for a sixteenth.
+ *
+ * A chart of nothing but quarters is a metronome, and reacting to a metronome
+ * is the same job however fast it ticks. What makes this gesture harder is
+ * reading a rhythm, so the tiers let shorter notes in rather than shortening
+ * every note: the run of two eighths inside an otherwise steady bar is the bit
+ * that catches you out.
+ *
+ * Shorter notes always come in pairs, because a lone half-length gap is a
+ * stumble rather than a rhythm — and the first note of a chart is never one, so
+ * the bar establishes its pulse before it starts playing with it.
+ */
+function divisionAt(
+  i: number,
+  params: LanesParams,
+  roll: () => number,
+  run: number[],
+): number {
+  if (params.subdivisions <= 1 || i === 0) return 1
+  if (run.length > 0) return run.pop()!
+  const r = roll()
+  if (params.subdivisions >= 4 && r < 0.22) {
+    run.push(4, 4)
+    return 4
+  }
+  if (r < 0.55) {
+    run.push(2)
+    return 2
+  }
+  return 1
 }
 
 /**
@@ -49,7 +88,11 @@ export function noteProgress(note: Note, elapsedMs: number, travelMs: number): n
   return (note.atMs - elapsedMs) / travelMs
 }
 
-/** How long the whole chart runs, so a card can be given room for it. */
+/**
+ * How long the whole chart can possibly run, so a card can be given room for
+ * it. Every gap at its longest, which is the worst case a chart of quarters
+ * hits — anything the roll shortens only finishes sooner.
+ */
 export function chartLength(params: LanesParams): number {
   return params.travelMs + (params.notes - 1) * params.gapMs + params.goodMs
 }
