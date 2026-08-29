@@ -3,6 +3,8 @@ import { DEFAULT_SETTINGS, INTRO_MS } from './balance'
 import { createMatch, step } from './match'
 import { recap } from './recap'
 import type { Judgement, MatchState, PlayerSetup } from './types'
+import { getCard } from './cards'
+import { runFor } from './qte'
 
 const DECK = ['mewing', 'six-seven', 'split-focus', 'griddy-drop']
 const setups: [PlayerSetup, PlayerSetup] = [
@@ -33,11 +35,12 @@ function battle(script: (Judgement | 'FREEZE')[]): MatchState {
       continue
     }
 
-    s = step(s, { type: 'SELECT_CARD', cardId: s.players[s.active].remaining[0], now: t })
+    const cardId = s.players[s.active].remaining[0]
+    s = step(s, { type: 'SELECT_CARD', cardId, now: t })
     t += INTRO_MS
     s = step(s, { type: 'TICK', now: t })
     t += 50
-    s = step(s, { type: 'QTE_RESULT', judgement: beat, now: t })
+    s = step(s, { type: 'QTE_RESULT', outcome: runFor(getCard(cardId), beat), now: t })
     t += 2000
     s = step(s, { type: 'READY', now: t })
   }

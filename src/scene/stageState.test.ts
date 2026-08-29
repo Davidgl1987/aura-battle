@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS, INTRO_MS } from '../engine/balance'
 import { getCard } from '../engine/cards'
 import { createMatch, step } from '../engine/match'
 import type { MatchState, PlayerSetup } from '../engine/types'
+import { runFor } from '../engine/qte'
 import { SLOTS, actionProgress, fighterAction, slotOf } from './stageState'
 
 const DECK = ['mewing', 'six-seven', 'split-focus', 'griddy-drop']
@@ -108,7 +109,7 @@ describe('what each body is doing', () => {
 
   it('reacts on the player the judgement landed on', () => {
     const { state, t } = atQte('mewing')
-    const resolved = step(state, { type: 'QTE_RESULT', judgement: 'PERFECT', now: t + 50 })
+    const resolved = step(state, { type: 'QTE_RESULT', outcome: runFor(getCard('mewing'), 'PERFECT'), now: t + 50 })
 
     const react = fighterAction(resolved, 0)
     expect(react.kind).toBe('react')
@@ -121,7 +122,7 @@ describe('what each body is doing', () => {
 
   it('has the rival answer it rather than stand there', () => {
     const { state, t } = atQte('mewing')
-    const resolved = step(state, { type: 'QTE_RESULT', judgement: 'PERFECT', now: t + 50 })
+    const resolved = step(state, { type: 'QTE_RESULT', outcome: runFor(getCard('mewing'), 'PERFECT'), now: t + 50 })
 
     const watching = fighterAction(resolved, 1)
     expect(watching.kind).toBe('watch')
@@ -158,7 +159,7 @@ describe('timing an action', () => {
 
   it('starts the reaction as the score lands, then holds it there', () => {
     const { state, t } = atQte('mewing')
-    const resolved = step(state, { type: 'QTE_RESULT', judgement: 'GOOD', now: t + 50 })
+    const resolved = step(state, { type: 'QTE_RESULT', outcome: runFor(getCard('mewing'), 'GOOD'), now: t + 50 })
     if (resolved.phase.kind !== 'resolve') throw new Error('expected a resolve')
 
     const react = fighterAction(resolved, 0)

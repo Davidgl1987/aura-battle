@@ -1,36 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { play } from '../../audio/engine'
 import { now, stamp } from '../../state/store'
-import type { Card, Judgement, OrderParams } from '../../engine/types'
+import { QTE_RAMP } from '../../engine/balance'
+import type { Card, OrderParams, QteOutcome } from '../../engine/types'
+import { schedule, useRun } from './run'
 import { useArming } from './arming'
-import { gradeOrder, orderLayout } from './order'
+import { orderLayout } from './order'
 
 interface Props {
   card: Card
   params: OrderParams
   startedAt: number
   variation: number
-  onResult: (judgement: Judgement) => void
+  onResult: (outcome: QteOutcome) => void
 }
 
 export function QteOrder({ card, params, startedAt, variation, onResult }: Props) {
   const arming = useArming(startedAt)
   const spots = useMemo(() => orderLayout(params.count, variation), [params.count, variation])
 
+  const run = useRun(card, onResult)
   const next = useRef(1)
-  const mistakes = useRef(0)
-  const done = useRef(false)
-  const onResultRef = useRef(onResult)
+  // Every number gets its own slice of the card, and the slices get shorter.
+  const deadlines = useRef(schedule(card.durationMs, params.count, QTE_RAMP))
 
   const rootRef = useRef<HTMLDivElement>(null)
   const armRef = useRef<HTMLElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
   const [taken, setTaken] = useState(0)
   const [wrong, setWrong] = useState(0)
-
-  useEffect(() => {
-    onResultRef.current = onResult
-  })
 
   useEffect(() => {
     let raf = 0
@@ -46,16 +43,28 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
       const left = armedAt === null ? 1 : 1 - (t - armedAt) / card.durationMs
       if (timeRef.current) timeRef.current.style.transform = `scaleX(${Math.max(0, left)})`
 
-      if (armedAt !== null && left <= 0 && !done.current) {
-        done.current = true
-        onResultRef.current(gradeOrder(false, t - armedAt, mistakes.current, params))
+      run.paint(rootRef.current)
+
+      // A number whose time ran out is gone, and it costs what fumbling one
+      // costs. The sequence moves on rather than stalling on it.
+      if (armedAt !== null) {
+        const elapsed = t - armedAt
+        while (next.current <= params.count && elapsed > deadlines.current[next.current - 1]) {
+          next.current += 1
+          run.beat('missed')
+          setTaken(next.current - 1)
+        }
+      }
+
+      if (armedAt !== null && left <= 0) {
+        run.finish()
         return
       }
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [card.durationMs, params, arming])
+  }, [card.durationMs, params, arming, run])
 
   /**
    * Unlike the other cards the first press counts. The numbers are on the pad
@@ -63,7 +72,7 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
    * press of "1" that did nothing would just read as a dropped input.
    */
   const press = (n: number) => (event: React.PointerEvent) => {
-    if (done.current) return
+    if (run.done || next.current > params.count) return
     const t = event.nativeEvent.timeStamp ? stamp(event.nativeEvent.timeStamp) : now()
     // The clock starts on the press that begins the sequence, so hunting for
     // the first number costs nothing.
@@ -71,20 +80,22 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
     const armedAt = arming.armedAt ?? t
 
     if (n !== next.current) {
-      mistakes.current += 1
-      setWrong(mistakes.current)
-      play('dead')
+      // A press out of order costs the chance the way running out of time on
+      // it would, and the number stays: you still have to find it.
+      run.beat('missed')
+      next.current += 1
+      setWrong(run.ledger.mistakes)
+      setTaken(next.current - 1)
       return
     }
 
+    // Early in its own window is clean; scrambling for it at the end is not.
+    const window = deadlines.current[n - 1] - (n > 1 ? deadlines.current[n - 2] : 0)
+    const spent = t - armedAt - (n > 1 ? deadlines.current[n - 2] : 0)
+    run.beat(spent <= window * 0.6 ? 'clean' : 'scrappy')
+
     next.current += 1
     setTaken(n)
-    play('tap')
-
-    if (next.current > params.count) {
-      done.current = true
-      onResultRef.current(gradeOrder(true, t - armedAt, mistakes.current, params))
-    }
   }
 
   return (

@@ -115,25 +115,35 @@ describe('what a rival scores on a QTE', () => {
     expect(1 - hard.perfect - hard.good).toBeGreaterThan(1 - easy.perfect - easy.good)
   })
 
-  it('splits the roll into the three grades in the right order', () => {
-    const s = strategy({ qteSkill: 0.5, consistency: 0.5 })
+  /**
+   * A grade is no longer one roll against one threshold — it is a whole run
+   * settled at the end — so all three have to be reachable rather than laid
+   * out in order along the roll. `qte.test.ts` covers the ledger itself.
+   */
+  it('can produce all three grades from the same hands', () => {
+    const s = strategy({ qteSkill: 0.55, consistency: 0.5 })
     const card = getCard('mewing')
-    const odds = cpuOdds(s, card)
-    expect(judgeQte(s, card, 0)).toBe('PERFECT')
-    expect(judgeQte(s, card, odds.perfect + odds.good / 2)).toBe('GOOD')
-    expect(judgeQte(s, card, 0.999)).toBe('MISS')
+    const seen = new Set(
+      Array.from({ length: 400 }, (_, i) => judgeQte(s, card, (i + 0.5) / 400)),
+    )
+    expect(seen).toContain('PERFECT')
+    expect(seen).toContain('GOOD')
+    expect(seen).toContain('MISS')
   })
 
-  it('lands somewhere near its own odds over many rolls', () => {
-    const s = strategy({ qteSkill: 0.6, consistency: 0.6 })
+  it('lands a clean run about as often as its own odds say it should', () => {
+    const s = strategy({ qteSkill: 0.75, consistency: 0.6 })
     const card = getCard('mewing')
     const odds = cpuOdds(s, card)
-    let perfect = 0
     const runs = 4000
+    let perfect = 0
     for (let i = 0; i < runs; i++) {
       if (judgeQte(s, card, (i + 0.5) / runs) === 'PERFECT') perfect += 1
     }
-    expect(perfect / runs).toBeCloseTo(odds.perfect, 2)
+    // PERFECT is every opportunity landed, so it sits below the chance of
+    // landing any single one, and well above never.
+    expect(perfect / runs).toBeGreaterThan(0.05)
+    expect(perfect / runs).toBeLessThan(odds.perfect)
   })
 })
 

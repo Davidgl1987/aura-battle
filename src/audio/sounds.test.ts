@@ -11,6 +11,13 @@ const result = (judgement: TurnResult['judgement']): GameEvent => ({
     judgement,
     freshness: 'FRESH',
     aura: 1100,
+    impact: 1100,
+    outcome: {
+      judgement: judgement === 'LOST_COMPOSURE' ? 'MISS' : judgement,
+      score: 800,
+      perfectEligible: judgement === 'PERFECT',
+      metrics: { successes: 5, mistakes: 0, accuracy: 0.9 },
+    },
     lines: [
       { key: 'base', label: judgement, value: 800 },
       { key: 'fresh', label: 'FRESH MOVE', value: 300 },

@@ -19,10 +19,10 @@ describe('the shape of a rival\'s attempt', () => {
   it('takes the count from the QTE the player would have been given', () => {
     // A rival playing Beat Drop shows the five notes going past, not a
     // generic bar: the strip is the card, not decoration.
-    expect(beatsOf(getCard('beat-drop'))).toBe(5)
-    expect(beatsOf(getCard('hyperpop'))).toBe(7)
-    expect(beatsOf(getCard('mewing'))).toBe(2)
-    expect(beatsOf(getCard('speedrun'))).toBe(6)
+    expect(beatsOf(getCard('beat-drop'))).toBe(6)
+    expect(beatsOf(getCard('hyperpop'))).toBe(8)
+    expect(beatsOf(getCard('mewing'))).toBe(6)
+    expect(beatsOf(getCard('speedrun'))).toBe(8)
   })
 
   it('always produces exactly that many beats', () => {

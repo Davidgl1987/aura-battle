@@ -1,3 +1,4 @@
+import { QTE_RAMP } from '../../engine/balance'
 import type { ControlParams, Judgement } from '../../engine/types'
 
 /**
@@ -17,6 +18,19 @@ export function zoneAt(
   const t = (elapsedMs / 1000) * params.driftSpeed
   const shift = variation * Math.PI * 2
   return { x: Math.sin(t * 1.7 + shift), y: Math.sin(t * 2.3 + 1.1 + shift * 1.618) }
+}
+
+/**
+ * Elapsed time, warped so the ring drifts faster the further into the card it
+ * gets. The total distance covered is the same; it is front-loaded slow and
+ * back-loaded quick, so the last quarter of a hold is the hard part.
+ */
+export function drifted(elapsedMs: number, durationMs: number): number {
+  if (durationMs <= 0) return elapsedMs
+  const p = Math.min(1, elapsedMs / durationMs)
+  // Integral of a linear ramp from 1 to QTE_RAMP, scaled back to real time.
+  const warp = p + ((QTE_RAMP - 1) * p * p) / 2
+  return warp * durationMs
 }
 
 /**

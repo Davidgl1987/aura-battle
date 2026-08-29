@@ -1,4 +1,4 @@
-import type { Card, Judgement } from '../../engine/types'
+import type { Card, QteOutcome } from '../../engine/types'
 import { QteControl } from './QteControl'
 import { QteLanes } from './QteLanes'
 import { QteOrder } from './QteOrder'
@@ -11,7 +11,7 @@ interface Props {
   startedAt: number
   /** Per-play random number in [0, 1); shuffles the QTE so it is never rote. */
   variation: number
-  onResult: (judgement: Judgement) => void
+  onResult: (outcome: QteOutcome) => void
 }
 
 /**

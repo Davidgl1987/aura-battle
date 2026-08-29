@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { play } from '../../audio/engine'
 import { now, stamp } from '../../state/store'
-import type { Card, Judgement, SpeedParams } from '../../engine/types'
+import { QTE_GOOD_RATIO, QTE_RAMP } from '../../engine/balance'
+import type { Card, QteOutcome, SpeedParams } from '../../engine/types'
+import { schedule, useRun } from './run'
 import { useArming } from './arming'
-import { countsAsTap, goodThreshold, gradeSpeed } from './speed'
+import { countsAsTap } from './speed'
 
 interface Props {
   card: Card
@@ -11,14 +12,17 @@ interface Props {
   startedAt: number
   /** Unused: a mash has no path to learn. Kept so every widget shares a shape. */
   variation?: number
-  onResult: (judgement: Judgement) => void
+  onResult: (outcome: QteOutcome) => void
 }
 
+/** How far off the beat still counts for something. */
+const WINDOW_MS = 170
+
 export function QteSpeed({ card, params, startedAt, onResult }: Props) {
-  const done = useRef(false)
-  const taps = useRef(0)
+  const run = useRun(card, onResult)
+  const beats = useRef(schedule(card.durationMs, params.targetTaps, QTE_RAMP))
+  const next = useRef(0)
   const lastZone = useRef<number | null>(null)
-  const onResultRef = useRef(onResult)
   const arming = useArming(startedAt)
 
   const rootRef = useRef<HTMLDivElement>(null)
@@ -28,17 +32,7 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
   const countRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
-    onResultRef.current = onResult
-  })
-
-  useEffect(() => {
     let raf = 0
-    const finish = (judgement: Judgement) => {
-      if (done.current) return
-      done.current = true
-      onResultRef.current(judgement)
-    }
-
     const loop = () => {
       const t = now()
       const armedAt = arming.resolve(t)
@@ -50,9 +44,24 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
         armRef.current.textContent = `${(arming.countdown(t) / 1000).toFixed(1)}s`
       }
       if (timeRef.current) timeRef.current.style.transform = `scaleX(${Math.max(0, left)})`
+      run.paint(rootRef.current)
+
+      // Beats that came and went unanswered. The rhythm does not wait, which
+      // is what makes falling behind cost something rather than nothing.
+      if (armedAt !== null) {
+        const elapsed = t - armedAt
+        while (next.current < beats.current.length && elapsed > beats.current[next.current] + WINDOW_MS) {
+          next.current += 1
+          run.beat('missed')
+        }
+        if (fillRef.current) {
+          fillRef.current.style.transform = `scaleX(${run.accuracy})`
+        }
+        if (countRef.current) countRef.current.textContent = String(run.ledger.successes)
+      }
 
       if (armedAt !== null && left <= 0) {
-        finish(gradeSpeed(taps.current, params))
+        run.finish()
         return
       }
       raf = requestAnimationFrame(loop)
@@ -60,39 +69,33 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [startedAt, card.durationMs, params, arming])
+  }, [startedAt, card.durationMs, params, arming, run])
 
   const tap = (zone: number) => (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (done.current) return
+    if (run.done || next.current >= beats.current.length) return
+    const t = event.nativeEvent.timeStamp ? stamp(event.nativeEvent.timeStamp) : now()
 
+    // The tap that starts the clock still counts — swallowing your first hit
+    // would feel like the game stole it.
+    arming.arm(t)
+    const armedAt = arming.armedAt ?? t
+
+    // Drumming one thumb is not the gesture: the move is a six and a seven,
+    // one in each hand, so the same side twice is a beat thrown away.
     if (!countsAsTap(zone, lastZone.current, params.alternating)) {
-      // Dead input: say so instead of silently swallowing the tap.
-      play('dead')
+      next.current += 1
+      run.beat('missed')
       event.currentTarget.dataset.dead = 'true'
       window.setTimeout(() => event.currentTarget?.removeAttribute('data-dead'), 120)
       return
     }
 
-    // The tap that starts the clock still counts — swallowing your first hit
-    // of a mash would feel like the game stole it.
-    arming.arm(
-      event.nativeEvent.timeStamp ? stamp(event.nativeEvent.timeStamp) : now(),
-    )
-
-    play('tap')
+    // How close to the beat it landed. The beats tighten as the card runs, so
+    // the same hand gets less room the further in it gets.
+    const error = Math.abs(t - armedAt - beats.current[next.current])
+    next.current += 1
     lastZone.current = zone
-    taps.current += 1
-
-    // Counting taps through React state would drop inputs at mash speed.
-    if (fillRef.current) {
-      fillRef.current.style.transform = `scaleX(${Math.min(1, taps.current / params.targetTaps)})`
-    }
-    if (countRef.current) countRef.current.textContent = String(taps.current)
-
-    if (taps.current >= params.targetTaps) {
-      done.current = true
-      onResultRef.current('PERFECT')
-    }
+    run.beat(error <= WINDOW_MS * 0.45 ? 'clean' : error <= WINDOW_MS ? 'scrappy' : 'missed')
   }
 
   const zones = params.alternating ? [0, 1] : [0]
@@ -116,14 +119,12 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
 
       <div className="qte__tally">
         <span ref={countRef}>0</span> / {params.targetTaps}
-        <em> · {goodThreshold(params)} to score</em>
+        <em> · ALTERNATE ON THE BEAT</em>
       </div>
+      {/* The performance bar, not a tap count: it can go down. */}
       <div className="qte__progress">
         <div ref={fillRef} className="qte__progress-fill" />
-        <div
-          className="qte__mark"
-          style={{ left: `${(goodThreshold(params) / params.targetTaps) * 100}%` }}
-        />
+        <div className="qte__mark" style={{ left: `${QTE_GOOD_RATIO * 100}%` }} />
       </div>
 
       <div className="qte__pads">

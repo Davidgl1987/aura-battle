@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { play } from '../../audio/engine'
 import { now, stamp } from '../../state/store'
-import type { Card, Judgement, LanesParams } from '../../engine/types'
+import type { Card, Judgement, LanesParams, QteOutcome } from '../../engine/types'
+import { useRun } from './run'
 import { useArming } from './arming'
-import { chart, combineNotes, gradeNote, noteProgress } from './lanes'
+import { chart, gradeNote, noteProgress } from './lanes'
 
 interface Props {
   card: Card
   params: LanesParams
   startedAt: number
   variation: number
-  onResult: (judgement: Judgement) => void
+  onResult: (outcome: QteOutcome) => void
 }
 
 /**
@@ -26,8 +27,7 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
   const hits = useRef<Judgement[]>([])
   /** How every note already dealt with turned out, hit or gone by. */
   const settled = useRef<Map<number, Judgement>>(new Map())
-  const done = useRef(false)
-  const onResultRef = useRef(onResult)
+  const run = useRun(card, onResult)
 
   const rootRef = useRef<HTMLDivElement>(null)
   const armRef = useRef<HTMLElement>(null)
@@ -39,7 +39,6 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
   const [scored, setScored] = useState(0)
 
   useEffect(() => {
-    onResultRef.current = onResult
   })
 
   /**
@@ -89,10 +88,11 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
         }
       })
 
-      const finished = settled.current.size >= notes.length
-      if (armedAt !== null && (finished || left <= 0) && !done.current) {
-        done.current = true
-        onResultRef.current(combineNotes(hits.current, notes.length))
+      run.paint(rootRef.current)
+      // The chart plays out even once the last note has gone by: the gesture
+      // is as long as the animation, not as long as the notes.
+      if (armedAt !== null && left <= 0) {
+        run.finish()
         return
       }
       raf = requestAnimationFrame(loop)
@@ -100,10 +100,10 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [card.durationMs, params, notes, arming])
+  }, [card.durationMs, params, notes, arming, run])
 
   const strike = (lane: number) => (event: React.PointerEvent) => {
-    if (done.current) return
+    if (run.done) return
     const t = event.nativeEvent.timeStamp ? stamp(event.nativeEvent.timeStamp) : now()
 
     // The first touch only sets the board rolling; there is nothing on the
@@ -134,7 +134,9 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
       return
     }
 
-    settled.current.set(pick, gradeNote(closest, params))
+    const grade = gradeNote(closest, params)
+    settled.current.set(pick, grade)
+    run.beat(grade === 'PERFECT' ? 'clean' : grade === 'GOOD' ? 'scrappy' : 'missed')
     const hit = settled.current.get(pick)!
     hits.current = [...hits.current, hit]
     setScored(hits.current.length)

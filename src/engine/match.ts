@@ -7,6 +7,7 @@ import {
   QTE_GRACE_MS,
 } from './balance'
 import { ALL_CARD_IDS, getCard } from './cards'
+import { unplayed } from './qte'
 import { CHARACTERS, getCharacter } from './characters'
 import { nextRandom } from './rng'
 import type { Play } from './scoring'
@@ -15,12 +16,12 @@ import type {
   Action,
   Card,
   GameEvent,
-  Judgement,
   MatchSettings,
   MatchState,
   PlayerId,
   PlayerSetup,
   PlayerState,
+  QteOutcome,
   TurnResult,
 } from './types'
 
@@ -129,10 +130,14 @@ function endCondition(state: MatchState): MatchState['pendingEnd'] {
  * who goes second gets one extra comparison over the match — worth four points
  * of win rate in a simulated mirror, handed out for the coin toss.
  */
-function rivalLastAura(state: MatchState): number {
+function rivalLastImpact(state: MatchState): number {
   if (state.players[state.active].movesPlayed === 0) return 0
   for (let i = state.log.length - 1; i >= 0; i--) {
-    if (state.log[i].player !== state.active) return Math.max(0, state.log[i].aura)
+    const turn = state.log[i]
+    if (turn.player === state.active) continue
+    // A play they fumbled is worth nothing to beat: you can only out-aura a
+    // performance, and a MISS is not one.
+    return turn.judgement === 'MISS' ? 0 : Math.max(0, turn.impact)
   }
   return 0
 }
@@ -140,22 +145,23 @@ function rivalLastAura(state: MatchState): number {
 function scoreCardPlay(
   state: MatchState,
   card: Card,
-  judgement: Judgement,
+  outcome: QteOutcome,
   now: number,
 ): MatchState {
   const active = state.active
   const player = state.players[active]
+  const judgement = outcome.judgement
 
   const play: Play = {
     card,
-    judgement,
+    outcome,
     freshness: freshnessOf(card, state.lastPlayed),
     godAura: player.godAura,
     streak: streakOf(player.perfectStreak, judgement),
-    rivalLast: rivalLastAura(state),
+    rivalLast: rivalLastImpact(state),
   }
 
-  const { lines, total: aura } = scorePlay(play)
+  const { lines, impact, total: aura } = scorePlay(play)
   const momentum = applyMomentum(player.momentum, player.godAura, play)
 
   const result: TurnResult = {
@@ -164,6 +170,8 @@ function scoreCardPlay(
     judgement,
     freshness: play.freshness,
     aura,
+    impact,
+    outcome,
     lines,
     perfectStreak: play.streak,
     momentumBefore: player.momentum,
@@ -229,6 +237,8 @@ function loseComposure(state: MatchState, now: number): MatchState {
     judgement: 'LOST_COMPOSURE',
     freshness: null,
     aura: 0,
+    impact: 0,
+    outcome: null,
     lines: [],
     perfectStreak: 0,
     momentumBefore: player.momentum,
@@ -329,7 +339,7 @@ export function step(state: MatchState, action: Action): MatchState {
 
     case 'QTE_RESULT': {
       if (s.phase.kind !== 'qte') return s
-      return scoreCardPlay(s, getCard(s.phase.cardId), action.judgement, action.now)
+      return scoreCardPlay(s, getCard(s.phase.cardId), action.outcome, action.now)
     }
 
     case 'RESUME': {
@@ -387,9 +397,13 @@ export function step(state: MatchState, action: Action): MatchState {
           }
         }
 
-        // Running out of QTE time without a result is a MISS.
-        case 'qte':
-          return now >= s.phase.endsAt ? scoreCardPlay(s, getCard(s.phase.cardId), 'MISS', now) : s
+        // Running out of QTE time without a result is a gesture nobody
+        // answered: every opportunity in it counts as ignored.
+        case 'qte': {
+          if (now < s.phase.endsAt) return s
+          const card = getCard(s.phase.cardId)
+          return scoreCardPlay(s, card, unplayed(card), now)
+        }
 
         default:
           return s
@@ -430,7 +444,7 @@ export function remainingCards(player: PlayerState): Card[] {
  * scoring uses, so the promise on the picker cannot drift from the payout.
  */
 export function outauraTarget(state: MatchState): { last: number; needed: number } | null {
-  const last = rivalLastAura(state)
+  const last = rivalLastImpact(state)
   if (last <= 0) return null
   return {
     last,

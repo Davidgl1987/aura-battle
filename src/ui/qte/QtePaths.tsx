@@ -1,16 +1,18 @@
 import { useEffect, useRef } from 'react'
 import { now } from '../../state/store'
-import type { Card, Judgement, PathsParams } from '../../engine/types'
+import { QTE_TICK_MS } from '../../engine/balance'
+import type { Card, PathsParams, QteOutcome } from '../../engine/types'
+import { useRun } from './run'
 import { isDown } from '../pointers'
 import { useArming } from './arming'
-import { bothHands, gradePaths, laneCentre, laneRange, onTrack } from './paths'
+import { bothHands, laneCentre, laneRange, onTrack } from './paths'
 
 interface Props {
   card: Card
   params: PathsParams
   startedAt: number
   variation: number
-  onResult: (judgement: Judgement) => void
+  onResult: (outcome: QteOutcome) => void
 }
 
 /** Never bank a frame longer than this: a stall is not a held finger. */
@@ -25,8 +27,9 @@ const STEPS = 26
 export function QtePaths({ card, params, startedAt, variation, onResult }: Props) {
   const arming = useArming(startedAt)
   const both = useRef(0)
-  const done = useRef(false)
-  const onResultRef = useRef(onResult)
+  const run = useRun(card, onResult)
+  const inTick = useRef(0)
+  const ticks = useRef(0)
 
   /** Where each marker has been steered to, across a pad of [-1, 1]. */
   const at = useRef<[number, number]>([-0.5, 0.5])
@@ -45,7 +48,6 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
   const holdRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    onResultRef.current = onResult
   })
 
   useEffect(() => {
@@ -123,18 +125,30 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
           }
         }
 
-        if (armedAt !== null && holding) both.current += dt
+        if (armedAt !== null && holding) {
+          both.current += dt
+          inTick.current += dt
+        }
       }
 
       const remaining = armedAt === null ? 1 : 1 - live / card.durationMs
       if (timeRef.current) timeRef.current.style.transform = `scaleX(${Math.max(0, remaining)})`
-      if (holdRef.current) {
-        holdRef.current.style.transform = `scaleX(${live > 0 ? both.current / live : 0})`
+      if (holdRef.current) holdRef.current.style.transform = `scaleX(${run.accuracy})`
+
+      run.paint(rootRef.current)
+
+      if (armedAt !== null) {
+        while (live >= (ticks.current + 1) * QTE_TICK_MS && ticks.current < run.total) {
+          ticks.current += 1
+          // A card played with one thumb is a refusal to attempt it, so a tick
+          // with only one marker down banks as nothing at all.
+          run.hold(placed.current ? inTick.current : 0)
+          inTick.current = 0
+        }
       }
 
-      if (armedAt !== null && remaining <= 0 && !done.current) {
-        done.current = true
-        onResultRef.current(gradePaths(placed.current, both.current, card.durationMs, params))
+      if (armedAt !== null && remaining <= 0) {
+        run.finish()
         return
       }
       raf = requestAnimationFrame(loop)
@@ -142,7 +156,7 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [card.durationMs, params, variation, arming])
+  }, [card.durationMs, params, variation, arming, run])
 
   /** Absolute steering: the marker goes where the thumb is, along its half. */
   const steer = (lane: 0 | 1) => (event: React.PointerEvent<HTMLDivElement>) => {

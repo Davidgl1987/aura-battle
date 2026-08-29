@@ -3,6 +3,8 @@ import { SOLO_SETTINGS } from './balance'
 import { createMatch, qteWindow, step } from './match'
 import { battleStats } from './stats'
 import type { Judgement, MatchState, PlayerSetup } from './types'
+import { getCard } from './cards'
+import { runFor } from './qte'
 
 const DECK = ['mewing', 'six-seven', 'lean', 'griddy-drop', 'beat-drop']
 
@@ -36,7 +38,7 @@ function turn(
   s = step(s, { type: 'SELECT_CARD', cardId, now })
   s = step(s, { type: 'TICK', now: now + 500 })
   const at = now + 500 + Math.min(600, qteWindow(cardId) - 100)
-  s = step(s, { type: 'QTE_RESULT', judgement: judgement!, now: at })
+  s = step(s, { type: 'QTE_RESULT', outcome: runFor(getCard(cardId), judgement!), now: at })
   return { state: s, now: at }
 }
 

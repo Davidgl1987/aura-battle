@@ -11,7 +11,15 @@ export type Freshness = 'FRESH' | 'NEUTRAL' | 'STALE'
  * arithmetic: every celebration a player sees is a line that actually adds up
  * to the total, rather than a caption guessing at a formula.
  */
-export type AuraLineKey = 'miss' | 'base' | 'fresh' | 'hard' | 'streak' | 'outaurad' | 'god'
+export type AuraLineKey =
+  | 'miss'
+  | 'base'
+  | 'perfect'
+  | 'fresh'
+  | 'hard'
+  | 'streak'
+  | 'outaurad'
+  | 'god'
 
 export interface AuraLine {
   key: AuraLineKey
@@ -24,6 +32,8 @@ export interface AuraLine {
 
 export interface AuraBreakdown {
   lines: AuraLine[]
+  /** The play's own worth, before momentum and god aura. See `scorePlay`. */
+  impact: number
   total: number
 }
 
@@ -141,6 +151,29 @@ export interface Card {
   qte: QteParams
 }
 
+/**
+ * What a gesture was worth, once it has run its full length. Every QTE returns
+ * one of these, so the engine, the CPU and the balance simulation all read a
+ * performance the same way.
+ */
+export interface QteMetrics {
+  /** Opportunities answered at all, cleanly or not. */
+  successes: number
+  /** Fumbled, ignored, or let run out. All three cost the same. */
+  mistakes: number
+  /** 0..1 — the share of what was on offer that was taken, after mistakes. */
+  accuracy: number
+}
+
+export interface QteOutcome {
+  judgement: Judgement
+  /** Aura the execution itself earned: the card's worth times its accuracy. */
+  score: number
+  /** False the moment anything is fumbled. PERFECT is a GOOD that never was. */
+  perfectEligible: boolean
+  metrics: QteMetrics
+}
+
 export interface Character {
   id: string
   name: string
@@ -222,6 +255,18 @@ export interface TurnResult {
   freshness: Freshness | null
   /** Aura won by this player (negative when they lost some). */
   aura: number
+  /**
+   * What the play was worth on its own: execution, freshness, difficulty and
+   * streak, before momentum, god aura or any outaura bonus.
+   *
+   * This is the number OUTAURA'D is measured against, and it deliberately
+   * excludes the multipliers. Comparing finished totals meant a rival who
+   * caught fire could not be out-scored at all — their play was worth double
+   * for reasons that had nothing to do with the play.
+   */
+  impact: number
+  /** How the gesture went. Absent when the clock ran out instead. */
+  outcome: QteOutcome | null
   /** What made up that number, in the order it should be read out. */
   lines: AuraLine[]
   /** Consecutive PERFECTs after this play, this one included. */
@@ -322,7 +367,8 @@ export type Action =
   | { type: 'READY'; now: number }
   | { type: 'TICK'; now: number }
   | { type: 'SELECT_CARD'; cardId: string; now: number }
-  | { type: 'QTE_RESULT'; judgement: Judgement; now: number }
+  /** The finished gesture, ledger and all. */
+  | { type: 'QTE_RESULT'; outcome: QteOutcome; now: number }
   /**
    * Time the game was not running (tab hidden, a long frame hitch). Deadlines
    * move forward by that much so nobody loses a turn they never saw.

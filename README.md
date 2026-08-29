@@ -100,17 +100,32 @@ HANDOFF (waits for a tap)
 first turn, a card is gone the moment you play it — or fumble it — and the
 battle ends when both sides are out of cards.
 
-Aura per play: `baseAura × judgement × freshness × momentum`.
+**A gesture is a run, not a verdict.** It lasts exactly as long as the
+animation, it never ends early, and every opportunity inside it either pays or
+costs. Ignoring one costs the same as fumbling one, so standing still is not a
+way to keep a clean sheet. It gets harder as it goes: the sweep quickens after
+every hit, the notes close up, the ring drifts faster.
 
-- **Judgement** — PERFECT ×1, GOOD ×0.55, MISS costs you 35% of the card.
-- **Freshness** — measured against the last card played *by either player*:
-  a different kind is FRESH ×1.25, the same kind NEUTRAL ×1, the very same card
-  STALE ×0.5.
-- **Momentum** — 0–100 per player. PERFECT +25, GOOD +10, MISS −30, FRESH +10,
-  STALE −10. At 100 you enter 🔥 GOD AURA (×1.6) until a MISS breaks it.
+- **Accuracy** — what the run was worth, over what was on offer. Every card is
+  divided by its own opportunity count, so a long animation cannot out-earn a
+  short one by offering more chances.
+- **One threshold.** Over it and clean is a **PERFECT**; over it having fumbled
+  something is a **GOOD**; under it is a **MISS**, however it got there. Enough
+  mistakes drag a run that had already cleared the bar back under it.
+- **Aura per play** — `baseAura × accuracy`, plus a flat bonus for a clean run,
+  plus FRESH, HARD and streak. A MISS pays nothing and costs 35% of the card.
+- **Freshness** — measured against the last card played *by either player*: a
+  different kind is FRESH, the same kind NEUTRAL, the very same card STALE.
+- **Momentum** — 0–100 per player, fed by execution, variety, difficulty and
+  streaks. At 100 you enter 🔥 GOD AURA (×2) until a MISS breaks it.
+- **OUTAURA'D** — your play was worth half again what the rival's last landed
+  one was, measured on *impact*: what each play earned before momentum, god
+  aura or a bonus of its own. Comparing finished totals was the old rule and it
+  made a rival who had caught fire mathematically unbeatable. It pays momentum
+  rather than aura, because the play has already earned the aura.
 
-The match ends when the cards run out, or instantly (**MOGGED**) if the bar
-reaches 85 on either side.
+The match ends when the moves run out, or instantly (**MOGGED**) if the bar
+reaches either end.
 
 ## Two languages
 
@@ -172,6 +187,7 @@ src/
     stats.ts       a finished match as plain numbers, for objectives to read
     characters.ts  the 4 fighters (and the brief for their F4 models)
     accessories.ts the wardrobe: nine slots, six items
+    qte.ts         the ledger every gesture feeds, and how a run is graded
     scoring.ts     freshness, aura, momentum
     match.ts       the turn state machine
     cpu.ts         chooseCard and judgeQte, from weights
@@ -318,6 +334,23 @@ that no amount of playing by hand would have:
 
 The thresholds in `balance.test.ts` are the measured values with headroom, so a
 future tweak that quietly flattens the game fails a test instead of shipping.
+
+It found the next one too. The game was beatable end to end on a first run,
+because clearing a single threshold once was the whole test and nothing after
+it counted. Scoring the gesture over its whole length fixed that, and the
+measurements say so: PERFECT / GOOD / MISS now runs 9 / 18 / 73% for a poor
+player, 37 / 35 / 28% for a decent one and 78 / 17 / 4% for a good one, where
+before there was barely a gap between the last two.
+
+Two things came out of that change and are worth knowing:
+
+- **Averaging six to eight opportunities takes most of the luck out of a card.**
+  That is the point, but it also means a small difference in hands moves the
+  win rate a long way — which is why `QTE_FORM_SWING` exists, and why the two
+  rivals in the middle of the ladder measure as a tie.
+- **Hard cards had to pay much more.** A hard card is now landed less
+  *cleanly* as well as less often, and at the old premium a good player was
+  better off never bringing one.
 
 ## Roadmap
 

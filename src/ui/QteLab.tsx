@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { CARDS, KIND_LABEL, getCard, TIER_LABEL } from '../engine/cards'
 import { now } from '../state/store'
-import type { Card, Judgement } from '../engine/types'
+import type { Card, QteOutcome } from '../engine/types'
 import { QtePanel } from './qte/QtePanel'
 
 /**
  * Start on a real frame, not on mount: if the tab was hidden the clock ran on
  * without us and the QTE would open with its window already spent.
  */
-function QteRun({ card, onResult }: { card: Card; onResult: (j: Judgement) => void }) {
+function QteRun({ card, onResult }: { card: Card; onResult: (outcome: QteOutcome) => void }) {
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [variation] = useState(() => Math.random())
 
@@ -31,7 +31,7 @@ function QteRun({ card, onResult }: { card: Card; onResult: (j: Judgement) => vo
 export function QteLab({ initialCardId }: { initialCardId: string }) {
   const [cardId, setCardId] = useState(initialCardId)
   const [run, setRun] = useState(0)
-  const [result, setResult] = useState<Judgement | null>(null)
+  const [result, setResult] = useState<QteOutcome | null>(null)
 
   const card = getCard(cardId)
 
@@ -69,8 +69,14 @@ export function QteLab({ initialCardId }: { initialCardId: string }) {
         {result === null ? (
           <QteRun key={`${cardId}:${run}`} card={card} onResult={setResult} />
         ) : (
-          <div className="splash" data-judgement={result}>
-            <div className="splash__judgement">{result}</div>
+          <div className="splash" data-judgement={result.judgement}>
+            <div className="splash__judgement">{result.judgement}</div>
+            {/* The whole point of the range is tuning, so it shows the ledger
+                rather than just the verdict it produced. */}
+            <div className="lab__metrics">
+              {(result.metrics.accuracy * 100).toFixed(0)}% · {result.metrics.successes} landed ·{' '}
+              {result.metrics.mistakes} fumbled · {result.score} aura
+            </div>
           </div>
         )}
       </main>

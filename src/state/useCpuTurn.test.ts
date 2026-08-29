@@ -7,6 +7,7 @@ import { createMatch, step } from '../engine/match'
 import { RIVALS, getRival } from '../engine/rivals'
 import type { MatchState, PlayerSetup } from '../engine/types'
 import { cpuPerformance, cpuPlan } from './useCpuTurn'
+import { runFor } from '../engine/qte'
 
 const ROOKIE = RIVALS[0]
 /** No hesitation, so a plan is always an action: the mechanics show through. */
@@ -38,7 +39,7 @@ function toRivalChoosing(state: MatchState): MatchState {
   let s = step(state, { type: 'READY', now: 0 })
   s = step(s, { type: 'SELECT_CARD', cardId: 'mewing', now: 0 })
   s = step(s, { type: 'TICK', now: 500 })
-  s = step(s, { type: 'QTE_RESULT', judgement: 'GOOD', now: 1000 })
+  s = step(s, { type: 'QTE_RESULT', outcome: runFor(getCard('mewing'), 'GOOD'), now: 1000 })
   return step(s, { type: 'READY', now: 1200 })
 }
 
@@ -55,7 +56,7 @@ describe('what the rival does next', () => {
     s = step(s, { type: 'TICK', now: 500 })
     expect(cpuPlan(s, DEMON.strategy), 'qte').toBeNull()
 
-    s = step(s, { type: 'QTE_RESULT', judgement: 'GOOD', now: 1000 })
+    s = step(s, { type: 'QTE_RESULT', outcome: runFor(getCard('mewing'), 'GOOD'), now: 1000 })
     // The player's own score sheet waits for the player.
     expect(cpuPlan(s, DEMON.strategy), 'resolve').toBeNull()
   })
@@ -95,7 +96,7 @@ describe('what the rival does next', () => {
     let s = toRivalChoosing(battle())
     s = step(s, { type: 'SELECT_CARD', cardId: DEMON.deck[1], now: 2000 })
     s = step(s, { type: 'TICK', now: 2500 })
-    s = step(s, { type: 'QTE_RESULT', judgement: 'GOOD', now: 3000 })
+    s = step(s, { type: 'QTE_RESULT', outcome: runFor(getCard(DEMON.deck[1]), 'GOOD'), now: 3000 })
 
     expect(s.phase.kind).toBe('resolve')
     const plan = cpuPlan(s, DEMON.strategy)!

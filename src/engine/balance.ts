@@ -65,6 +65,71 @@ export const DEFAULT_SETTINGS: MatchSettings = {
   chooseMs: CHOOSE_SECONDS_DEFAULT * 1000,
 }
 
+// --- The gesture ------------------------------------------------------------
+/**
+ * A gesture is scored over its whole length rather than at one moment. These
+ * are the numbers that shape the run; `engine/qte.ts` is what applies them.
+ */
+
+/**
+ * How often a continuous gesture is sampled. Fixed rather than per frame: a
+ * phone at 30fps and one at 60 must score the same hold identically.
+ */
+export const QTE_TICK_MS = 250
+
+/**
+ * The band every card's opportunity count is held inside.
+ *
+ * PERFECT is a run with no fumbles in it, so a card offering twice as many
+ * chances is twice as likely to lose one — which would be a systematic penalty
+ * for nothing but being longer. Cards differ by how hard each chance is, not
+ * by how many there are.
+ */
+export const QTE_OPPORTUNITIES_MIN = 6
+export const QTE_OPPORTUNITIES_MAX = 8
+
+/** What a landed-but-scrappy opportunity is worth against a clean one. */
+export const QTE_SCRAPPY_VALUE = 0.55
+
+/**
+ * What one fumble costs, in opportunities. At 1 a mistake cancels a clean hit,
+ * so a run that had cleared the threshold can be dragged back under it — which
+ * is the point: the bar is not a checkpoint you keep once you have passed it.
+ */
+export const QTE_MISTAKE_COST = 0.8
+
+/**
+ * The one threshold there is. Above it and clean is a PERFECT, above it with a
+ * fumble is a GOOD, below it is a MISS however it got there.
+ */
+export const QTE_GOOD_RATIO = 0.45
+
+/**
+ * How much harder a card is by its last opportunity than by its first. A run
+ * that starts comfortable and ends flat out is what separates two players who
+ * would both have cleared a single threshold.
+ */
+export const QTE_RAMP = 1.5
+
+/**
+ * How much better or worse than usual one card can go.
+ *
+ * Averaging six or eight opportunities is what makes a gesture a test of a run
+ * rather than of one instant — but it also takes nearly all the luck out of a
+ * card, and a game with no luck in it has a ladder you cannot tune: between
+ * two rivals nine points of skill apart the win rate fell sixty. This puts the
+ * swing back where it belongs, on the card rather than on the beat. Some
+ * gestures just go badly.
+ */
+export const QTE_FORM_SWING = 0.7
+
+/**
+ * Paid on top of a clean run. Moderate on purpose: the accuracy is already the
+ * reward, and a large flat bonus would make the difference between PERFECT and
+ * GOOD a cliff again rather than the top of a slope.
+ */
+export const PERFECT_BONUS = 350
+
 // --- Aura -------------------------------------------------------------------
 /**
  * Aura is scored as a bill, not a formula: a base line for the execution, flat
@@ -72,10 +137,6 @@ export const DEFAULT_SETTINGS: MatchSettings = {
  * Everything a player is shown adds up, which is what lets the resolve screen
  * show its own arithmetic.
  */
-export const JUDGE_MULT: Record<Exclude<Judgement, 'MISS'>, number> = {
-  PERFECT: 1,
-  GOOD: 0.55,
-}
 /** A MISS costs this share of the card's base aura. */
 export const MISS_PENALTY = 0.35
 /** Base lines land on a multiple of this, so no score ends in stray digits. */
@@ -83,8 +144,15 @@ export const AURA_ROUNDING = 50
 
 /** Answering with a kind the rival did not just play. */
 export const FRESH_AURA = 400
-/** Landing a card that could have gone wrong. Nothing for the easy ones. */
-export const HARD_AURA: Record<Difficulty, number> = { 1: 0, 2: 200, 3: 400 }
+/**
+ * Landing a card that could have gone wrong. Nothing for the easy ones.
+ *
+ * The hard tier had to go up when gestures started being scored over their
+ * whole length: a hard card is now landed less *cleanly* as well as less
+ * often, so at 400 a good player was better off never bringing one — which
+ * would have made the whole difficulty axis decoration.
+ */
+export const HARD_AURA: Record<Difficulty, number> = { 1: 0, 2: 200, 3: 750 }
 
 /** Consecutive PERFECTs needed before the streak is worth anything. */
 export const STREAK_MIN = 2
@@ -93,9 +161,17 @@ export const STREAK_AURA_BASE = 200
 export const STREAK_AURA_STEP = 150
 export const STREAK_AURA_MAX = 800
 
-/** Beat the rival's last play by this much to have OUTAURA'D them. */
+/**
+ * Beat the impact of the rival's last landed play by this much to have
+ * OUTAURA'D them.
+ */
 export const OUTAURA_RATIO = 1.5
-export const OUTAURA_BONUS = 300
+/**
+ * What out-scoring them is worth. Not aura: the play has already earned half
+ * again what theirs did, and paying a bonus on top of that paid twice for the
+ * same thing. Momentum instead, so the reward is a step toward god aura.
+ */
+export const OUTAURA_MOMENTUM = 1
 
 /** Aura multiplier while GOD AURA is active. Whole bill, not just the base. */
 export const GOD_AURA_MULT = 2

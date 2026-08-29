@@ -8,6 +8,7 @@ import { getCard } from './cards'
 import { createMatch, qteWindow, remainingCards, step } from './match'
 import type { Play } from './scoring'
 import { applyMomentum, freshnessOf, momentumDelta, scorePlay, streakOf } from './scoring'
+import { runFor } from './qte'
 import type {
   Action,
   GameEvent,
@@ -80,7 +81,7 @@ class Driver {
     this.run({ type: 'SELECT_CARD', cardId, now: this.t })
     this.tick(INTRO_MS)
     this.t += 20
-    return this.run({ type: 'QTE_RESULT', judgement, now: this.t })
+    return this.run({ type: 'QTE_RESULT', outcome: runFor(getCard(cardId), judgement), now: this.t })
   }
 
   /**
@@ -266,7 +267,7 @@ describe('scoring', () => {
   const card = getCard('griddy-drop')
   const play = (over: Partial<Play> = {}): Play => ({
     card,
-    judgement: 'PERFECT',
+    outcome: runFor(card, 'PERFECT'),
     freshness: 'NEUTRAL',
     godAura: false,
     streak: 0,
@@ -289,20 +290,20 @@ describe('scoring', () => {
   })
 
   it('scores GOOD below PERFECT and loses aura on a MISS', () => {
-    expect(scorePlay(play({ judgement: 'GOOD', freshness: 'FRESH' })).total).toBeLessThan(
+    expect(scorePlay(play({ outcome: runFor(card, 'GOOD'), freshness: 'FRESH' })).total).toBeLessThan(
       scorePlay(play({ freshness: 'FRESH' })).total,
     )
-    expect(scorePlay(play({ judgement: 'MISS', freshness: 'FRESH' })).total).toBeLessThan(0)
+    expect(scorePlay(play({ outcome: runFor(card, 'MISS'), freshness: 'FRESH' })).total).toBeLessThan(0)
   })
 
   it('never lets a bonus soften a MISS', () => {
-    const plain = scorePlay(play({ judgement: 'MISS' }))
+    const plain = scorePlay(play({ outcome: runFor(card, 'MISS') }))
     expect(plain.lines).toHaveLength(1)
     for (const over of [
       { freshness: 'STALE' } as const,
       { freshness: 'FRESH', godAura: true, streak: 5, rivalLast: 100 } as const,
     ]) {
-      expect(scorePlay(play({ judgement: 'MISS', ...over })).total).toBe(plain.total)
+      expect(scorePlay(play({ outcome: runFor(card, 'MISS'), ...over })).total).toBe(plain.total)
     }
   })
 
@@ -312,6 +313,7 @@ describe('scoring', () => {
     )
     expect(big.lines.map((l) => l.key)).toEqual([
       'base',
+      'perfect',
       'fresh',
       'hard',
       'streak',
@@ -322,12 +324,18 @@ describe('scoring', () => {
   })
 
   it("only says OUTAURA'D when the play clearly beats the rival's last", () => {
+    // Measured against impact — what the play was worth before momentum and
+    // god aura — rather than against a finished total. Comparing totals was
+    // the old rule and it made a rival who had caught fire unbeatable.
+    const impact = scorePlay(play({ rivalLast: 0 })).impact
     const beat = (rivalLast: number) =>
       scorePlay(play({ rivalLast })).lines.some((l) => l.key === 'outaurad')
-    // A PERFECT griddy is 2400 with its hard-move bonus.
+
     expect(beat(0)).toBe(false)
-    expect(beat(2000)).toBe(false)
-    expect(beat(800)).toBe(true)
+    expect(beat(impact)).toBe(false)
+    expect(beat(Math.floor(impact / 2))).toBe(true)
+    // Half again is the bar, exactly.
+    expect(beat(Math.floor(impact / 1.5))).toBe(true)
   })
 
   it('grows the streak bonus and drops it the moment a PERFECT is missed', () => {
@@ -353,7 +361,7 @@ describe('scoring', () => {
 describe('momentum and god aura', () => {
   const run = (over: Partial<Play> = {}): Play => ({
     card: getCard('griddy-drop'),
-    judgement: 'PERFECT',
+    outcome: runFor(getCard('griddy-drop'), 'PERFECT'),
     freshness: 'FRESH',
     godAura: false,
     streak: 0,
@@ -369,13 +377,13 @@ describe('momentum and god aura', () => {
 
   it('takes longer to catch fire on easy cards played safe', () => {
     let m = { momentum: 0, godAura: false }
-    const safe = run({ card: getCard('mewing'), judgement: 'GOOD', freshness: 'NEUTRAL' })
+    const safe = run({ card: getCard('mewing'), outcome: runFor(getCard('mewing'), 'GOOD'), freshness: 'NEUTRAL' })
     for (let i = 0; i < 3; i++) m = applyMomentum(m.momentum, m.godAura, safe)
     expect(m.godAura).toBe(false)
   })
 
   it('breaks god aura on a MISS and knocks momentum down', () => {
-    const broken = applyMomentum(100, true, run({ judgement: 'MISS', freshness: 'NEUTRAL' }))
+    const broken = applyMomentum(100, true, run({ outcome: runFor(getCard('griddy-drop'), 'MISS'), freshness: 'NEUTRAL' }))
     expect(broken.godAura).toBe(false)
     expect(broken.momentum).toBeLessThan(100)
   })
@@ -519,7 +527,9 @@ describe('never the same puzzle twice', () => {
       if (phase.kind === 'qte') seen.push(phase.variation)
       // finish the turn so the next one can start
       d.t += 20
-      d.run({ type: 'QTE_RESULT', judgement: 'GOOD', now: d.t })
+      if (phase.kind === 'qte') {
+        d.run({ type: 'QTE_RESULT', outcome: runFor(getCard(phase.cardId), 'GOOD'), now: d.t })
+      }
       d.ready()
     }
     expect(new Set(seen).size).toBe(seen.length)
@@ -533,7 +543,9 @@ describe('never the same puzzle twice', () => {
         const phase = d.toQte(d.pick()).phase
         if (phase.kind === 'qte') out.push(phase.variation)
         d.t += 20
-        d.run({ type: 'QTE_RESULT', judgement: 'GOOD', now: d.t })
+        if (phase.kind === 'qte') {
+          d.run({ type: 'QTE_RESULT', outcome: runFor(getCard(phase.cardId), 'GOOD'), now: d.t })
+        }
         d.ready()
       }
       return out

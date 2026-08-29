@@ -1,26 +1,30 @@
 import { useEffect, useRef } from 'react'
 import { play } from '../../audio/engine'
 import { now } from '../../state/store'
-import type { Card, ControlParams, Judgement } from '../../engine/types'
+import { QTE_TICK_MS } from '../../engine/balance'
+import type { Card, ControlParams, QteOutcome } from '../../engine/types'
+import { useRun } from './run'
 import { useArming } from './arming'
-import { gradeControl, zoneAt } from './control'
+import { drifted, zoneAt } from './control'
 
 interface Props {
   card: Card
   params: ControlParams
   startedAt: number
   variation: number
-  onResult: (judgement: Judgement) => void
+  onResult: (outcome: QteOutcome) => void
 }
 
 /** Never bank a frame longer than this: a stall is not a held finger. */
 const MAX_FRAME_MS = 60
 
 export function QteControl({ card, params, startedAt, variation, onResult }: Props) {
-  const done = useRef(false)
+  const run = useRun(card, onResult)
   const held = useRef(0)
+  /** Milliseconds inside the ring since the last tick was banked. */
+  const inTick = useRef(0)
+  const ticks = useRef(0)
   const pointer = useRef<{ x: number; y: number } | null>(null)
-  const onResultRef = useRef(onResult)
   const arming = useArming(startedAt)
 
   const rootRef = useRef<HTMLDivElement>(null)
@@ -31,18 +35,8 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
   const holdRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    onResultRef.current = onResult
-  })
-
-  useEffect(() => {
     let raf = 0
     let last = now()
-
-    const finish = (judgement: Judgement) => {
-      if (done.current) return
-      done.current = true
-      onResultRef.current(judgement)
-    }
 
     const loop = () => {
       const t = now()
@@ -62,7 +56,9 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
         // Both axes travel the same square region, so the drift is not twice
         // as fast down the long side of the pad.
         const span = size / 2 - radius
-        const offset = zoneAt(elapsed, params, variation)
+        // The ring picks up speed across the card, so holding it at the end
+        // is a different ask from holding it at the start.
+        const offset = zoneAt(drifted(elapsed, card.durationMs), params, variation)
         const cx = rect.width / 2 + offset.x * span
         const cy = rect.height / 2 + offset.y * span
 
@@ -82,7 +78,11 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
           armedAt = t
           play('tap')
         }
-        if (inside && armedAt !== null) held.current += Math.min(dt, elapsed)
+        if (inside && armedAt !== null) {
+          const banked = Math.min(dt, elapsed)
+          held.current += banked
+          inTick.current += banked
+        }
 
         zone.dataset.inside = String(inside)
         zone.dataset.live = String(armedAt !== null)
@@ -97,12 +97,22 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
         const left = armedAt === null ? 1 : Math.max(0, 1 - elapsed / card.durationMs)
         timeRef.current.style.transform = `scaleX(${left})`
       }
-      if (holdRef.current) {
-        holdRef.current.style.transform = `scaleX(${Math.min(1, held.current / card.durationMs)})`
+      if (holdRef.current) holdRef.current.style.transform = `scaleX(${run.accuracy})`
+      run.paint(rootRef.current)
+
+      // Banked on a fixed clock rather than per frame, and each tick is
+      // judged on the share of itself that was held — one dropped frame is
+      // sixteen milliseconds and must not cost a PERFECT.
+      if (armedAt !== null) {
+        while (elapsed >= (ticks.current + 1) * QTE_TICK_MS && ticks.current < run.total) {
+          ticks.current += 1
+          run.hold(inTick.current)
+          inTick.current = 0
+        }
       }
 
       if (armedAt !== null && elapsed >= card.durationMs) {
-        finish(gradeControl(held.current, card.durationMs, params))
+        run.finish()
         return
       }
       raf = requestAnimationFrame(loop)
@@ -110,7 +120,7 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [startedAt, card.durationMs, params, variation, arming])
+  }, [startedAt, card.durationMs, params, variation, arming, run])
 
   const track = (event: React.PointerEvent<HTMLDivElement>) => {
     pointer.current = { x: event.clientX, y: event.clientY }

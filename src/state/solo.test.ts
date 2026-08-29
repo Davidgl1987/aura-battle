@@ -7,6 +7,8 @@ import type { Judgement, MatchState } from '../engine/types'
 import { useGame } from './store'
 import { cpuPlan } from './useCpuTurn'
 import { bankedFor, hasCard, isRivalUnlocked, useProgress } from './useProgress'
+import { getCard } from '../engine/cards'
+import { runFor } from '../engine/qte'
 
 /**
  * The whole solo loop, end to end: pick a rival, play the battle, bank what it
@@ -68,7 +70,11 @@ function playSolo(
       case 'qte': {
         const grade = script(humanTurns - 1)
         now += Math.min(600, qteWindow(match.phase.cardId) - 100)
-        dispatch({ type: 'QTE_RESULT', judgement: grade as Judgement, now })
+        dispatch({
+          type: 'QTE_RESULT',
+          outcome: runFor(getCard(match.phase.cardId), grade as Judgement),
+          now,
+        })
         break
       }
       default:
@@ -229,7 +235,11 @@ describe('a solo battle, start to finish', () => {
           dispatch({ type: 'TICK', now: (now += 500) })
           break
         case 'qte':
-          dispatch({ type: 'QTE_RESULT', judgement: 'GOOD', now: (now += 600) })
+          dispatch({
+            type: 'QTE_RESULT',
+            outcome: runFor(getCard(match.phase.cardId), 'GOOD'),
+            now: (now += 600),
+          })
           break
         default:
           dispatch({ type: 'READY', now: (now += 100) })

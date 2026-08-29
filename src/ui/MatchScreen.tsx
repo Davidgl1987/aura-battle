@@ -174,7 +174,7 @@ export function MatchScreen() {
             card={getCard(phase.cardId)}
             startedAt={phase.startedAt}
             variation={phase.variation}
-            onResult={(judgement) => dispatch({ type: 'QTE_RESULT', judgement, now: now() })}
+            onResult={(outcome) => dispatch({ type: 'QTE_RESULT', outcome, now: now() })}
           />
         )}
 

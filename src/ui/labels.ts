@@ -81,6 +81,8 @@ export function billLabel(line: AuraLine, { t }: I18n): string {
       return t('bill.miss')
     case 'base':
       return line.label === 'PERFECT' ? t('bill.base.PERFECT') : t('bill.base.GOOD')
+    case 'perfect':
+      return t('bill.perfect')
     case 'fresh':
       return t('bill.fresh')
     case 'hard':

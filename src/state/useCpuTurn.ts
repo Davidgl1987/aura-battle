@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { CPU_READ_MS } from '../engine/balance'
 import { getCard } from '../engine/cards'
-import { chooseCard, cpuRoll, judgeQte, thinkMs, type Strategy } from '../engine/cpu'
+import { chooseCard, cpuRoll, performQte, thinkMs, type Strategy } from '../engine/cpu'
 import { performance, type Beat } from '../engine/perform'
 import { getRival } from '../engine/rivals'
 import type { Action, MatchState } from '../engine/types'
@@ -62,7 +62,7 @@ export function cpuPlan(state: MatchState, strategy: Strategy): Plan | null {
         waitMs: card.durationMs,
         action: {
           type: 'QTE_RESULT',
-          judgement: judgeQte(strategy, card, cpuRoll(state, 1)),
+          outcome: performQte(strategy, card, cpuRoll(state, 1)),
           now: 0,
         },
       }
@@ -92,7 +92,7 @@ export function cpuPerformance(state: MatchState, strategy: Strategy): Beat[] | 
   if (state.players[state.active].controller !== 'cpu') return null
 
   const card = getCard(state.phase.cardId)
-  return performance(card, judgeQte(strategy, card, cpuRoll(state, 1)), cpuRoll(state, 4))
+  return performance(card, performQte(strategy, card, cpuRoll(state, 1)).judgement, cpuRoll(state, 4))
 }
 
 export function useCpuTurn(): void {

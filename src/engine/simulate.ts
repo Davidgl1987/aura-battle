@@ -1,15 +1,16 @@
-import { INTRO_MS } from './balance'
+import { INTRO_MS, QTE_FORM_SWING } from './balance'
 
 /** Nominal time a player spends reading a score sheet before passing over. */
 const READING_MS = 2000
 import { ALL_CARD_IDS, getCard } from './cards'
-import { baseOdds, chooseCard, cpuRoll, judgeQte, oddsFor as cardOdds, type Strategy } from './cpu'
+import { baseOdds, chooseCard, cpuRoll, oddsFor as cardOdds, performQte, type Strategy } from './cpu'
+import { EMPTY, opportunities, rampAt, record, settle } from './qte'
 import { createMatch, qteWindow, step } from './match'
 import { nextRandom, shuffle } from './rng'
 import { freshnessOf } from './scoring'
 import type {
   Card,
-  Judgement,
+  QteOutcome,
   MatchSettings,
   MatchState,
   PlayerId,
@@ -111,12 +112,28 @@ class Rolls {
   }
 }
 
-function judge(profile: Profile, card: Card, rolls: Rolls, state: MatchState): Judgement {
-  if (profile.strategy) return judgeQte(profile.strategy, card, cpuRoll(state, 1))
+/**
+ * A profile's whole gesture, opportunity by opportunity. The simulation drives
+ * the same ledger a pair of thumbs does, so what it measures is the game and
+ * not a model of it.
+ */
+function perform(profile: Profile, card: Card, rolls: Rolls, state: MatchState): QteOutcome {
+  if (profile.strategy) return performQte(profile.strategy, card, cpuRoll(state, 1))
+
   const odds = cardOdds(profile, card)
-  const roll = rolls.next()
-  if (roll < odds.perfect) return 'PERFECT'
-  return roll < odds.perfect + odds.good ? 'GOOD' : 'MISS'
+  const total = opportunities(card)
+  // How this card is going for them, drawn once and felt on every beat of it.
+  const form = (rolls.next() - 0.5) * QTE_FORM_SWING
+  let ledger = EMPTY
+  for (let i = 0; i < total; i++) {
+    // The gesture tightens as it runs, exactly as it does on screen.
+    const ramp = rampAt(i, total)
+    const clean = odds.perfect / ramp + form
+    const missing = Math.min(0.9, (1 - odds.perfect - odds.good) * ramp)
+    const roll = rolls.next()
+    ledger = record(ledger, roll < clean ? 'clean' : roll < 1 - missing ? 'scrappy' : 'missed')
+  }
+  return settle(card, ledger)
 }
 
 /**
@@ -205,10 +222,10 @@ export function simulateMatch(
         break
 
       case 'qte': {
-        const judgement = judge(profile, getCard(state.phase.cardId), rolls, state)
-        if (judgement === 'PERFECT') perfects[state.active] += 1
+        const outcome = perform(profile, getCard(state.phase.cardId), rolls, state)
+        if (outcome.judgement === 'PERFECT') perfects[state.active] += 1
         now += Math.min(600, qteWindow(state.phase.cardId) - 100)
-        state = step(state, { type: 'QTE_RESULT', judgement, now })
+        state = step(state, { type: 'QTE_RESULT', outcome, now })
         const last = state.log[state.log.length - 1]
         if (last) {
           bestStreak[last.player] = Math.max(bestStreak[last.player], last.perfectStreak)
@@ -324,14 +341,22 @@ export function tally(
 }
 
 /** Ready-made opponents to measure against. */
+/**
+ * Ready-made opponents to measure against.
+ *
+ * `perfect` and `good` are per *opportunity*, not per card. They used to be a
+ * whole card's verdict, which under a gesture that is scored beat by beat made
+ * even a good player miss four cards in five — a thumb that lands 45% of its
+ * taps is not a solid player, it is somebody who has never held the phone.
+ */
 export const PROFILES = {
-  ace: { name: 'ace', perfect: 0.75, good: 0.2, fresh: 0.95, freeze: 0.02 },
-  solid: { name: 'solid', perfect: 0.45, good: 0.4, fresh: 0.7, freeze: 0.05 },
-  sloppy: { name: 'sloppy', perfect: 0.15, good: 0.45, fresh: 0.3, freeze: 0.14 },
+  ace: { name: 'ace', perfect: 0.86, good: 0.12, fresh: 0.95, freeze: 0.02 },
+  solid: { name: 'solid', perfect: 0.7, good: 0.22, fresh: 0.7, freeze: 0.05 },
+  sloppy: { name: 'sloppy', perfect: 0.46, good: 0.34, fresh: 0.3, freeze: 0.14 },
   /** Executes well but never reads the rival: the control for freshness. */
-  blind: { name: 'blind', perfect: 0.45, good: 0.4, fresh: 0, freeze: 0.05 },
+  blind: { name: 'blind', perfect: 0.7, good: 0.22, fresh: 0, freeze: 0.05 },
   /** Reads the rival but fumbles the inputs: the control for execution. */
-  reader: { name: 'reader', perfect: 0.15, good: 0.45, fresh: 1, freeze: 0.05 },
+  reader: { name: 'reader', perfect: 0.46, good: 0.34, fresh: 1, freeze: 0.05 },
   /** Same hands as `solid`, but leans on one kind: the control for variety. */
-  repeater: { name: 'repeater', perfect: 0.45, good: 0.4, fresh: 0, freeze: 0.05, mode: 'repeat' },
+  repeater: { name: 'repeater', perfect: 0.7, good: 0.22, fresh: 0, freeze: 0.05, mode: 'repeat' },
 } satisfies Record<string, Profile>

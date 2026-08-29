@@ -2,7 +2,14 @@ import type { Card, Difficulty, QteKind } from './types'
 
 /**
  * The card pool: 15 cards — five of each kind, and every kind holds the same
- * spread of three NORMAL and two HARD. Each player builds a
+ * spread of three NORMAL and two HARD.
+ *
+ * The counts on each QTE are opportunity counts: a gesture is scored over its
+ * whole length now, so `hits`, `notes`, `targetTaps` and `count` all say the
+ * same thing — how many chances the card offers between the first frame of the
+ * animation and the last. They sit in the same band on purpose, because
+ * `engine/qte.ts` divides every ledger by its own card's number and a card with
+ * far more chances than the rest would be a card with far more to go wrong. Each player builds a
  * deck of 4 to 6 of these before the battle; both may pick the same card.
  *
  * `kind` is what freshness is measured on, and it stays at three. `game` is the
@@ -25,7 +32,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 2450,
     baseAura: 1300,
     animation: 'mewing',
-    qte: { kind: 'timing', game: 'sweep', sweepMs: 950, hits: 2, perfectMs: 62, goodMs: 145 },
+    qte: { kind: 'timing', game: 'sweep', sweepMs: 950, hits: 6, perfectMs: 62, goodMs: 145 },
   },
   {
     id: 'sigma-stare',
@@ -36,7 +43,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 2450,
     baseAura: 1300,
     animation: 'stare',
-    qte: { kind: 'timing', game: 'sweep', sweepMs: 800, hits: 2, perfectMs: 55, goodMs: 130 },
+    qte: { kind: 'timing', game: 'sweep', sweepMs: 800, hits: 6, perfectMs: 55, goodMs: 130 },
   },
   {
     id: 'griddy-drop',
@@ -47,7 +54,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 2850,
     baseAura: 2000,
     animation: 'griddy',
-    qte: { kind: 'timing', game: 'sweep', sweepMs: 600, hits: 3, perfectMs: 45, goodMs: 105 },
+    qte: { kind: 'timing', game: 'sweep', sweepMs: 600, hits: 7, perfectMs: 45, goodMs: 105 },
   },
 
   // --- Timing: three lanes ---------------------------------------------------
@@ -64,7 +71,7 @@ export const CARDS: readonly Card[] = [
       kind: 'timing',
       game: 'lanes',
       lanes: 3,
-      notes: 5,
+      notes: 6,
       travelMs: 950,
       gapMs: 430,
       perfectMs: 75,
@@ -84,7 +91,7 @@ export const CARDS: readonly Card[] = [
       kind: 'timing',
       game: 'lanes',
       lanes: 3,
-      notes: 7,
+      notes: 8,
       travelMs: 780,
       gapMs: 340,
       perfectMs: 55,
@@ -104,7 +111,7 @@ export const CARDS: readonly Card[] = [
     animation: 'sixSeven',
     // Two pads: the gesture is a six and a seven, one in each hand, so the
     // card asks for both thumbs the way the move does.
-    qte: { kind: 'speed', game: 'mash', targetTaps: 16, alternating: true },
+    qte: { kind: 'speed', game: 'mash', targetTaps: 6, alternating: true },
   },
   {
     id: 'rizz-clap',
@@ -115,7 +122,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 2350,
     baseAura: 1300,
     animation: 'clap',
-    qte: { kind: 'speed', game: 'mash', targetTaps: 18, alternating: true },
+    qte: { kind: 'speed', game: 'mash', targetTaps: 7, alternating: true },
   },
   {
     id: 'sturdy',
@@ -126,7 +133,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 2600,
     baseAura: 2000,
     animation: 'sturdy',
-    qte: { kind: 'speed', game: 'mash', targetTaps: 29, alternating: true },
+    qte: { kind: 'speed', game: 'mash', targetTaps: 8, alternating: true },
   },
 
   // --- Speed: find them in order ---------------------------------------------
@@ -141,7 +148,7 @@ export const CARDS: readonly Card[] = [
     animation: 'tierList',
     // `goodMs` sits at the card's own length, so simply finishing is a GOOD and
     // only pressing the wrong number can drag it below that.
-    qte: { kind: 'speed', game: 'order', count: 5, perfectMs: 2000, goodMs: 3200, mistakeMs: 450 },
+    qte: { kind: 'speed', game: 'order', count: 6, perfectMs: 2000, goodMs: 3200, mistakeMs: 450 },
   },
   {
     id: 'speedrun',
@@ -152,7 +159,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 3400,
     baseAura: 2000,
     animation: 'speedrun',
-    qte: { kind: 'speed', game: 'order', count: 6, perfectMs: 2100, goodMs: 3400, mistakeMs: 500 },
+    qte: { kind: 'speed', game: 'order', count: 8, perfectMs: 2100, goodMs: 3400, mistakeMs: 500 },
   },
 
   // --- Control --------------------------------------------------------------

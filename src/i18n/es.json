@@ -110,6 +110,7 @@
   "bill.miss": "MISS",
   "bill.base.PERFECT": "PERFECT",
   "bill.base.GOOD": "GOOD",
+  "bill.perfect": "IMPECABLE",
   "bill.fresh": "MOVIMIENTO FRESCO",
   "bill.hard": "MOVIMIENTO DIFÍCIL",
   "bill.streak": "RACHA PERFECT ×{n}",

@@ -5,7 +5,6 @@ import {
   GOD_AURA_BREAK,
   GOD_AURA_MULT,
   HARD_AURA,
-  JUDGE_MULT,
   MISS_PENALTY,
   MOMENTUM_FRESH,
   MOMENTUM_HARD,
@@ -14,14 +13,23 @@ import {
   MOMENTUM_STREAK_MAX,
   MOMENTUM_STREAK_STEP,
   MOGGED_THRESHOLD,
-  OUTAURA_BONUS,
+  OUTAURA_MOMENTUM,
   OUTAURA_RATIO,
+  PERFECT_BONUS,
   STREAK_AURA_BASE,
   STREAK_AURA_MAX,
   STREAK_AURA_STEP,
   STREAK_MIN,
 } from './balance'
-import type { AuraBreakdown, AuraLine, Card, Freshness, Judgement, PlayedCard } from './types'
+import type {
+  AuraBreakdown,
+  AuraLine,
+  Card,
+  Freshness,
+  Judgement,
+  PlayedCard,
+  QteOutcome,
+} from './types'
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -51,14 +59,21 @@ export function barPosition(balance: number): number {
  */
 export interface Play {
   card: Card
-  judgement: Judgement
+  /** How the gesture actually went, start to finish. */
+  outcome: QteOutcome
   freshness: Freshness
   godAura: boolean
   /** Consecutive PERFECTs, this play included. */
   streak: number
-  /** Aura the rival took with their last play; 0 if they did not score. */
+  /**
+   * The impact of the rival's last landed play — what it was worth before
+   * momentum, god aura or a bonus of its own. 0 if they have nothing standing.
+   */
   rivalLast: number
 }
+
+/** Shorthand, since almost everything reads the grade rather than the ledger. */
+export const judgementOf = (play: Play): Judgement => play.outcome.judgement
 
 /**
  * Freshness is measured against the last card played in the match by either
@@ -99,16 +114,23 @@ function streakMomentum(streak: number): number {
  * so a huge number always comes with the reason it was huge.
  */
 export function scorePlay(play: Play): AuraBreakdown {
-  const { card, judgement, freshness, streak, rivalLast, godAura } = play
+  const { card, outcome, freshness, streak, rivalLast, godAura } = play
+  const judgement = outcome.judgement
 
   if (judgement === 'MISS') {
     const value = -round(card.baseAura * MISS_PENALTY)
-    return { lines: [{ key: 'miss', label: 'MISS', value }], total: value }
+    return { lines: [{ key: 'miss', label: 'MISS', value }], impact: 0, total: value }
   }
 
-  const lines: AuraLine[] = [
-    { key: 'base', label: judgement, value: round(card.baseAura * JUDGE_MULT[judgement]) },
-  ]
+  // The base line is the execution itself: the card's worth times how much of
+  // the gesture was landed. A run that finished at 95% is worth more than one
+  // that scraped the threshold, which is what the old flat multiplier per grade
+  // could not say.
+  const lines: AuraLine[] = [{ key: 'base', label: judgement, value: round(outcome.score) }]
+
+  if (judgement === 'PERFECT') {
+    lines.push({ key: 'perfect', label: 'FLAWLESS', value: PERFECT_BONUS })
+  }
 
   if (freshness === 'FRESH') lines.push({ key: 'fresh', label: 'FRESH MOVE', value: FRESH_AURA })
 
@@ -120,26 +142,43 @@ export function scorePlay(play: Play): AuraBreakdown {
     lines.push({ key: 'streak', label: `PERFECT STREAK ×${streak}`, value: chain })
   }
 
-  // Beating the rival is measured against the bill so far, so the bonus is
-  // earned by the play itself rather than by having beaten them last turn too.
-  const earned = lines.reduce((sum, line) => sum + line.value, 0)
-  if (rivalLast > 0 && earned >= rivalLast * OUTAURA_RATIO) {
-    lines.push({ key: 'outaurad', label: "OUTAURA'D", value: OUTAURA_BONUS })
+  /**
+   * What the play is worth on its own, and the number OUTAURA'D is measured
+   * both from and against. Deliberately everything the player did — execution,
+   * freshness, difficulty, streak — and nothing they merely had: no momentum,
+   * no god aura, and no bonus from having out-scored somebody last turn.
+   *
+   * Comparing finished totals was the old rule and it did not work. A rival on
+   * fire had their play doubled for reasons that were not about the play, so
+   * out-scoring them by half again was arithmetically out of reach.
+   */
+  const impact = lines.reduce((sum, line) => sum + line.value, 0)
+  const outaurad = rivalLast > 0 && impact >= rivalLast * OUTAURA_RATIO
+  if (outaurad) {
+    // No aura: the play has already earned half again what theirs did, and
+    // paying on top of that paid twice for the same thing. The reward is
+    // momentum, applied in `applyMomentum`.
+    lines.push({ key: 'outaurad', label: "OUTAURA'D", value: 0 })
   }
 
-  const subtotal = lines.reduce((sum, line) => sum + line.value, 0)
-  if (!godAura) return { lines, total: subtotal }
+  if (!godAura) return { lines, impact, total: impact }
 
   // One multiplier, applied to the whole bill and shown as its own line, so
   // god aura reads as the payoff for the run rather than as hidden maths.
-  const total = round(subtotal * GOD_AURA_MULT)
+  const total = round(impact * GOD_AURA_MULT)
   lines.push({
     key: 'god',
     label: 'GOD AURA',
-    value: total - subtotal,
+    value: total - impact,
     multiplier: GOD_AURA_MULT,
   })
-  return { lines, total }
+  return { lines, impact, total }
+}
+
+/** Whether this play out-scored the rival's last one by enough. */
+export function outaurad(play: Play): boolean {
+  if (play.outcome.judgement === 'MISS' || play.rivalLast <= 0) return false
+  return scorePlay(play).impact >= play.rivalLast * OUTAURA_RATIO
 }
 
 /**
@@ -148,13 +187,15 @@ export function scorePlay(play: Play): AuraBreakdown {
  * only thing that drains it outside of a MISS.
  */
 export function momentumDelta(play: Play): number {
-  const base = MOMENTUM_JUDGE[play.judgement]
-  if (play.judgement === 'MISS') return base
+  const base = MOMENTUM_JUDGE[play.outcome.judgement]
+  if (play.outcome.judgement === 'MISS') return base
   return (
     base +
     MOMENTUM_FRESH[play.freshness] +
     MOMENTUM_HARD[play.card.difficulty] +
-    streakMomentum(play.streak)
+    streakMomentum(play.streak) +
+    // Out-scoring them is paid in momentum rather than in aura; see `scorePlay`.
+    (outaurad(play) ? OUTAURA_MOMENTUM : 0)
   )
 }
 
@@ -170,7 +211,7 @@ export function applyMomentum(
   let next = clamp(momentum + momentumDelta(play), 0, MOMENTUM_MAX)
   let on = godAura
 
-  if (play.judgement === 'MISS' && on) {
+  if (play.outcome.judgement === 'MISS' && on) {
     on = false
     next = Math.min(next, GOD_AURA_BREAK)
   }

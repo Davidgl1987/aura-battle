@@ -5,13 +5,15 @@ import {
   CPU_THINK_MAX_MS,
   CPU_THINK_MIN_MS,
   MISS_SCALE,
+  QTE_FORM_SWING,
   PERFECT_SCALE,
 } from './balance'
 import { getCard } from './cards'
+import { EMPTY, opportunities, rampAt, record, runFor, settle, type Beat } from './qte'
 import { outauraTarget } from './match'
 import { nextRandom } from './rng'
 import { freshnessOf, momentumDelta, scorePlay } from './scoring'
-import type { Card, Freshness, Judgement, MatchState } from './types'
+import type { Card, Freshness, Judgement, MatchState, QteOutcome } from './types'
 
 /**
  * A rival is configuration, not code. Every weight runs 0..1 and defaults to
@@ -82,18 +84,37 @@ export interface Odds {
 }
 
 /**
- * A skill level's odds against one specific card. Hard cards have to actually
- * be hard or the bonus for landing one is free money, so a set of odds
- * describes a difficulty-2 card and the card bends it from there.
+ * A skill level's odds on one opportunity of a card. Hard cards have to
+ * actually be hard or the bonus for landing one is free money, so a set of
+ * odds describes a difficulty-2 card and the card bends it from there.
  *
- * This is the same function the simulator has always used; it lives here now
- * because the CPU has to play to the odds the balance was measured with, or
- * the difficulty ladder is calibrated against a rival nobody meets.
+ * `perfect` is the chance of a clean beat, `good` of a scrappy one; what is
+ * left is a fumble. It lives here rather than in the simulator because the CPU
+ * has to play to the odds the balance was measured with, or the difficulty
+ * ladder is calibrated against a rival nobody meets.
  */
 export function oddsFor(skill: Odds, card: Card): Odds {
   const perfect = Math.min(0.97, skill.perfect * PERFECT_SCALE[card.difficulty])
   const miss = Math.min(1 - perfect, (1 - skill.perfect - skill.good) * MISS_SCALE[card.difficulty])
   return { perfect, good: 1 - perfect - miss }
+}
+
+/**
+ * How one beat goes for a rival, `i` opportunities into a card of `total`.
+ *
+ * The odds tighten as the card does. The widgets speed a gesture up over its
+ * length by `rampAt`, so the CPU's chances have to close by the same curve —
+ * otherwise the difficulty a player feels and the difficulty the ladder is
+ * measured at are two different things.
+ */
+function beatFor(odds: Odds, i: number, total: number, roll: number, form: number): Beat {
+  const ramp = rampAt(i, total)
+  // Clean gets harder in proportion; fumbling gets likelier by the same curve.
+  // Dividing both by the ramp made the back half of every card a coin toss.
+  const clean = odds.perfect / ramp + form
+  const missing = Math.min(0.9, (1 - odds.perfect - odds.good) * ramp)
+  if (roll < clean) return 'clean'
+  return roll < 1 - missing ? 'scrappy' : 'missed'
 }
 
 /** A strategy's baseline odds, before any card bends them. */
@@ -148,16 +169,16 @@ function appraise(state: MatchState, strategy: Strategy, card: Card): Appraisal 
   const odds = cpuOdds(strategy, card)
   const missChance = Math.max(0, 1 - odds.perfect - odds.good)
 
-  const play = (judgement: Judgement, streak: number) => ({
+  const play = (outcome: QteOutcome, streak: number) => ({
     card,
-    judgement,
+    outcome,
     freshness,
     godAura: me.godAura,
     streak,
     rivalLast,
   })
 
-  const landed = play('PERFECT', me.perfectStreak + 1)
+  const landed = play(runFor(card, 'PERFECT'), me.perfectStreak + 1)
 
   return {
     card,
@@ -167,8 +188,8 @@ function appraise(state: MatchState, strategy: Strategy, card: Card): Appraisal 
     // waiting on the end of it is not the best play on the table.
     expectedAura:
       odds.perfect * scorePlay(landed).total +
-      odds.good * scorePlay(play('GOOD', 0)).total +
-      missChance * scorePlay(play('MISS', 0)).total,
+      odds.good * scorePlay(play(runFor(card, 'GOOD'), 0)).total +
+      missChance * scorePlay(play(runFor(card, 'MISS'), 0)).total,
     difficulty: card.difficulty,
     momentum: momentumDelta(landed),
     // Asked of the scoring itself rather than recomputed, so what a rival
@@ -220,15 +241,38 @@ export function chooseCard(state: MatchState, strategy: Strategy): string {
 }
 
 /**
- * The rival's QTE, without a QTE. They never touch the glass, so the grade is
- * drawn from their skill against this specific card — the same odds the
- * balance simulation is measured with.
+ * The rival's gesture, without a gesture. They never touch the glass, so the
+ * run is played out opportunity by opportunity from their skill against this
+ * specific card, and settled by exactly the ledger a human's thumbs feed.
+ *
+ * One roll is stretched across the whole card rather than drawn fresh per
+ * beat: a rival is a hand on a given night, so their beats correlate the way a
+ * person's do. A single roll per opportunity would have every rival regress to
+ * their mean inside one card and nobody would ever have a bad run of it.
  */
-export function judgeQte(strategy: Strategy, card: Card, roll: number): Judgement {
+export function performQte(strategy: Strategy, card: Card, roll: number): QteOutcome {
   const odds = cpuOdds(strategy, card)
-  if (roll < odds.perfect) return 'PERFECT'
-  return roll < odds.perfect + odds.good ? 'GOOD' : 'MISS'
+  const total = opportunities(card)
+
+  // How this particular card is going for them. Drawn once and applied to
+  // every beat in it, so a run holds together the way a person's does.
+  const form = (frac(roll * 31.7) - 0.5) * QTE_FORM_SWING
+
+  let ledger = EMPTY
+  for (let i = 0; i < total; i++) {
+    // Decorrelated per beat, but anchored to the one roll for the card.
+    const at = frac(roll * 997.13 + i * 0.6180339887)
+    ledger = record(ledger, beatFor(odds, i, total, at, form))
+  }
+  return settle(card, ledger)
 }
+
+/** The grade alone, for anything that only needs to know how it went. */
+export function judgeQte(strategy: Strategy, card: Card, roll: number): Judgement {
+  return performQte(strategy, card, roll).judgement
+}
+
+const frac = (x: number) => x - Math.floor(x)
 
 /**
  * How long a rival sits on a decision. Long enough to read as thought, short
