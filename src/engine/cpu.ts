@@ -4,14 +4,26 @@ import {
   CPU_PERFECT_CEILING,
   CPU_THINK_MAX_MS,
   CPU_PACE_FLOOR,
+  CPU_OPEN_HEADROOM,
   CPU_PACE_SPAN,
+  CPU_SLIP_SCALE,
   CPU_THINK_MIN_MS,
   MISS_SCALE,
   QTE_FORM_SWING,
   PERFECT_SCALE,
 } from './balance'
 import { getCard } from './cards'
-import { EMPTY, opportunities, pacingOf, rampAt, record, runFor, settle, type Beat } from './qte'
+import {
+  EMPTY,
+  chancesIn,
+  opportunities,
+  pacingOf,
+  rampAt,
+  record,
+  runFor,
+  settle,
+  type Beat,
+} from './qte'
 import { outauraTarget } from './match'
 import { nextRandom } from './rng'
 import { freshnessOf, momentumDelta, scorePlay } from './scoring'
@@ -109,14 +121,26 @@ export function oddsFor(skill: Odds, card: Card): Odds {
  * otherwise the difficulty a player feels and the difficulty the ladder is
  * measured at are two different things.
  */
-function beatFor(odds: Odds, i: number, total: number, roll: number, form: number): Beat {
+function beatFor(
+  odds: Odds,
+  i: number,
+  total: number,
+  roll: number,
+  form: number,
+  slip: number,
+): Beat {
   const ramp = rampAt(i, total)
   // Clean gets harder in proportion; fumbling gets likelier by the same curve.
   // Dividing both by the ramp made the back half of every card a coin toss.
   const clean = odds.perfect / ramp + form
-  const missing = Math.min(0.9, (1 - odds.perfect - odds.good) * ramp)
+  const missing = Math.min(0.9, (1 - odds.perfect - odds.good) * ramp * slip)
   if (roll < clean) return 'clean'
   return roll < 1 - missing ? 'scrappy' : 'missed'
+}
+
+/** How badly a card punishes a lapse of attention. See `CPU_SLIP_SCALE`. */
+export function slipScale(card: Card): number {
+  return card.qte.game === 'mash' || card.qte.game === 'order' ? CPU_SLIP_SCALE : 1
 }
 
 /** A strategy's baseline odds, before any card bends them. */
@@ -259,12 +283,13 @@ export function performQte(strategy: Strategy, card: Card, roll: number): QteOut
   // How this particular card is going for them. Drawn once and applied to
   // every beat in it, so a run holds together the way a person's does.
   const form = (frac(roll * 31.7) - 0.5) * QTE_FORM_SWING
+  const slip = slipScale(card)
 
   let ledger = EMPTY
   for (let i = 0; i < total; i++) {
     // Decorrelated per beat, but anchored to the one roll for the card.
     const at = frac(roll * 997.13 + i * 0.6180339887)
-    ledger = record(ledger, beatFor(odds, i, total, at, form))
+    ledger = record(ledger, beatFor(odds, i, total, at, form, slip))
   }
   return settle(card, ledger)
 }
@@ -278,9 +303,15 @@ export function performQte(strategy: Strategy, card: Card, roll: number): QteOut
  * fast one goes past it.
  */
 export function attemptsFor(strategy: Strategy, card: Card): number {
-  const total = opportunities(card)
-  if (pacingOf(card) === 'counted') return total
-  return Math.max(1, Math.round(total * (CPU_PACE_FLOOR + CPU_PACE_SPAN * strategy.qteSkill)))
+  // A counted gesture offers what it offers and every chance is answered one
+  // way or another — the bar is what it takes to score, not what it holds.
+  if (pacingOf(card) === 'counted') return chancesIn(card)
+  // A low bar is not a short gesture: a two-centre sweep still runs the whole
+  // animation, and a rival who stopped at two would be walking away from most
+  // of it. The floor is what the card offers, not what it asks for.
+  const bar = opportunities(card)
+  const paced = Math.round(bar * (CPU_PACE_FLOOR + CPU_PACE_SPAN * strategy.qteSkill))
+  return Math.max(bar + CPU_OPEN_HEADROOM, paced)
 }
 
 /** The grade alone, for anything that only needs to know how it went. */

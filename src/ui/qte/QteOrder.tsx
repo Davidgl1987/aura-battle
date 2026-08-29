@@ -3,7 +3,6 @@ import { now, stamp } from '../../state/store'
 import type { Card, OrderParams, QteOutcome } from '../../engine/types'
 import { useRun } from './run'
 import { useArming } from './arming'
-import { rampAt } from '../../engine/qte'
 import { spotFor, type Spot } from './order'
 
 interface Props {
@@ -13,13 +12,6 @@ interface Props {
   variation: number
   onResult: (outcome: QteOutcome) => void
 }
-
-/**
- * How much room the `n`th number gets. Module level rather than a closure so
- * the frame loop can call it without being rebuilt every render.
- */
-const windowFor = (n: number, params: OrderParams) =>
-  params.windowMs / rampAt(n - 1, params.perfectAt)
 
 export function QteOrder({ card, params, startedAt, variation, onResult }: Props) {
   const arming = useArming(startedAt)
@@ -45,12 +37,6 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
 
   const run = useRun(card, onResult)
   const next = useRef(1)
-  /**
-   * When the number currently on offer stops being on offer. Open-ended, so
-   * there is no list of deadlines laid out in advance: each number gets its
-   * own window, and the windows tighten the further into the run you get.
-   */
-  const expires = useRef(0)
 
   const rootRef = useRef<HTMLDivElement>(null)
   const armRef = useRef<HTMLElement>(null)
@@ -60,12 +46,12 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
 
   /**
    * One number leaves the pad and the next of the run takes its place, in a
-   * spot chosen away from whatever else is still down.
+   * spot chosen away from whatever else is still down. It waits there for its
+   * turn — nothing here changes under a finger that is on its way to it.
    */
   const retire = (n: number) => {
     next.current = n + 1
     setTaken(n)
-    expires.current = now() + windowFor(n + 1, params)
 
     const current = pad.current ?? spots
     const left = current.filter((spot) => spot.n !== n)
@@ -75,13 +61,6 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
     pad.current = [...left, spotFor(highest + 1, left, variation)]
     setSpots(pad.current)
   }
-
-  // Held in a ref so the frame loop can call it without being rebuilt every
-  // render, the way `useGameEvents` keeps its own handler current.
-  const retireRef = useRef(retire)
-  useEffect(() => {
-    retireRef.current = retire
-  })
 
   useEffect(() => {
     let raf = 0
@@ -101,12 +80,6 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
 
       // A number whose time ran out is gone, and it costs what fumbling one
       // costs. The sequence moves on rather than stalling on it.
-      // A number whose window ran out is gone, and it costs what fumbling one
-      // costs. The run moves on rather than stalling on it.
-      if (armedAt !== null && t > expires.current) {
-        retireRef.current(next.current)
-        run.beat('missed')
-      }
 
       if (armedAt !== null && left <= 0) {
         run.finish()
@@ -128,10 +101,7 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
     const t = event.nativeEvent.timeStamp ? stamp(event.nativeEvent.timeStamp) : now()
     // The clock starts on the press that begins the sequence, so hunting for
     // the first number costs nothing.
-    if (arming.armedAt === null) {
-      arming.arm(t)
-      expires.current = t + windowFor(1, params)
-    }
+    if (arming.armedAt === null) arming.arm(t)
 
     if (n !== next.current) {
       // A press out of order costs a chance the way running out of time on one
@@ -143,10 +113,7 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
       return
     }
 
-    // Early in its own window is clean; scrambling for it at the end is not.
-    const room = windowFor(n, params)
-    const spent = room - (expires.current - t)
-    run.beat(spent <= room * 0.6 ? 'clean' : 'scrappy')
+    run.beat('clean')
     retire(n)
   }
 
@@ -158,7 +125,7 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
           PRESS 1 TO START <b ref={armRef} className="qte__count" />
         </em>
         <em className="qte__hint-live">
-          IN ORDER — {taken} · {params.goodAt} TO SCORE, {params.perfectAt} CLEAN
+          IN ORDER — {taken} · {params.goodAt} TO SCORE, NO SLIPS TO BE FLAWLESS
         </em>
       </div>
 

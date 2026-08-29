@@ -11,7 +11,7 @@ import { NO_STRATEGY } from './cpu'
 import {
   EMPTY,
   accuracyOf,
-  goodAtOf,
+  chancesIn,
   ignored,
   opportunities,
   pacingOf,
@@ -31,8 +31,9 @@ const strategy = (patch: Partial<Strategy>): Strategy => ({ ...NO_STRATEGY, ...p
 
 /** Feeds a card a run of beats and settles it. */
 const play = (card: Card, beats: Beat[]) => settle(card, beats.reduce(record, EMPTY))
+/** Every chance the card holds, answered the same way. */
 const all = (card: Card, beat: Beat) =>
-  play(card, Array.from({ length: opportunities(card) }, () => beat))
+  play(card, Array.from({ length: chancesIn(card) }, () => beat))
 
 describe('what a card offers', () => {
   /**
@@ -43,11 +44,14 @@ describe('what a card offers', () => {
   it('gives every counted card the same handful of chances', () => {
     const counted = CARDS.filter((c) => pacingOf(c) === 'counted')
     for (const card of counted) {
-      const n = opportunities(card)
+      const n = chancesIn(card)
       expect(n, card.name).toBeGreaterThanOrEqual(QTE_OPPORTUNITIES_MIN)
       expect(n, card.name).toBeLessThanOrEqual(QTE_OPPORTUNITIES_MAX)
+      // And the bar sits below what the card holds, so a counted gesture has
+      // somewhere to lose a chance without losing the card.
+      expect(opportunities(card), card.name).toBeLessThan(n)
     }
-    const counts = counted.map(opportunities)
+    const counts = counted.map(chancesIn)
     expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(2)
   })
 
@@ -57,12 +61,14 @@ describe('what a card offers', () => {
    * run normalises to 1 whatever the card asked for, and `balance.test.ts`
    * measures that the same hands reach the same accuracy on all of them.
    */
-  it('asks an open gesture for more to be flawless than to score', () => {
+  it('lets an open gesture run as long as the hands do', () => {
     for (const card of CARDS) {
       if (pacingOf(card) !== 'open') continue
-      expect(opportunities(card), card.name).toBe(goodAtOf(card) + (opportunities(card) - goodAtOf(card)))
-      expect(opportunities(card), card.name).toBeGreaterThan(goodAtOf(card))
-      expect(goodAtOf(card), card.name).toBeGreaterThan(0)
+      // There is no ceiling above the bar, which is what "keep going and every
+      // extra counts" means — so what the card holds is never less than what it
+      // asks for, and a sweep holds strictly more because the cursor comes back.
+      expect(chancesIn(card), card.name).toBeGreaterThanOrEqual(opportunities(card))
+      expect(opportunities(card), card.name).toBeGreaterThan(0)
     }
   })
 
@@ -89,28 +95,43 @@ describe('settling a run', () => {
     for (const card of CARDS) {
       const outcome = all(card, 'clean')
       expect(outcome.judgement, card.name).toBe('PERFECT')
-      expect(outcome.metrics.accuracy, card.name).toBe(1)
-      expect(outcome.score, card.name).toBe(card.baseAura)
       expect(outcome.perfectEligible, card.name).toBe(true)
+      // Clearing the bar is worth the card; clearing it by more is worth more.
+      expect(outcome.metrics.accuracy, card.name).toBeGreaterThanOrEqual(1)
+      expect(outcome.score, card.name).toBeGreaterThanOrEqual(card.baseAura)
+    }
+  })
+
+  it('is worth exactly the card for doing exactly what it asked', () => {
+    // Open gestures only: a counted one has chances it must answer whether it
+    // has cleared the bar or not, so stopping at the bar is walking away from
+    // the rest of the chart.
+    for (const card of CARDS) {
+      if (pacingOf(card) !== 'open') continue
+      const bar = play(card, Array.from({ length: opportunities(card) }, () => 'clean'))
+      expect(bar.metrics.accuracy, card.name).toBeCloseTo(1, 5)
+      expect(bar.score, card.name).toBe(card.baseAura)
     }
   })
 
   /** One fumble is the whole of the difference between the two grades. */
   it('takes PERFECT off a run the moment anything is fumbled', () => {
     for (const card of CARDS) {
-      const total = opportunities(card)
-      const one = play(card, [
-        'missed',
-        ...Array.from({ length: total - 1 }, () => 'clean' as Beat),
-      ])
+      // A run that cleared the bar with one fumble in it: still scored, never
+      // flawless. `runFor` builds exactly that.
+      const one = runFor(card, 'GOOD')
       expect(one.perfectEligible, card.name).toBe(false)
       expect(one.judgement, card.name).toBe('GOOD')
+      expect(one.metrics.mistakes, card.name).toBeGreaterThan(0)
     }
   })
 
   it('lets enough mistakes drag a run back under the bar', () => {
-    const card = getCard('mewing')
-    const total = opportunities(card)
+    const card = getCard('six-seven')
+    const bar = opportunities(card)
+    // Played a few past the bar, which is what leaves room for a fumble to be
+    // absorbed rather than being fatal on its own.
+    const total = bar + 3
     const grades = Array.from({ length: total + 1 }, (_, fumbles) =>
       play(card, [
         ...Array.from({ length: fumbles }, () => 'missed' as Beat),
@@ -129,9 +150,29 @@ describe('settling a run', () => {
     }
   })
 
+  it('cancels exactly one clean beat per fumble', () => {
+    const card = getCard('six-seven')
+    const bar = opportunities(card)
+    // One over the bar with one fumble in it lands exactly on the bar: the
+    // fumble ate the spare, so the run still clears but no longer flawlessly.
+    const scraped = play(card, [
+      'missed',
+      ...Array.from({ length: bar + 1 }, () => 'clean' as Beat),
+    ])
+    expect(scraped.judgement).toBe('GOOD')
+    expect(scraped.metrics.accuracy).toBeCloseTo(1, 6)
+
+    // One fewer clean beat and the same fumble drops it under.
+    const short = play(card, [
+      'missed',
+      ...Array.from({ length: bar }, () => 'clean' as Beat),
+    ])
+    expect(short.judgement).toBe('MISS')
+  })
+
   it('pays a late GOOD more than one that scraped the bar', () => {
-    const card = getCard('beat-drop')
-    const total = opportunities(card)
+    const card = getCard('six-seven')
+    const total = chancesIn(card) + 4
     const nearly = play(card, [
       'missed',
       ...Array.from({ length: total - 1 }, () => 'clean' as Beat),
@@ -159,9 +200,9 @@ describe('settling a run', () => {
     // Ignoring one costs exactly what fumbling it costs, or standing still
     // would be a way to keep a clean sheet.
     const card = getCard('beat-drop')
-    const half = Math.floor(opportunities(card) / 2)
+    const half = Math.floor(chancesIn(card) / 2)
     const walked = play(card, Array.from({ length: half }, () => 'clean'))
-    expect(walked.metrics.mistakes).toBe(opportunities(card) - half)
+    expect(walked.metrics.mistakes).toBe(chancesIn(card) - half)
     expect(ignored(EMPTY, 5).mistakes).toBe(5)
   })
 
@@ -188,12 +229,12 @@ describe('settling a run', () => {
     expect(more.metrics.accuracy).toBeLessThanOrEqual(QTE_OVERSHOOT_MAX)
   })
 
-  it('never reports an accuracy outside 0..1', () => {
+  it('never reports an accuracy outside its bounds', () => {
     for (const card of CARDS) {
       for (const beat of ['clean', 'scrappy', 'missed'] as Beat[]) {
         const acc = all(card, beat).metrics.accuracy
         expect(acc, `${card.name} ${beat}`).toBeGreaterThanOrEqual(0)
-        expect(acc, `${card.name} ${beat}`).toBeLessThanOrEqual(1)
+        expect(acc, `${card.name} ${beat}`).toBeLessThanOrEqual(QTE_OVERSHOOT_MAX)
       }
     }
     expect(accuracyOf(EMPTY, 0)).toBe(0)

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CARDS, getCard } from './cards'
 import { beatsOf, performance } from './perform'
+import { chancesIn } from './qte'
 import type { Judgement } from './types'
 
 const ROLLS = Array.from({ length: 40 }, (_, i) => (i + 0.5) / 40)
@@ -19,10 +20,12 @@ describe('the shape of a rival\'s attempt', () => {
   it('takes the count from the QTE the player would have been given', () => {
     // A rival playing Beat Drop shows the five notes going past, not a
     // generic bar: the strip is the card, not decoration.
-    expect(beatsOf(getCard('beat-drop'))).toBe(6)
-    expect(beatsOf(getCard('hyperpop'))).toBe(8)
-    expect(beatsOf(getCard('mewing'))).toBe(6)
-    expect(beatsOf(getCard('speedrun'))).toBe(8)
+    // What the card holds, held between three and eight so the strip stays
+    // countable on a phone.
+    for (const id of ['beat-drop', 'hyperpop', 'mewing', 'speedrun', 'six-seven']) {
+      const card = getCard(id)
+      expect(beatsOf(card), card.name).toBe(Math.min(8, Math.max(3, chancesIn(card))))
+    }
   })
 
   it('always produces exactly that many beats', () => {

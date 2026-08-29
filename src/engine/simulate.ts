@@ -11,6 +11,7 @@ import {
   cpuRoll,
   oddsFor as cardOdds,
   performQte,
+  slipScale,
   type Strategy,
 } from './cpu'
 import { EMPTY, rampAt, record, settle } from './qte'
@@ -140,7 +141,7 @@ function perform(profile: Profile, card: Card, rolls: Rolls, state: MatchState):
     // The gesture tightens as it runs, exactly as it does on screen.
     const ramp = rampAt(i, total)
     const clean = odds.perfect / ramp + form
-    const missing = Math.min(0.9, (1 - odds.perfect - odds.good) * ramp)
+    const missing = Math.min(0.9, (1 - odds.perfect - odds.good) * ramp * slipScale(card))
     const roll = rolls.next()
     ledger = record(ledger, roll < clean ? 'clean' : roll < 1 - missing ? 'scrappy' : 'missed')
   }

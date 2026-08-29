@@ -391,18 +391,18 @@ describe('momentum and god aura', () => {
   it('reaches god aura through a run of fresh perfects, and says so on the bus', () => {
     const d = new Driver()
     // P0 always answers with a different kind and nails it; P1 keeps the bar
-    // honest with GOODs so the match does not end early.
-    for (let i = 0; i < 4; i++) {
-      if (d.s.phase.kind !== 'matchEnd') d.turnFresh('PERFECT')
-      if (d.s.phase.kind !== 'matchEnd') d.turnFresh('GOOD')
+    // honest with GOODs so the match does not end early, but repeats one kind
+    // so the freshness streak stays P0's alone.
+    const over = () => d.s.phase.kind === 'matchEnd'
+    while (!over() && !d.s.players[0].godAura) {
+      d.turnFresh('PERFECT')
+      if (!over()) d.turn('GOOD', 'speed')
     }
 
-    expect(d.s.log.filter((r) => r.player === 0).map((r) => r.freshness)).toEqual([
-      'FRESH',
-      'FRESH',
-      'FRESH',
-      'FRESH',
-    ])
+    // It took a run to get there, and every play in the run was a fresh one.
+    const mine = d.s.log.filter((r) => r.player === 0)
+    expect(mine.length).toBeGreaterThanOrEqual(3)
+    expect(mine.every((r) => r.freshness === 'FRESH')).toBe(true)
     expect(d.s.players[0].godAura).toBe(true)
     expect(d.s.players[1].godAura).toBe(false)
     expect(d.events).toContainEqual({ type: 'godAura', player: 0, on: true })

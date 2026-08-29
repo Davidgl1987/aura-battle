@@ -46,8 +46,13 @@ export const CHOOSE_SECONDS_DEFAULT = 4
  * median play went from 1600 to 1900, and this number is only ever meaningful
  * as a multiple of what a play is worth. Anything that changes the card pool
  * changes this too.
+ *
+ * And again, from 8000, when gestures started being scored over their whole
+ * length. A play is worth what the card is worth times how much of it was
+ * landed, and a run that goes past the bar is worth more still — the median
+ * went half again, so this had to as well or a battle was over in three moves.
  */
-export const MOGGED_THRESHOLD = 8000
+export const MOGGED_THRESHOLD = 13000
 
 /**
  * How hard the bar leans toward whoever is ahead. The needle is a curve, not a
@@ -106,13 +111,13 @@ export const QTE_SCRAPPY_VALUE = 0.55
  * so a run that had cleared the threshold can be dragged back under it — which
  * is the point: the bar is not a checkpoint you keep once you have passed it.
  */
-export const QTE_MISTAKE_COST = 0.8
+export const QTE_MISTAKE_COST = 1
 
 /**
- * The one threshold there is. Above it and clean is a PERFECT, above it with a
- * fumble is a GOOD, below it is a MISS however it got there.
+ * What clearing the bar means, as a share of it. Kept at 1: the bar a card
+ * names in `goodAt` is the bar, and a run either got there or did not.
  */
-export const QTE_GOOD_RATIO = 0.45
+export const QTE_GOOD_RATIO = 1
 
 /**
  * How much harder a card is by its last opportunity than by its first. A run
@@ -162,7 +167,7 @@ export const FRESH_AURA = 400
  * often, so at 400 a good player was better off never bringing one — which
  * would have made the whole difficulty axis decoration.
  */
-export const HARD_AURA: Record<Difficulty, number> = { 1: 0, 2: 200, 3: 750 }
+export const HARD_AURA: Record<Difficulty, number> = { 1: 0, 2: 250, 3: 1300 }
 
 /** Consecutive PERFECTs needed before the streak is worth anything. */
 export const STREAK_MIN = 2
@@ -248,12 +253,39 @@ export const CPU_GOOD_FLOOR = 0.35
 export const CPU_GOOD_SPAN = 0.55
 
 /**
- * How much of an open-ended gesture a rival gets through, from the slowest
- * hands to the quickest. Below 1 they never reach the bar it asks for; above
- * it they are into the overshoot.
+ * How far past the bar an open-ended gesture is played, from the slowest hands
+ * to the quickest.
+ *
+ * Comfortably over 1 even at the bottom, because you have to keep going past
+ * the bar for a fumble to be absorbable at all — stopping the moment you clear
+ * it means the next mistake drops you straight back under. That is the rule
+ * working as intended, but a rival that stopped at the bar could only ever
+ * come out PERFECT or MISS, with no GOOD in between.
  */
-export const CPU_PACE_FLOOR = 0.45
-export const CPU_PACE_SPAN = 0.8
+export const CPU_PACE_FLOOR = 0.55
+export const CPU_PACE_SPAN = 1.5
+
+/**
+ * The fewest chances past the bar an open gesture is ever played for.
+ *
+ * A low bar is not a short gesture — a two-centre sweep still runs the whole
+ * animation — so pacing off the bar alone had a rival stop after two taps of a
+ * card that came past five times, and made the low-bar cards far harsher than
+ * the rest for no reason a player would recognise.
+ */
+export const CPU_OPEN_HEADROOM = 3
+
+/**
+ * How much likelier a rival is to fumble a gesture that tests aim than one
+ * that tests order.
+ *
+ * On the mash and the number run a mistake is a slip — the same hand twice, a
+ * number out of turn — and a player who is paying attention rarely makes one
+ * however long they keep going. On the sweep, the chart and the ring every
+ * chance is a fresh test of aim. Modelling all six the same way made a long
+ * clean run impossible for reasons that have nothing to do with playing them.
+ */
+export const CPU_SLIP_SCALE = 0.22
 
 /** How long a rival appears to think before committing to a card. */
 export const CPU_THINK_MIN_MS = 600

@@ -32,7 +32,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 2450,
     baseAura: 1300,
     animation: 'mewing',
-    qte: { kind: 'timing', game: 'sweep', sweepMs: 300, goodAt: 4, perfectAt: 6, perfectMs: 36, goodMs: 84 },
+    qte: { kind: 'timing', game: 'sweep', sweepMs: 800, goodAt: 2, perfectMs: 62, goodMs: 145 },
   },
   {
     id: 'sigma-stare',
@@ -43,7 +43,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 2450,
     baseAura: 1300,
     animation: 'stare',
-    qte: { kind: 'timing', game: 'sweep', sweepMs: 280, goodAt: 4, perfectAt: 6, perfectMs: 32, goodMs: 76 },
+    qte: { kind: 'timing', game: 'sweep', sweepMs: 700, goodAt: 2, perfectMs: 55, goodMs: 130 },
   },
   {
     id: 'griddy-drop',
@@ -54,7 +54,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 2850,
     baseAura: 2000,
     animation: 'griddy',
-    qte: { kind: 'timing', game: 'sweep', sweepMs: 260, goodAt: 5, perfectAt: 8, perfectMs: 26, goodMs: 62 },
+    qte: { kind: 'timing', game: 'sweep', sweepMs: 620, goodAt: 3, perfectMs: 52, goodMs: 124 },
   },
 
   // --- Timing: three lanes ---------------------------------------------------
@@ -72,6 +72,7 @@ export const CARDS: readonly Card[] = [
       game: 'lanes',
       lanes: 3,
       notes: 6,
+      goodAt: 3,
       travelMs: 950,
       gapMs: 430,
       perfectMs: 75,
@@ -92,6 +93,7 @@ export const CARDS: readonly Card[] = [
       game: 'lanes',
       lanes: 3,
       notes: 8,
+      goodAt: 3,
       travelMs: 780,
       gapMs: 340,
       perfectMs: 55,
@@ -111,7 +113,7 @@ export const CARDS: readonly Card[] = [
     animation: 'sixSeven',
     // Two pads: the gesture is a six and a seven, one in each hand, so the
     // card asks for both thumbs the way the move does.
-    qte: { kind: 'speed', game: 'mash', goodAt: 8, perfectAt: 14, alternating: true },
+    qte: { kind: 'speed', game: 'mash', goodAt: 9, alternating: true },
   },
   {
     id: 'rizz-clap',
@@ -122,7 +124,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 2350,
     baseAura: 1300,
     animation: 'clap',
-    qte: { kind: 'speed', game: 'mash', goodAt: 9, perfectAt: 16, alternating: true },
+    qte: { kind: 'speed', game: 'mash', goodAt: 10, alternating: true },
   },
   {
     id: 'sturdy',
@@ -133,7 +135,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 2600,
     baseAura: 2000,
     animation: 'sturdy',
-    qte: { kind: 'speed', game: 'mash', goodAt: 12, perfectAt: 20, alternating: true },
+    qte: { kind: 'speed', game: 'mash', goodAt: 13, alternating: true },
   },
 
   // --- Speed: find them in order ---------------------------------------------
@@ -148,7 +150,7 @@ export const CARDS: readonly Card[] = [
     animation: 'tierList',
     // `goodMs` sits at the card's own length, so simply finishing is a GOOD and
     // only pressing the wrong number can drag it below that.
-    qte: { kind: 'speed', game: 'order', visible: 5, goodAt: 5, perfectAt: 8, windowMs: 620 },
+    qte: { kind: 'speed', game: 'order', visible: 5, goodAt: 6 },
   },
   {
     id: 'speedrun',
@@ -159,7 +161,7 @@ export const CARDS: readonly Card[] = [
     durationMs: 3400,
     baseAura: 2000,
     animation: 'speedrun',
-    qte: { kind: 'speed', game: 'order', visible: 5, goodAt: 6, perfectAt: 10, windowMs: 520 },
+    qte: { kind: 'speed', game: 'order', visible: 5, goodAt: 8 },
   },
 
   // --- Control --------------------------------------------------------------

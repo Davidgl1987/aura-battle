@@ -7,6 +7,7 @@ const params: LanesParams = {
   game: 'lanes',
   lanes: 3,
   notes: 6,
+  goodAt: 3,
   travelMs: 900,
   gapMs: 400,
   perfectMs: 70,

@@ -1,3 +1,4 @@
+import { chancesIn } from './qte'
 import type { Card, Judgement } from './types'
 
 /**
@@ -18,28 +19,19 @@ export type Beat = 'hit' | 'soft' | 'slip'
  * notes going by and watching them play Mewing shows two taps.
  */
 export function beatsOf(card: Card): number {
-  return Math.min(MAX_BEATS, declaredBeats(card))
+  return Math.min(MAX_BEATS, Math.max(MIN_BEATS, declaredBeats(card)))
 }
 
 /** More than this on a phone-width strip and you can no longer count them. */
 const MAX_BEATS = 8
+/** And fewer than this is not a strip, it is a pair of dots. */
+const MIN_BEATS = 3
 
 function declaredBeats(card: Card): number {
-  switch (card.qte.game) {
-    case 'sweep':
-      return card.qte.perfectAt
-    case 'lanes':
-      return card.qte.notes
-    case 'order':
-      return card.qte.perfectAt
-    // A mash and a hold have no beats of their own, so they get a fixed strip
-    // that reads as effort over time rather than as a count of anything.
-    case 'mash':
-      return 6
-    case 'zone':
-    case 'paths':
-      return 5
-  }
+  // What the card physically holds, not the bar it asks you to clear: watching
+  // a rival play Beat Drop should show its six notes go by, not the three of
+  // them that would have scored.
+  return chancesIn(card)
 }
 
 /** The fractional part, which is all a roll is ever used for here. */

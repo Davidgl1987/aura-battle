@@ -47,21 +47,19 @@ export type QteGame = 'sweep' | 'lanes' | 'mash' | 'order' | 'zone' | 'paths'
 
 /**
  * A cursor sweeps the bar; tap it dead centre, as many times as you can before
- * the animation runs out.
+ * the animation runs out. Every landed tap makes the next sweep a little
+ * quicker.
  *
- * Open-ended, like the mash and the number run: `goodAt` is what it takes to
- * score at all and `perfectAt` what a clean run needs, and every hit past that
- * still pays. The bar has to pass the centre comfortably more often than
- * `perfectAt` asks for, or a flawless run is not something the card allows —
- * see `crossings` in `ui/qte/timing.ts`, which a test holds it to.
+ * The bar has to come past often enough to reach `goodAt` at all — see
+ * `crossings` in `ui/qte/timing.ts`, which a test holds every sweep card to.
  */
 export interface TimingParams {
   kind: 'timing'
   game: 'sweep'
-  /** Time for the cursor to cross the bar once. */
+  /** Time for the cursor to cross the bar once, before it starts quickening. */
   sweepMs: number
+  /** Centres landed to score at all. */
   goodAt: number
-  perfectAt: number
   /** Half-width of the PERFECT / GOOD windows, in ms. */
   perfectMs: number
   goodMs: number
@@ -75,6 +73,8 @@ export interface LanesParams {
   game: 'lanes'
   lanes: number
   notes: number
+  /** Notes landed to score at all. */
+  goodAt: number
   /** How long a note takes to cross the board, entering to hit line. */
   travelMs: number
   /** Gap between one note and the next. */
@@ -88,36 +88,35 @@ export interface LanesParams {
  * Alternate between two pads as fast and as long as you can.
  *
  * Open-ended: there is no number of taps the card asks for and then stops. You
- * keep going for the whole animation, `goodAt` is what it takes to score at
- * all and `perfectAt` what it takes for a clean run to count as flawless — and
- * anything past that still pays.
+ * keep going for the whole animation and every extra alternation is worth
+ * more. `goodAt` is what it takes to score at all; being flawless is not a
+ * higher count but a clean one — see `settle`.
  */
 export interface SpeedParams {
   kind: 'speed'
   game: 'mash'
+  /** Alternations landed to score at all. */
   goodAt: number
-  perfectAt: number
   /** When true, tapping the same zone twice in a row does not count. */
   alternating: boolean
 }
 
 /**
  * Scattered numbers; press them in order, as fast as you can find them. Press
- * the lowest and it goes, and the next of the run appears somewhere else.
+ * the lowest and it goes, and the next of the run appears somewhere else and
+ * waits there for its turn.
  *
- * Open-ended, like the mash: the run does not stop at the number of buttons on
- * the pad. `goodAt` is what it takes to score, `perfectAt` what a clean run
- * needs, and every number past that still pays.
+ * Nothing on this pad is on a clock of its own. A number that changed under
+ * you while you were reaching for it was the card playing itself; the only
+ * pressure here is the animation running out.
  */
 export interface OrderParams {
   kind: 'speed'
   game: 'order'
   /** How many are on the pad at once. */
   visible: number
+  /** Numbers pressed in order to score at all. */
   goodAt: number
-  perfectAt: number
-  /** How long one number is on offer before it goes. */
-  windowMs: number
 }
 
 /** Keep the finger inside a drifting zone for as long as possible. */

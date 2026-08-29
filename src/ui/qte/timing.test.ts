@@ -71,7 +71,7 @@ describe('grading', () => {
     const hard = getCard('griddy-drop').qte as TimingParams
     expect(hard.perfectMs).toBeLessThan(easy.perfectMs)
     expect(hard.sweepMs).toBeLessThan(easy.sweepMs)
-    expect(hard.perfectAt).toBeGreaterThan(easy.perfectAt)
+    expect(hard.goodAt).toBeGreaterThan(easy.goodAt)
   })
 })
 
@@ -140,21 +140,12 @@ describe('changing pace mid-sweep', () => {
  * however well it was played.
  */
 describe('a bar that comes past often enough', () => {
-  it('crosses the centre more often than a clean run needs', () => {
+  it('comes past more often than it asks to be hit', () => {
     for (const card of CARDS) {
       if (card.qte.game !== 'sweep') continue
-      const passes = crossings(card.durationMs, card.qte)
-      // Comfortably more, not exactly enough: at its opening pace, before any
-      // of the speeding-up a landed tap brings.
-      expect(passes, `${card.name} perfect`).toBeGreaterThan(card.qte.perfectAt)
-      expect(passes, `${card.name} good`).toBeGreaterThan(card.qte.goodAt)
-    }
-  })
-
-  it('asks for more to be flawless than it does to score', () => {
-    for (const card of CARDS) {
-      if (card.qte.game !== 'sweep') continue
-      expect(card.qte.perfectAt, card.name).toBeGreaterThan(card.qte.goodAt)
+      // At its opening pace, before any of the quickening a landed tap brings,
+      // so the real headroom is wider than this.
+      expect(crossings(card.durationMs, card.qte), card.name).toBeGreaterThan(card.qte.goodAt)
     }
   })
 

@@ -1,5 +1,4 @@
 import {
-  QTE_GOOD_RATIO,
   QTE_OPPORTUNITIES_MAX,
   QTE_OPPORTUNITIES_MIN,
   QTE_OVERSHOOT_MAX,
@@ -8,7 +7,7 @@ import {
   QTE_SCRAPPY_VALUE,
   QTE_TICK_MS,
 } from './balance'
-import type { Card, Judgement, QtePacing, QteOutcome } from './types'
+import type { Card, Difficulty, Judgement, QteOutcome, QtePacing, TimingParams } from './types'
 
 /**
  * How a gesture is scored, for all six of them.
@@ -70,30 +69,60 @@ export function pacingOf(card: Card): QtePacing {
  * open-ended one it is `perfectAt` — the point at which a clean run has done
  * enough — and going past it is what the overshoot is for.
  */
+/**
+ * The bar a card asks you to clear, and what its run is measured against.
+ *
+ * Every gesture has one, counted or open. That is what makes them comparable:
+ * doing what the card asked for is worth 1 whether the card asked for two
+ * centres or nine alternations, and going past it is what the overshoot pays
+ * for. Normalising the counted ones by every chance they held instead made
+ * them worth barely half what the open ones were for the same hands.
+ */
 export function opportunities(card: Card): number {
   const params = card.qte
   switch (params.game) {
     case 'sweep':
     case 'mash':
     case 'order':
-      return params.perfectAt
     case 'lanes':
-      return Math.min(QTE_OPPORTUNITIES_MAX, Math.max(QTE_OPPORTUNITIES_MIN, params.notes))
+      return params.goodAt
     case 'zone':
     case 'paths':
-      // Continuous gestures have no beats of their own, so they are cut into
-      // stretches of roughly a quarter second.
+      // A hold has no beats of its own, so it is cut into stretches of roughly
+      // a quarter second and the bar is most of them.
+      return Math.max(1, Math.round(chancesIn(card) * CONTINUOUS_BAR[card.difficulty]))
+  }
+}
+
+/**
+ * Share of a hold that has to be held for the hold to count.
+ *
+ * Half rather than most of it, because a counted gesture cannot overshoot its
+ * way out of trouble: it has the chances it has, so a bar set near the top
+ * would mean anything short of flawless was a MISS.
+ */
+const CONTINUOUS_BAR: Record<Difficulty, number> = { 1: 0.6, 2: 0.5, 3: 0.4 }
+
+/**
+ * How many chances a card physically holds. The same as the bar for the open
+ * gestures, which have no ceiling, and more than it for the rest.
+ */
+export function chancesIn(card: Card): number {
+  const params = card.qte
+  switch (params.game) {
+    case 'lanes':
+      return params.notes
+    case 'sweep':
+      return crossings(card.durationMs, params)
+    case 'zone':
+    case 'paths':
       return Math.min(
         QTE_OPPORTUNITIES_MAX,
         Math.max(QTE_OPPORTUNITIES_MIN, Math.round(card.durationMs / QTE_TICK_MS)),
       )
+    default:
+      return opportunities(card)
   }
-}
-
-/** What it takes to score at all on an open-ended gesture. */
-export function goodAtOf(card: Card): number {
-  const params = card.qte
-  return 'goodAt' in params ? params.goodAt : 0
 }
 
 /**
@@ -177,24 +206,24 @@ export function settle(card: Card, ledger: Ledger): QteOutcome {
   const total = opportunities(card)
   const open = pacingOf(card) === 'open'
 
-  // A counted gesture charges for chances that came and went. An open-ended
-  // one cannot: there is no number it was supposed to reach and stop at, so
-  // falling short simply scores less rather than counting as fumbles.
-  const full = open ? ledger : ignored(ledger, total)
-  const accuracy = accuracyOf(full, total, open)
+  // A counted gesture charges for chances that came and went — a note you let
+  // go past is one you dropped. An open-ended one cannot: there is no number
+  // it was supposed to reach and stop at, so falling short simply scores less.
+  const full = open ? ledger : ignored(ledger, chancesIn(card))
+  const accuracy = accuracyOf(full, total, true)
   const perfectEligible = full.mistakes === 0
 
-  const judgement: Judgement = open
-    ? full.successes < goodAtOf(card)
-      ? 'MISS'
-      : perfectEligible && full.successes >= total
-        ? 'PERFECT'
-        : 'GOOD'
-    : accuracy < QTE_GOOD_RATIO
-      ? 'MISS'
-      : perfectEligible
-        ? 'PERFECT'
-        : 'GOOD'
+  /**
+   * The same shape either way, and it is worth saying plainly: PERFECT is not
+   * a higher count than GOOD, it is a clean one.
+   *
+   * Clear the bar and you have scored. Clear it having never fumbled and you
+   * have scored flawlessly. Fumble after clearing it and the flawless is gone
+   * but the score is not — and fumble enough and you are dragged back under
+   * the bar, because one bad cancels one good.
+   */
+  const cleared = full.value - full.mistakes * QTE_MISTAKE_COST >= total
+  const judgement: Judgement = !cleared ? 'MISS' : perfectEligible ? 'PERFECT' : 'GOOD'
 
   return {
     judgement,
@@ -218,14 +247,27 @@ export function settle(card: Card, ledger: Ledger): QteOutcome {
  * grade rather than about the ledger behind it.
  */
 export function runFor(card: Card, judgement: Judgement): QteOutcome {
-  const total = opportunities(card)
-  const beats: Beat[] =
-    judgement === 'PERFECT'
-      ? Array.from({ length: total }, () => 'clean')
-      : judgement === 'GOOD'
-        ? // Over the line with one fumble: exactly what a GOOD is.
-          Array.from({ length: total }, (_, i) => (i === 0 ? 'missed' : 'clean'))
-        : Array.from({ length: total }, (_, i) => (i % 3 === 0 ? 'scrappy' : 'missed'))
+  const bar = opportunities(card)
+  const held = chancesIn(card)
+  const open = pacingOf(card) === 'open'
+  const beats: Beat[] = []
+  const add = (n: number, beat: Beat) => {
+    for (let i = 0; i < n; i++) beats.push(beat)
+  }
+
+  if (judgement === 'PERFECT') {
+    // Everything the card holds, cleanly. An open gesture is played a little
+    // past its bar, which is what anyone does who is not counting.
+    add(open ? bar + 1 : held, 'clean')
+  } else if (judgement === 'GOOD') {
+    // Over the bar with one fumble in it, which is exactly what a GOOD is.
+    // An open gesture buys the room by going further; a counted one has to
+    // find it inside what it holds.
+    add(open ? bar + 2 : held - 1, 'clean')
+    add(1, 'missed')
+  } else {
+    add(open ? bar : held, 'missed')
+  }
 
   return settle(card, beats.reduce(record, EMPTY))
 }
@@ -246,4 +288,15 @@ export function tickBeat(insideMs: number, tickMs = QTE_TICK_MS): Beat {
   const share = tickMs <= 0 ? 0 : insideMs / tickMs
   if (share >= 0.75) return 'clean'
   return share >= 0.4 ? 'scrappy' : 'missed'
+}
+
+/**
+ * How many times a sweep brings the cursor back through the middle. This is
+ * what the card actually offers, which is more than the `goodAt` it asks for —
+ * a bar that came past exactly as often as it needed to be hit would have no
+ * room for a fumble, and made the sweeps the harshest cards in their tier for
+ * no reason a player could see.
+ */
+export function crossings(durationMs: number, params: TimingParams): number {
+  return Math.floor(durationMs / params.sweepMs)
 }

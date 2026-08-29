@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react'
-import { QTE_RAMP } from '../../engine/balance'
 import { now, stamp } from '../../state/store'
 import type { Card, QteOutcome, TimingParams } from '../../engine/types'
 import { useArming } from './arming'
@@ -23,6 +22,10 @@ interface Props {
  * let off. Taps they never take are counted as ignored at the end, which is
  * what stops standing still from being a clean sheet.
  */
+/** What one landed tap takes off the sweep, and how fast it may ever get. */
+const QUICKEN = 0.94
+const FLOOR_MS = 260
+
 export function QteTiming({ card, params, startedAt, variation, onResult }: Props) {
   const edge = startEdge(variation)
   const run = useRun(card, onResult)
@@ -86,8 +89,9 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
       // Faster, but not restarted: the cursor carries on from exactly where it
       // is, in the direction it was already going. Re-anchoring the phase is
       // what keeps the stroke unbroken while the pace changes.
-      const step = 1 - (QTE_RAMP - 1) / Math.max(1, params.perfectAt - 1) / QTE_RAMP
-      const next = Math.max(180, sweep.current * step)
+      // A little quicker every time, and nothing more than that. The bar
+      // stays a bar you can read; what changes is how long you have to read it.
+      const next = Math.max(FLOOR_MS, sweep.current * QUICKEN)
       phase.current = rephase(t, phase.current, sweep.current, next, edge)
       sweep.current = next
     }
@@ -107,7 +111,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
           TAP TO START <b ref={armRef} className="qte__count" />
         </em>
         <em className="qte__hint-live">
-          {params.goodAt} TO SCORE, {params.perfectAt} CLEAN · IT SPEEDS UP
+          {params.goodAt} TO SCORE · KEEP GOING, IT SPEEDS UP
         </em>
       </div>
 
@@ -122,7 +126,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
       </div>
 
       <div className="qte__hits" ref={hitsRef}>
-        {Array.from({ length: params.perfectAt }, (_, i) => (
+        {Array.from({ length: params.goodAt }, (_, i) => (
           <span key={i} className="qte__hit" data-hit="pending" />
         ))}
       </div>

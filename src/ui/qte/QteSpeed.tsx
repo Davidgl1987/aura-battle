@@ -1,11 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { now, stamp } from '../../state/store'
 import { QTE_GOOD_RATIO } from '../../engine/balance'
-import { rampAt } from '../../engine/qte'
 import type { Card, QteOutcome, SpeedParams } from '../../engine/types'
 import { useRun } from './run'
 import { useArming } from './arming'
-import { countsAsTap, gradePace } from './speed'
+import { countsAsTap } from './speed'
 
 interface Props {
   card: Card
@@ -16,23 +15,11 @@ interface Props {
   onResult: (outcome: QteOutcome) => void
 }
 
-/** How far behind the pace still counts for something. */
-const WINDOW_MS = 220
 
-/**
- * How much room the `n`th alternation gets. Module level rather than a closure
- * so the frame loop can call it without being rebuilt every render.
- */
-const windowFor = (n: number, perfectAt: number) => WINDOW_MS / rampAt(n - 1, perfectAt)
+
 
 export function QteSpeed({ card, params, startedAt, onResult }: Props) {
   const run = useRun(card, onResult)
-  /**
-   * When the next alternation stops being on time. There is no schedule laid
-   * out in advance any more: the card takes as many taps as your thumbs
-   * manage, and the window simply tightens as the run gets longer.
-   */
-  const expires = useRef(0)
   const landed = useRef(0)
   const lastZone = useRef<number | null>(null)
   const arming = useArming(startedAt)
@@ -58,12 +45,6 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
       if (timeRef.current) timeRef.current.style.transform = `scaleX(${Math.max(0, left)})`
       run.paint(rootRef.current)
 
-      // Falling behind the pace costs a beat. The card does not wait, which is
-      // what stops a slow, careful run from being worth a fast one.
-      if (armedAt !== null && t > expires.current) {
-        expires.current = t + windowFor(landed.current + 1, params.perfectAt)
-        run.beat('missed')
-      }
       if (fillRef.current) fillRef.current.style.transform = `scaleX(${run.accuracy})`
       if (countRef.current) countRef.current.textContent = String(run.ledger.successes)
 
@@ -85,10 +66,7 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
 
     // The tap that starts the clock still counts — swallowing your first hit
     // would feel like the game stole it.
-    if (arming.armedAt === null) {
-      arming.arm(t)
-      expires.current = t + windowFor(1, params.perfectAt)
-    }
+    if (arming.armedAt === null) arming.arm(t)
 
     // Drumming one thumb is not the gesture: the move is a six and a seven,
     // one in each hand, so the same side twice is a beat thrown away.
@@ -99,14 +77,11 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
       return
     }
 
-    const room = windowFor(landed.current + 1, params.perfectAt)
-    // How far past its deadline the tap arrived. Ahead of it is clean, however
-    // far ahead: going quicker is the whole point of the gesture.
-    const late = -(expires.current - t)
+    // No clock on a single tap: the gesture is a six and a seven, one in each
+    // hand, and the only way to get it wrong is to use the same hand twice.
     landed.current += 1
-    expires.current = t + windowFor(landed.current + 1, params.perfectAt)
     lastZone.current = zone
-    run.beat(gradePace(late, room))
+    run.beat('clean')
   }
 
   const zones = params.alternating ? [0, 1] : [0]
@@ -129,8 +104,8 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
       </div>
 
       <div className="qte__tally">
-        <span ref={countRef}>0</span> · {params.goodAt} TO SCORE, {params.perfectAt} CLEAN
-        <em> · KEEP ALTERNATING</em>
+        <span ref={countRef}>0</span> · {params.goodAt} TO SCORE
+        <em> · KEEP ALTERNATING, EVERY EXTRA COUNTS</em>
       </div>
       {/* The performance bar, not a tap count: it can go down. */}
       <div className="qte__progress">
