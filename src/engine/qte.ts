@@ -361,12 +361,18 @@ export function tickBeat(insideMs: number, tickMs = QTE_TICK_MS): Beat {
 }
 
 /**
- * How many times a sweep brings the cursor back through the middle. This is
- * what the card actually offers, which is more than the `goodAt` it asks for —
- * a bar that came past exactly as often as it needed to be hit would have no
- * room for a fumble, and made the sweeps the harshest cards in their tier for
- * no reason a player could see.
+ * How many times a sweep brings the cursor through a green zone.
+ *
+ * One traverse of the bar passes every zone on it exactly once, so a card with
+ * three of them offers three times the chances of a card with one — and it is
+ * chances that everything else is measured against: the bar, the score, and how
+ * much a stray tap costs.
+ *
+ * This counted traverses rather than zone passes, which made the three-zone
+ * card the hardest thing in the game by an order nobody intended. It presented
+ * twelve targets, the engine believed it held four, and the bar sat at two — so
+ * two taps into empty bar was a MISS however many of the twelve you hit.
  */
 export function crossings(durationMs: number, params: TimingParams): number {
-  return Math.floor(durationMs / params.sweepMs)
+  return Math.floor(durationMs / params.sweepMs) * params.zones
 }
