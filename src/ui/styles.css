@@ -460,6 +460,12 @@
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  /* A QTE surface is for tapping, never for scrolling. Without this the
+     browser keeps a gesture of its own on the table: the page-level
+     `touch-action: manipulation` still allows panning, so a quick run of taps
+     during a sweep could be swallowed as the start of a scroll and never reach
+     the handler — which looks exactly like the phone missing the touch. */
+  touch-action: none;
 }
 .qte__title {
   font-size: 20px;
@@ -1283,6 +1289,43 @@
   overflow: hidden;
   touch-action: none;
 }
+/* The bar answers every tap, including the two that do not score: the one that
+   starts the card, and a second tap on a zone already answered. A tap that
+   changes nothing on screen is indistinguishable from one the phone missed. */
+.qte__bar[data-flash] {
+  animation: bar-flash 200ms ease-out;
+}
+.qte__bar[data-flash='PERFECT'] {
+  animation: bar-perfect 260ms ease-out;
+}
+.qte__bar[data-flash='MISS'] {
+  animation: bar-bad 260ms ease-out;
+}
+@keyframes bar-flash {
+  from {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.45);
+  }
+  to {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0);
+  }
+}
+@keyframes bar-perfect {
+  from {
+    box-shadow: 0 0 0 3px var(--perfect);
+  }
+  to {
+    box-shadow: 0 0 0 3px rgba(74, 222, 128, 0);
+  }
+}
+@keyframes bar-bad {
+  from {
+    box-shadow: 0 0 0 3px var(--miss);
+  }
+  to {
+    box-shadow: 0 0 0 3px rgba(251, 113, 133, 0);
+  }
+}
+
 /* --- The meter: what the card asks for, and how far past it you are -------- */
 .meter {
   width: 100%;

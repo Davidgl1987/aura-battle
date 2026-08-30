@@ -6,17 +6,34 @@ import type { Judgement, TimingParams } from '../../engine/types'
  */
 
 /**
- * A phase origin that puts the cursor in the middle of the bar the moment the
- * card goes live, heading for one end or the other.
+ * A phase origin that parks the cursor at one end of the bar the moment the
+ * card goes live, heading inward.
  *
- * It used to set off from an end, which meant the first thing every sweep asked
- * of you was to wait out half a stroke before anything could be hit. Starting
- * on the target costs nothing — the first tap is what arms the card and is
- * never graded — and it makes the opening of a sweep read as "here it comes"
- * rather than as dead time.
+ * An end is the furthest point on the bar from any zone, which makes it both
+ * the longest run-up the card's own rhythm can offer — half a beat, so
+ * `sweepMs / (2 × zones)` — and the only start that is never sitting on a
+ * scorable target.
+ *
+ * It used to open dead centre, which on an odd number of zones is a zone: the
+ * card began on top of a chance nobody could take, because the tap that starts
+ * a sweep is the one tap it never grades. You were looking at a green zone
+ * under the cursor and being told, silently, that it did not count.
  */
 export function startPhase(startedAt: number, sweepMs: number, variation: number): number {
-  return startedAt - (variation < 0.5 ? 0.5 : 1.5) * sweepMs
+  // Left edge heading right, or right edge heading left. Both are boundaries
+  // between trips, so the first zone of either is a whole fresh chance.
+  return startEdge(variation) === 0 ? startedAt : startedAt - sweepMs
+}
+
+/**
+ * Which end this play sets off from: 0 for the left, 1 for the right.
+ *
+ * The widget parks the cursor here while the card waits for a touch, so what
+ * is drawn before the bar goes live is exactly where it goes live from and the
+ * cursor never appears to jump.
+ */
+export function startEdge(variation: number): 0 | 1 {
+  return variation < 0.5 ? 0 : 1
 }
 
 /** Triangle wave: 0 → 1 → 0 across the bar, one crossing per `sweepMs`. */
@@ -33,9 +50,21 @@ export function errorAt(t: number, startedAt: number, sweepMs: number, edge = 0)
 }
 
 
+/**
+ * A nanosecond of slack on each threshold.
+ *
+ * The cursor position comes out of a float clock, so a tap exactly on a window
+ * edge measures as 49.999999999999936 on one side of a zone and
+ * 50.000000000000064 on the other — the same tap, graded differently because
+ * of the fifteenth decimal place. This makes the edge itself belong to the
+ * better grade, on both sides, deterministically. It widens nothing a player
+ * could ever land in.
+ */
+const EDGE_SLACK_MS = 1e-6
+
 export function gradeHit(errorMs: number, params: TimingParams): Judgement {
-  if (errorMs <= params.perfectMs) return 'PERFECT'
-  if (errorMs <= params.goodMs) return 'GOOD'
+  if (errorMs <= params.perfectMs + EDGE_SLACK_MS) return 'PERFECT'
+  if (errorMs <= params.goodMs + EDGE_SLACK_MS) return 'GOOD'
   return 'MISS'
 }
 
@@ -93,13 +122,21 @@ export function zoneErrorAt(
  *
  * The unit a sweep is scored in: one chance per zone the cursor goes through.
  * Zones sit in the middle of equal slices, so the cursor reaches one every
- * `sweepMs / zones` however far along the bar it is, and a moment's index is
- * just how many of those beats have gone by.
+ * `sweepMs / zones` however far along the bar it is, and a trip is one of those
+ * beats — with its zone in the middle of it and a boundary either side, at the
+ * two points furthest from any zone.
+ *
+ * That centring is the whole job. Rounding instead of flooring put the boundary
+ * *on* the zone rather than between zones, which cut every window in half: the
+ * approach to a zone belonged to one trip and the departure from it to the
+ * next. Answer a zone on the way out and the entire approach to the following
+ * one was already spent, so a tap dead on a green zone did nothing at all and
+ * the screen looked like it had missed the touch.
  *
  * It is an index rather than a count so the widget can tell two taps in the
  * same trip apart from two taps in consecutive ones — a zone is answered once.
  */
 export function zoneTripAt(t: number, startedAt: number, params: TimingParams): number {
   const zones = Math.max(1, params.zones)
-  return Math.floor(((t - startedAt) / params.sweepMs) * zones + 0.5)
+  return Math.floor(((t - startedAt) / params.sweepMs) * zones)
 }

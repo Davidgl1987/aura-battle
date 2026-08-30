@@ -86,16 +86,29 @@ it, both deliberate:
 
 ### The sweep counts trips through a zone
 
-A pass of the bar meets every zone on it, so `crossings()` is
-`traverses × zones`. Zones sit in the middle of `zones` equal slices, which is
-the one arrangement giving a constant beat — every `sweepMs / zones`, out and
-back alike. An odd zone count puts one dead centre, which is where the bar
-opens: that trip is already going as the card starts, so it is spent at arming
-and counts as neither hit nor fumble.
+A pass of the bar meets every zone on it, so `crossings()` counts zone trips,
+not traverses. Zones sit in the middle of `zones` equal slices, which is the one
+arrangement giving a constant beat — every `sweepMs / zones`, out and back
+alike.
+
+**A trip has its zone in the middle of it**, with a boundary either side at the
+two points furthest from any zone (`zoneTripAt` floors; rounding would put the
+boundary *on* the zone). This is what keeps the drawn zone and the scored chance
+the same window: approaching a zone and leaving it are one chance, so a tap
+anywhere a player can see green is the chance they think it is.
+
+The bar **opens at an end**, which is the furthest point from any zone and so
+both the longest run-up the card's rhythm allows (`sweepMs / (2 × zones)`) and
+the only start not sitting on a target. The tap that arms a sweep is never
+graded, so it must not land on something scorable.
 
 A second tap inside the same trip is the same chance twice and is dropped
 rather than charged, so drumming on a busy bar cannot fumble chances that were
-never offered.
+never offered — but it still gets a pulse, because a tap that changes nothing
+on screen is indistinguishable from one the phone missed.
+
+Both ways of starting — the first touch, and the automatic start after
+`QTE_ARM_MS` — go through one `begin()`, so they produce identical state.
 
 ## Every widget follows the same shape
 

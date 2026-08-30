@@ -1,11 +1,13 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { now, stamp } from '../../state/store'
 import type { Card, QteOutcome, TimingParams } from '../../engine/types'
 import { useArming } from './arming'
+import { play } from '../../audio/engine'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import {
   cursorAt,
+  startEdge,
   gradeHit,
   startPhase,
   zoneCentres,
@@ -39,21 +41,62 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
   const cursorRef = useRef<HTMLDivElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
   const hitsRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
 
   // One pace from the first frame to the last. The bar used to tighten with
   // every landed tap, which made the same input worth less the better you were
   // doing and read as the card moving the target under you.
   const phase = useRef(0)
-  /** The last zone trip that was graded, so each one is answered once. */
+  /**
+   * The last zone trip that was graded, so each one is answered once. No real
+   * trip is ever negative — the phase never runs ahead of the clock — so this
+   * is a sentinel meaning "nothing answered yet".
+   */
   const answered = useRef(-1)
+  /** Whether `begin` has run, so the two ways in cannot each do half of it. */
+  const begun = useRef(false)
+
+  /**
+   * Everything that has to be true the instant the bar goes live.
+   *
+   * Both ways in come through here — the first touch, and the automatic start
+   * once `QTE_ARM_MS` runs out — because they used not to. Only the touch set
+   * the phase, so a card that armed itself swept from a phase of zero: the
+   * cursor jumped to wherever that put it and the trips it was grading no
+   * longer matched the zones being drawn.
+   */
+  const begin = useCallback((at: number) => {
+    if (begun.current) return
+    begun.current = true
+    phase.current = startPhase(at, params.sweepMs, variation)
+    answered.current = -1
+  }, [params.sweepMs, variation])
+
+  /**
+   * A one-shot pulse. Clearing the attribute and reading a layout property in
+   * between forces the restyle, without which a second pulse of the same kind
+   * changes nothing and never plays.
+   */
+  const pulse = (kind: string) => {
+    const node = barRef.current
+    if (!node) return
+    node.dataset.flash = ''
+    void node.offsetWidth
+    node.dataset.flash = kind
+  }
 
   useEffect(() => {
     let raf = 0
     const loop = () => {
       const t = now()
       const armedAt = arming.resolve(t)
+      // Catches the automatic start, and is a no-op when a touch got here
+      // first — either way the phase is set before anything is drawn from it.
+      if (armedAt !== null) begin(armedAt)
 
-      const x = armedAt === null ? 0.5 : cursorAt(t, phase.current, params.sweepMs)
+      // Parked at the end it will set off from, so the cursor never appears to
+      // jump when the bar goes live.
+      const x = armedAt === null ? startEdge(variation) : cursorAt(t, phase.current, params.sweepMs)
       if (cursorRef.current) cursorRef.current.style.left = `${x * 100}%`
       if (rootRef.current) rootRef.current.dataset.live = String(armedAt !== null)
       if (armRef.current) armRef.current.textContent = `${(arming.countdown(t) / 1000).toFixed(1)}s`
@@ -70,7 +113,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [startedAt, card.durationMs, params.sweepMs, arming, run])
+  }, [startedAt, card.durationMs, params.sweepMs, variation, arming, begin, run])
 
   const tap = (event: React.PointerEvent) => {
     // No ceiling: answer the bar as many times as it comes past.
@@ -80,31 +123,35 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
     const t = event.nativeEvent.timeStamp ? stamp(event.nativeEvent.timeStamp) : now()
 
     // The first touch only sets the cursor moving: grading a tap against a
-    // parked cursor would be a free MISS.
+    // parked cursor would be a free MISS. It gets a sound and a pulse of its
+    // own so it reads as having started something, rather than as a tap the
+    // screen did not notice — the bar sets off from an end, so there is no
+    // zone under the cursor for it to look like a fumbled hit on.
     if (arming.armedAt === null) {
       arming.arm(t)
-      // Live from the middle of the bar, so the card opens on its target
-      // rather than on half a stroke of waiting.
-      phase.current = startPhase(t, params.sweepMs, variation)
-      // An odd number of zones puts one dead centre, so the card opens with a
-      // trip already under way. Marking it answered spends it: nobody could
-      // have reacted to a zone that was there before the bar started moving,
-      // so it counts as neither a hit nor a fumble.
-      answered.current = zoneTripAt(t, phase.current, params)
+      begin(t)
+      play('tap')
+      pulse('START')
       return
     }
 
     // One answer per trip through a zone. A second tap inside the same trip is
     // the same chance twice, so it is dropped rather than charged — otherwise
     // drumming on a busy bar would fumble chances that were never offered.
+    // It still gets a pulse: a tap that changes nothing at all is
+    // indistinguishable from a touch the phone missed.
     const trip = zoneTripAt(t, phase.current, params)
-    if (trip === answered.current) return
+    if (trip === answered.current) {
+      pulse('REPEAT')
+      return
+    }
     answered.current = trip
 
     // Against the nearest green zone, of which there may be one, two or three.
     const hit = gradeHit(zoneErrorAt(t, phase.current, params.sweepMs, params), params)
     run.beat(hit === 'PERFECT' ? 'clean' : hit === 'GOOD' ? 'scrappy' : 'missed')
 
+    pulse(hit)
     const dot = hitsRef.current?.children[run.ledger.taken - 1] as HTMLElement | undefined
     if (dot) dot.dataset.hit = hit
   }
@@ -132,7 +179,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
 
-      <div className="qte__bar">
+      <div className="qte__bar" ref={barRef}>
         {/* Amber outside, green inside. Landing on the amber still scores, and
             it is also the moment a flawless run stops being one — so it is
             drawn as the border of the target rather than as a target of its

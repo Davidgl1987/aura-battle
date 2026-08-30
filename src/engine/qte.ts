@@ -369,12 +369,14 @@ export function tickBeat(insideMs: number, tickMs = QTE_TICK_MS): Beat {
  * there are. That is the whole of the tier: the same bar at the same speed,
  * asking for a faster rhythm.
  *
- * An odd number of zones puts one dead centre, which is exactly where the bar
- * opens. That trip is already going as the card starts, so nobody could answer
- * it and it is not counted.
+ * The bar opens at an end, which is half a beat short of the first zone, so
+ * every trip the animation contains is a whole one that somebody could take.
  */
 export function crossings(durationMs: number, params: TimingParams): number {
   const zones = Math.max(1, params.zones)
-  const trips = (durationMs / params.sweepMs) * zones
-  return Math.max(1, Math.floor(zones % 2 === 1 ? trips : trips + 0.5))
+  // Zones are met half a beat in and every beat after, so the count is how
+  // many of those half-beat marks fall strictly inside the animation. A zone
+  // reached exactly as the card ends is not one anybody could have answered.
+  const beats = (durationMs / params.sweepMs) * zones
+  return Math.max(1, Math.ceil(beats - 0.5))
 }
