@@ -4,7 +4,9 @@ import {
   EMPTY,
   accuracyOf,
   chancesIn,
+  clearedBar,
   opportunities,
+  netValue,
   record,
   settle,
   tickBeat,
@@ -33,8 +35,16 @@ export interface Run {
   readonly chances: number
   /** How long one chance of a continuous gesture lasts. */
   readonly tickMs: number
-  /** False the moment anything is fumbled. */
-  readonly perfect: boolean
+  /**
+   * Whether a flawless run is still on the table: nothing scraped and nothing
+   * fumbled. The same test `settle` applies at the end, so the meter cannot
+   * promise a flawless the score sheet then refuses.
+   */
+  readonly flawless: boolean
+  /** What the run is worth so far, by the one definition. See `netValue`. */
+  readonly net: number
+  /** Whether that is already enough to score. */
+  readonly cleared: boolean
   /** 0..1 so far, for the performance bar. */
   readonly accuracy: number
   readonly done: boolean
@@ -84,8 +94,14 @@ export function useRun(card: Card, onResult: (outcome: QteOutcome) => void): Run
       total,
       chances,
       tickMs,
-      get perfect() {
-        return ledger.mistakes === 0
+      get flawless() {
+        return ledger.clean === ledger.taken
+      },
+      get net() {
+        return netValue(ledger)
+      },
+      get cleared() {
+        return clearedBar(ledger, total)
       },
       get accuracy() {
         return accuracyOf(ledger, chances)
@@ -111,8 +127,8 @@ export function useRun(card: Card, onResult: (outcome: QteOutcome) => void): Run
 
       paint(root) {
         if (!root) return
-        root.dataset.perfect = String(ledger.mistakes === 0)
-        root.dataset.slipped = String(ledger.mistakes > 0)
+        root.dataset.perfect = String(ledger.clean === ledger.taken)
+        root.dataset.slipped = String(ledger.clean !== ledger.taken)
         root.style.setProperty('--acc', accuracyOf(ledger, chances).toFixed(3))
         root.style.setProperty('--taken', String(ledger.taken))
       },

@@ -226,6 +226,34 @@ export function ignored(ledger: Ledger, total: number): Ledger {
 }
 
 /**
+ * How much of a gesture a run is actually worth: everything landed, less what
+ * the fumbles cost.
+ *
+ * The one definition of that number. Everything downstream is a comparison
+ * against it — the bar, the score, and the fill the player is watching — so
+ * anything computing its own version is a way for the screen and the score
+ * sheet to disagree.
+ *
+ * One did. The meter counted `successes - mistakes`, which weighs a scrape the
+ * same as a clean hit, while this weighs it at `QTE_SCRAPPY_VALUE`. Scrape your
+ * way to the bar and the meter said you had cleared it right up until the card
+ * ended and told you otherwise.
+ */
+export function netValue(ledger: Ledger): number {
+  return ledger.value - ledger.mistakes * QTE_MISTAKE_COST
+}
+
+/**
+ * Whether a run has done enough to score at all.
+ *
+ * A comparison rather than a checkpoint: fumble after reaching the bar and you
+ * are dragged back under it, because one bad cancels one good.
+ */
+export function clearedBar(ledger: Ledger, bar: number): boolean {
+  return netValue(ledger) >= bar
+}
+
+/**
  * The share of what was on offer that was actually taken, after mistakes are
  * charged for. A mistake costs a whole opportunity, so enough of them drag a
  * run that had already cleared the bar back under it — which is the point: the
@@ -238,8 +266,7 @@ export function ignored(ledger: Ledger, total: number): Ledger {
  */
 export function accuracyOf(ledger: Ledger, total: number): number {
   if (total <= 0) return 0
-  const net = ledger.value - ledger.mistakes * QTE_MISTAKE_COST
-  return Math.min(1, Math.max(0, net / total))
+  return Math.min(1, Math.max(0, netValue(ledger) / total))
 }
 
 /**
@@ -286,7 +313,7 @@ export function settle(card: Card, ledger: Ledger): QteOutcome {
    * but the score is not — and fumble enough and you are dragged back under
    * the bar, because one bad cancels one good.
    */
-  const cleared = full.value - full.mistakes * QTE_MISTAKE_COST >= total
+  const cleared = clearedBar(full, total)
   const judgement: Judgement = !cleared ? 'MISS' : perfectEligible ? 'PERFECT' : 'GOOD'
 
   return {

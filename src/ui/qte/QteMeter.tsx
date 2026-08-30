@@ -34,21 +34,25 @@ export function QteMeter({ run, unit }: Props) {
   useEffect(() => {
     let raf = 0
     const loop = () => {
-      const { clean, successes, mistakes, taken } = run.ledger
       // The count is what has actually landed, not what has been attempted:
       // a fumbled tap is not progress toward the bar.
-      if (countRef.current) countRef.current.textContent = String(successes)
+      if (countRef.current) countRef.current.textContent = String(run.ledger.successes)
       if (fillRef.current) {
         // Against everything the card holds, so the two marks below sit where
         // the fill will actually reach them.
-        const net = Math.max(0, successes - mistakes)
-        fillRef.current.style.transform = `scaleX(${Math.min(1, net / held)})`
+        const share = Math.min(1, Math.max(0, run.net / held))
+        fillRef.current.style.transform = `scaleX(${share})`
       }
       if (rootRef.current) {
-        rootRef.current.dataset.cleared = String(successes - mistakes >= bar)
+        // Every one of these is the engine's own answer rather than the
+        // meter's reading of the same ledger. Counting `successes - mistakes`
+        // here weighed a scrape the same as a clean hit, so a run that scraped
+        // its way to the bar showed as cleared until the card ended and the
+        // score sheet said MISS.
+        rootRef.current.dataset.cleared = String(run.cleared)
         // Flawless is still on the table only while nothing has been scraped
         // or dropped, which is the state the sweep's yellow zone takes away.
-        rootRef.current.dataset.flawless = String(clean === taken)
+        rootRef.current.dataset.flawless = String(run.flawless)
       }
       raf = requestAnimationFrame(loop)
     }
