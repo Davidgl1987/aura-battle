@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { play } from '../../audio/engine'
 import { now, stamp } from '../../state/store'
 import type { Card, Judgement, LanesParams, QteOutcome } from '../../engine/types'
+import { useI18n } from '../../i18n'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
@@ -22,6 +23,7 @@ interface Props {
 const LINE = 0.78
 
 export function QteLanes({ card, params, startedAt, variation, onResult }: Props) {
+  const { t } = useI18n()
   const arming = useArming(startedAt)
   const notes = useMemo(() => chart(params, variation), [params, variation])
 
@@ -149,16 +151,16 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
       <div className="qte__title">
         {card.emoji} {card.name}
         <em className="qte__hint-grab">
-          TAP A LANE TO START <b ref={armRef} className="qte__count" />
+          {t('qte.start.lanes')} <b ref={armRef} className="qte__count" />
         </em>
-        <em className="qte__hint-live">HIT THEM ON THE LINE · A SWING AT NOTHING COSTS YOU</em>
+        <em className="qte__hint-live">{t('qte.live.lanes')}</em>
       </div>
 
       <div className="qte__timer">
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
 
-      <QteMeter run={run} unit="NOTES" />
+      <QteMeter run={run} unit={t('qte.unit.notes')} />
 
       <div className="lanes" ref={boardRef}>
         {Array.from({ length: params.lanes }, (_, lane) => (

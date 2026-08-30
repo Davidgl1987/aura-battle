@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { now, stamp } from '../../state/store'
 import type { Card, OrderParams, QteOutcome } from '../../engine/types'
+import { useI18n } from '../../i18n'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function QteOrder({ card, params, startedAt, variation, onResult }: Props) {
+  const { t } = useI18n()
   const arming = useArming(startedAt)
 
   /**
@@ -136,16 +138,16 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
       <div className="qte__title">
         {card.emoji} {card.name}
         <em className="qte__hint-grab">
-          PRESS 1 TO START <b ref={armRef} className="qte__count" />
+          {t('qte.start.order')} <b ref={armRef} className="qte__count" />
         </em>
-        <em className="qte__hint-live">IN ORDER — NEXT IS {taken + 1}</em>
+        <em className="qte__hint-live">{t('qte.live.order', { n: taken + 1 })}</em>
       </div>
 
       <div className="qte__timer">
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
 
-      <QteMeter run={run} unit="NUMBERS" />
+      <QteMeter run={run} unit={t('qte.unit.numbers')} />
 
       <div className="qte__area order" ref={padRef}>
         {spots.map((spot) => (

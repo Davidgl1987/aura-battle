@@ -3,6 +3,7 @@ import { now, stamp } from '../../state/store'
 import type { Card, QteOutcome, TimingParams } from '../../engine/types'
 import { useArming } from './arming'
 import { play } from '../../audio/engine'
+import { useI18n } from '../../i18n'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import {
@@ -33,6 +34,7 @@ interface Props {
  * what stops standing still from being a clean sheet.
  */
 export function QteTiming({ card, params, startedAt, variation, onResult }: Props) {
+  const { t } = useI18n()
   const run = useRun(card, onResult)
   const arming = useArming(startedAt)
 
@@ -168,11 +170,9 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
       <div className="qte__title">
         {card.emoji} {card.name}
         <em className="qte__hint-grab">
-          TAP TO START <b ref={armRef} className="qte__count" />
+          {t('qte.start.timing')} <b ref={armRef} className="qte__count" />
         </em>
-        <em className="qte__hint-live">
-          ONE HIT PER ZONE · AMBER SCORES BUT IS NOT CLEAN
-        </em>
+        <em className="qte__hint-live">{t('qte.live.timing')}</em>
       </div>
 
       <div className="qte__timer">
@@ -211,7 +211,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
         ))}
       </div>
 
-      <QteMeter run={run} unit="HITS" />
+      <QteMeter run={run} unit={t('qte.unit.hits')} />
     </div>
   )
 }

@@ -4,7 +4,7 @@ import {
   INTRO_MS,
   MOGGED_THRESHOLD,
 } from './balance'
-import { getCard } from './cards'
+import { CARDS, getCard } from './cards'
 import { createMatch, qteWindow, remainingCards, step } from './match'
 import type { Play } from './scoring'
 import { applyMomentum, freshnessOf, momentumDelta, scorePlay, streakOf } from './scoring'
@@ -321,6 +321,18 @@ describe('scoring', () => {
       'god',
     ])
     expect(big.lines.reduce((sum, l) => sum + l.value, 0)).toBe(big.total)
+  })
+
+  /**
+   * The line is named after the tier it pays for. It used to be keyed on the
+   * payout being non-zero, so the moment NORMAL was given a small premium a
+   * card labelled NORMAL started showing a bonus labelled HARD MOVE.
+   */
+  it('only bills a HARD MOVE on a card that is actually HARD', () => {
+    for (const c of CARDS) {
+      const billed = scorePlay(play({ card: c })).lines.some((l) => l.key === 'hard')
+      expect(billed, `${c.name} (tier ${c.difficulty})`).toBe(c.difficulty === 3)
+    }
   })
 
   it("only says OUTAURA'D when the play clearly beats the rival's last", () => {

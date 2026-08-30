@@ -134,7 +134,10 @@ export function scorePlay(play: Play): AuraBreakdown {
 
   if (freshness === 'FRESH') lines.push({ key: 'fresh', label: 'FRESH MOVE', value: FRESH_AURA })
 
-  const hard = HARD_AURA[card.difficulty]
+  // Only the tier the line is named after. `HARD_AURA` pays nothing below it,
+  // but keying the line on the payout alone is how a NORMAL card came to show
+  // a HARD MOVE bonus the moment that tier was given one.
+  const hard = card.difficulty === 3 ? HARD_AURA[3] : 0
   if (hard > 0) lines.push({ key: 'hard', label: 'HARD MOVE', value: hard })
 
   const chain = streakAura(streak)

@@ -98,27 +98,30 @@ Every turn:
 
 ```
 HANDOFF (waits for a tap)
-   └→ CHOOSING (3–5s)  ──timeout──→  LOST COMPOSURE: momentum → 0, one card burned
+   └→ CHOOSING (3–5s)  ──timeout──→  LOST COMPOSURE: momentum → 0, turn spent
         └→ PERFORM INTRO (0.4s) → QTE (card duration) → RESOLVE (1.2s) → rival's turn
 ```
 
 **Your deck is your hand.** Everything you brought is on the table from the
 first turn, a card is gone the moment you play it — or fumble it — and the
-battle ends when both sides are out of cards.
+battle ends when both sides are out of cards. Running the clock down keeps the
+card in your hand; what it costs is the turn and every point of momentum.
 
 **A gesture is a run, not a verdict.** It lasts exactly as long as the
-animation, it never ends early, and every opportunity inside it either pays or
-costs. It gets harder as it goes: the sweep quickens after every hit, the notes
-close up, the ring drifts faster.
+animation, it never ends early — landing every chance in the first second does
+not let you put the phone down — and every opportunity inside it either pays or
+costs. It does not tighten as it goes either: one pace from the first frame to
+the last, because the same input being worth less the longer you keep it up
+reads as the game moving the target rather than as a test getting harder.
 
 Three of them are **counted** — the chart has its notes, the ring has its
 quarter-seconds, and ignoring one costs what fumbling one costs, so standing
 still is not a way to keep a clean sheet. The other three are **open-ended**:
 the sweep, the mash and the number run take as many chances as your hands
-manage. They ask for one count to score at all and a higher one for a clean run
-to be flawless, and everything past that still pays, up to a cap. A card must
-also physically offer more than it asks for — a bar that crosses the centre
-three times cannot demand six taps, and a test holds every sweep card to it.
+manage. They ask for one count to score at all, and every chance answered cleanly to be
+flawless. A card must also physically offer more than it asks for — a bar that
+brings the cursor through a zone four times cannot demand four hits — and a test
+holds every sweep card to it.
 
 - **Accuracy** — what the run was worth, over what was on offer. Every card is
   divided by its own opportunity count, so a long animation cannot out-earn a
@@ -127,7 +130,9 @@ three times cannot demand six taps, and a test holds every sweep card to it.
   something is a **GOOD**; under it is a **MISS**, however it got there. Enough
   mistakes drag a run that had already cleared the bar back under it.
 - **Aura per play** — `baseAura × accuracy`, plus a flat bonus for a clean run,
-  plus FRESH, HARD and streak. A MISS pays nothing and costs 35% of the card.
+  plus FRESH, HARD and streak. HARD pays only on the HARD tier; the EASY and
+  NORMAL tiers differ in `baseAura` instead. A MISS pays nothing and costs 35%
+  of the card.
 - **Freshness** — measured against the last card played *by either player*: a
   different kind is FRESH, the same kind NEUTRAL, the very same card STALE.
 - **Momentum** — 0–100 per player, fed by execution, variety, difficulty and

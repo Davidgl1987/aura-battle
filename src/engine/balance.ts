@@ -200,14 +200,18 @@ export const AURA_ROUNDING = 50
 /** Answering with a kind the rival did not just play. */
 export const FRESH_AURA = 400
 /**
- * Landing a card that could have gone wrong. Nothing for the easy ones.
+ * Landing a card that could have gone wrong. HARD only.
  *
- * The hard tier had to go up when gestures started being scored over their
- * whole length: a hard card is now landed less *cleanly* as well as less
- * often, so at 400 a good player was better off never bringing one — which
- * would have made the whole difficulty axis decoration.
+ * NORMAL used to pay 150 of this, which put a line reading HARD MOVE on the
+ * score sheet of a card labelled NORMAL. The bonus is named after the tier it
+ * is for, so it pays for that tier and nothing else — and a NORMAL card is not
+ * short-changed by it, because the tiers already differ in `baseAura`, which is
+ * where the bulk of a card's worth lives.
+ *
+ * Measured at zero: the ladder moves inside its own noise and the median play
+ * drops about fifty aura.
  */
-export const HARD_AURA: Record<Difficulty, number> = { 1: 0, 2: 150, 3: 400 }
+export const HARD_AURA: Record<Difficulty, number> = { 1: 0, 2: 0, 3: 400 }
 
 /** Consecutive PERFECTs needed before the streak is worth anything. */
 export const STREAK_MIN = 2

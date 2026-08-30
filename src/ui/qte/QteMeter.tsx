@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useI18n } from '../../i18n'
 import type { Run } from './run'
 
 interface Props {
@@ -24,6 +25,7 @@ interface Props {
  * `paint` and this writes to the DOM directly.
  */
 export function QteMeter({ run, unit }: Props) {
+  const { t } = useI18n()
   const fillRef = useRef<HTMLDivElement>(null)
   const countRef = useRef<HTMLSpanElement>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -70,9 +72,7 @@ export function QteMeter({ run, unit }: Props) {
         <b>
           <span ref={countRef}>0</span> {unit}
         </b>
-        <em>
-          {bar} TO SCORE · ALL {held} CLEAN TO BE FLAWLESS
-        </em>
+        <em>{t('qte.meter.legend', { bar, held })}</em>
       </div>
     </div>
   )

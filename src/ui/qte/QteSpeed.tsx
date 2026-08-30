@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { now, stamp } from '../../state/store'
 import type { Card, QteOutcome, SpeedParams } from '../../engine/types'
+import { useI18n } from '../../i18n'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
@@ -19,6 +20,7 @@ interface Props {
 
 
 export function QteSpeed({ card, params, startedAt, onResult }: Props) {
+  const { t } = useI18n()
   const run = useRun(card, onResult)
   const landed = useRef(0)
   const lastZone = useRef<number | null>(null)
@@ -89,15 +91,15 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
       <div className="qte__title">
         {card.emoji} {card.name}
         <em className="qte__hint-grab">
-          {params.pads === 1 ? 'TAP TO START' : 'TAP ANY PAD TO START'}{' '}
+          {params.pads === 1 ? t('qte.start.mash') : t('qte.start.mashPads')}{' '}
           <b ref={armRef} className="qte__count" />
         </em>
         <em className="qte__hint-live">
           {params.pads === 1
-            ? 'MASH IT'
+            ? t('qte.live.mash')
             : params.pads === 2
-              ? 'ALTERNATE BOTH PADS'
-              : 'WALK THEM — L M R M L'}
+              ? t('qte.live.mashAlternate')
+              : t('qte.live.mashWalk')}
         </em>
       </div>
 
@@ -105,7 +107,7 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
 
-      <QteMeter run={run} unit="TAPS" />
+      <QteMeter run={run} unit={t('qte.unit.taps')} />
 
       <div className="qte__pads">
         {zones.map((zone) => (

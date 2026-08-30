@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { now } from '../../state/store'
 import type { Card, PathsParams, QteOutcome } from '../../engine/types'
+import { useI18n } from '../../i18n'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import { isDown } from '../pointers'
@@ -25,6 +26,7 @@ const VIEW = 3
 const STEPS = 26
 
 export function QtePaths({ card, params, startedAt, variation, onResult }: Props) {
+  const { t } = useI18n()
   const arming = useArming(startedAt)
   const both = useRef(0)
   const run = useRun(card, onResult)
@@ -191,9 +193,9 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
       <div className="qte__title">
         {card.emoji} {card.name}
         <em className="qte__hint-grab">
-          A THUMB ON EACH WHEEL <b ref={armRef} className="qte__count" />
+          {t('qte.start.paths')} <b ref={armRef} className="qte__count" />
         </em>
-        <em className="qte__hint-live">STAY IN YOUR LANE</em>
+        <em className="qte__hint-live">{t('qte.live.paths')}</em>
       </div>
 
       <div className="qte__timer">
@@ -249,7 +251,7 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
         </div>
       </div>
 
-      <QteMeter run={run} unit="HELD" />
+      <QteMeter run={run} unit={t('qte.unit.held')} />
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { play } from '../../audio/engine'
 import { now } from '../../state/store'
 import type { Card, ControlParams, QteOutcome } from '../../engine/types'
+import { useI18n } from '../../i18n'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
@@ -29,6 +30,7 @@ const MAX_FRAME_MS = 60
 const FINGER_SLOP = 22
 
 export function QteControl({ card, params, startedAt, variation, onResult }: Props) {
+  const { t } = useI18n()
   const run = useRun(card, onResult)
   const held = useRef(0)
   /** Milliseconds inside the ring since the last tick was banked. */
@@ -161,15 +163,15 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
       <div className="qte__title">
         {card.emoji} {card.name}
         <em className="qte__hint-grab">
-          PUT YOUR FINGER ON THE RING TO START <b ref={armRef} className="qte__count" />
+          {t('qte.start.zone')} <b ref={armRef} className="qte__count" />
         </em>
-        <em className="qte__hint-live">HOLD IT</em>
+        <em className="qte__hint-live">{t('qte.live.zone')}</em>
       </div>
 
       <div className="qte__timer">
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
-      <QteMeter run={run} unit="HELD" />
+      <QteMeter run={run} unit={t('qte.unit.held')} />
 
       <div
         ref={areaRef}

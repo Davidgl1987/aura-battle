@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useProgress } from '../state/useProgress'
 import en from './en.json'
 import es from './es.json'
@@ -59,6 +59,13 @@ export interface I18n {
 
 export function useI18n(): I18n {
   const lang = useProgress((s) => s.settings.language)
+
+  // The document says which language it is in, so a screen reader picks the
+  // right voice and the browser offers the right translation. It is stamped
+  // `en` in the HTML and the setting can change under it at any time.
+  useEffect(() => {
+    document.documentElement.lang = lang
+  }, [lang])
 
   const t = useCallback<T>((key, vars) => translate(lang, key, vars), [lang])
   const n = useCallback((value: number) => value.toLocaleString(LOCALES[lang]), [lang])
