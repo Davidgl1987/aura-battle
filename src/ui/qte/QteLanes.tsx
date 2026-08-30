@@ -5,7 +5,7 @@ import type { Card, Judgement, LanesParams, QteOutcome } from '../../engine/type
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
-import { chart, gradeNote, noteProgress } from './lanes'
+import { chart, noteProgress, strikeAt } from './lanes'
 
 interface Props {
   card: Card
@@ -36,6 +36,8 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([])
   const boardRef = useRef<HTMLDivElement>(null)
   const noteRefs = useRef<(HTMLSpanElement | null)[]>([])
+  /** When the last tap into an empty lane was charged. See `EMPTY_GUARD_MS`. */
+  const lastEmpty = useRef(Number.NEGATIVE_INFINITY)
 
   /**
    * Replays a one-shot animation. Clearing the attribute and reading a layout
@@ -113,30 +115,29 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
     }
 
     const elapsed = t - arming.armedAt
-    // The note of that lane closest to the line right now.
-    let pick = -1
-    let closest = Number.POSITIVE_INFINITY
-    notes.forEach((note, i) => {
-      if (note.lane !== lane || settled.current.has(i)) return
-      const error = Math.abs(note.atMs - elapsed)
-      if (error < closest) {
-        closest = error
-        pick = i
-      }
-    })
+    const result = strikeAt(notes, settled.current, lane, elapsed, params, lastEmpty.current)
 
-    if (pick < 0 || closest > params.goodMs) {
-      // Nothing was there. Say so, rather than letting the tap vanish.
+    if (result.kind !== 'hit') {
+      // A swing at nothing. It costs a chance — otherwise drumming on all three
+      // lanes would be better than reading the chart, because every note gets
+      // caught by somebody's finger and the taps in between are free.
+      //
+      // `muffled` is the same swing still being paid for: one hand across three
+      // lanes is three events and one decision, so it is shown and not charged
+      // twice.
+      if (result.kind === 'empty') {
+        lastEmpty.current = elapsed
+        run.beat('missed')
+      }
       flash(laneNodes.current[lane], 'DEAD')
       play('dead')
       return
     }
 
-    const grade = gradeNote(closest, params)
-    settled.current.set(pick, grade)
-    run.beat(grade === 'PERFECT' ? 'clean' : grade === 'GOOD' ? 'scrappy' : 'missed')
-    const hit = grade
-    const node = noteRefs.current[pick]
+    const hit = result.grade
+    settled.current.set(result.note, hit)
+    run.beat(hit === 'PERFECT' ? 'clean' : hit === 'GOOD' ? 'scrappy' : 'missed')
+    const node = noteRefs.current[result.note]
     if (node) node.dataset.hit = hit
     flash(laneNodes.current[lane], hit)
     flash(lineRefs.current[lane], hit)
@@ -150,7 +151,7 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
         <em className="qte__hint-grab">
           TAP A LANE TO START <b ref={armRef} className="qte__count" />
         </em>
-        <em className="qte__hint-live">HIT THEM ON THE LINE</em>
+        <em className="qte__hint-live">HIT THEM ON THE LINE · A SWING AT NOTHING COSTS YOU</em>
       </div>
 
       <div className="qte__timer">

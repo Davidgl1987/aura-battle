@@ -80,7 +80,10 @@ it, both deliberate:
 
 - **Counted** (`lanes`, `zone`, `paths`) — the chances come to you whether you
   answer them or not. A note that goes past is charged as a mistake by
-  `ignored()`.
+  `ignored()`, and on `lanes` so is a tap into a lane with nothing in it: a
+  swing at nothing that cost nothing made drumming on all three lanes strictly
+  better than reading the chart. `EMPTY_GUARD_MS` keeps one hand across three
+  lanes to one mistake rather than three.
 - **Open** (`sweep`, `mash`, `order`) — you take as many as your hands manage.
   Falling short simply scores less; there is nothing to charge you for.
 

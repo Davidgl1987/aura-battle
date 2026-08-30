@@ -97,6 +97,64 @@ export function chartLength(params: LanesParams): number {
   return params.travelMs + (params.notes - 1) * params.gapMs + params.goodMs
 }
 
+/**
+ * How long after a tap into an empty lane the next one is not charged again.
+ *
+ * One finger produces one mistake. A hand coming down across three lanes fires
+ * three `pointerdown` events inside a few tens of milliseconds, and a bouncy
+ * driver can send the same one twice — neither is three decisions, so neither
+ * should be three mistakes.
+ *
+ * Kept under the shortest gap any chart asks for, which is a sixteenth at
+ * 100ms. The guard can never swallow a hit — it only ever applies to a tap that
+ * found nothing — but a player flailing through a run of sixteenths should be
+ * charged for each one they swing at, not for every other one.
+ */
+export const EMPTY_GUARD_MS = 70
+
+/** What a tap on a lane turned out to be. */
+export type Strike =
+  | { kind: 'hit'; note: number; grade: Judgement }
+  /** Nothing was there. A real mistake, charged to the ledger. */
+  | { kind: 'empty' }
+  /** Nothing was there either, but the last empty tap is still being paid for. */
+  | { kind: 'muffled' }
+
+/**
+ * What a tap on `lane` at `elapsedMs` does: the nearest unanswered note of that
+ * lane if one is close enough to the line, and otherwise a swing at nothing.
+ *
+ * A swing at nothing used to cost nothing — it flashed, it played a sound, and
+ * the ledger never heard about it. That made drumming on all three lanes
+ * strictly better than reading the chart: every note got caught by somebody's
+ * finger and the taps in between were free. Reading is only a skill if not
+ * reading costs something.
+ */
+export function strikeAt(
+  notes: Note[],
+  settled: ReadonlyMap<number, Judgement>,
+  lane: number,
+  elapsedMs: number,
+  params: LanesParams,
+  lastChargedEmptyMs: number,
+): Strike {
+  let pick = -1
+  let closest = Number.POSITIVE_INFINITY
+  notes.forEach((note, i) => {
+    if (note.lane !== lane || settled.has(i)) return
+    const error = Math.abs(note.atMs - elapsedMs)
+    if (error < closest) {
+      closest = error
+      pick = i
+    }
+  })
+
+  if (pick >= 0 && closest <= params.goodMs) {
+    return { kind: 'hit', note: pick, grade: gradeNote(closest, params) }
+  }
+  return elapsedMs - lastChargedEmptyMs < EMPTY_GUARD_MS ? { kind: 'muffled' } : { kind: 'empty' }
+}
+
 export function gradeNote(errorMs: number, params: LanesParams): Judgement {
   if (errorMs <= params.perfectMs) return 'PERFECT'
   return errorMs <= params.goodMs ? 'GOOD' : 'MISS'
