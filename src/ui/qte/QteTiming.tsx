@@ -4,7 +4,7 @@ import type { Card, QteOutcome, TimingParams } from '../../engine/types'
 import { useArming } from './arming'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
-import { cursorAt, gradeHit, startPhase, zoneCentres, zoneErrorAt } from './timing'
+import { cursorAt, gradeHit, passAt, startPhase, zoneCentres, zoneErrorAt } from './timing'
 
 interface Props {
   card: Card
@@ -37,6 +37,8 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
   // every landed tap, which made the same input worth less the better you were
   // doing and read as the card moving the target under you.
   const phase = useRef(0)
+  /** The last pass of the bar that was graded, so each one is answered once. */
+  const answered = useRef(-1)
 
   useEffect(() => {
     let raf = 0
@@ -64,7 +66,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
   }, [startedAt, card.durationMs, params.sweepMs, arming, run])
 
   const tap = (event: React.PointerEvent) => {
-    // No ceiling: tap the centre as many times as the bar comes past.
+    // No ceiling: answer the bar as many times as it comes past.
     if (run.done) return
     // The native timestamp is the moment the finger landed, not the moment
     // React got around to us — that difference is a whole judgement grade.
@@ -79,6 +81,15 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
       phase.current = startPhase(t, params.sweepMs, variation)
       return
     }
+
+    // One answer per pass of the bar. A busy bar gives you more moments to
+    // commit in rather than more to bank, and once a pass is answered the rest
+    // of it goes by for free — so tapping more can never cost you, which is
+    // what made the three-zone card unplayable when every zone was its own
+    // chance to get wrong.
+    const pass = passAt(t, phase.current, params.sweepMs)
+    if (pass === answered.current) return
+    answered.current = pass
 
     // Against the nearest green zone, of which there may be one, two or three.
     const hit = gradeHit(zoneErrorAt(t, phase.current, params.sweepMs, params), params)
@@ -103,7 +114,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
           TAP TO START <b ref={armRef} className="qte__count" />
         </em>
         <em className="qte__hint-live">
-          AMBER SCORES BUT IS NOT CLEAN
+          ONE HIT PER PASS · AMBER SCORES BUT IS NOT CLEAN
         </em>
       </div>
 

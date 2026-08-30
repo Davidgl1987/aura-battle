@@ -361,18 +361,19 @@ export function tickBeat(insideMs: number, tickMs = QTE_TICK_MS): Beat {
 }
 
 /**
- * How many times a sweep brings the cursor through a green zone.
+ * How many chances a sweep offers: one per pass of the bar.
  *
- * One traverse of the bar passes every zone on it exactly once, so a card with
- * three of them offers three times the chances of a card with one — and it is
- * chances that everything else is measured against: the bar, the score, and how
- * much a stray tap costs.
+ * A pass is a chance, however many zones are on it. Three zones are three
+ * moments in that pass where you could commit rather than three chances to
+ * bank — the widget grades the first tap of each pass and ignores the rest, so
+ * the skill on a busy bar is choosing which zone to go for and hitting it.
  *
- * This counted traverses rather than zone passes, which made the three-zone
- * card the hardest thing in the game by an order nobody intended. It presented
- * twelve targets, the engine believed it held four, and the bar sat at two — so
- * two taps into empty bar was a MISS however many of the twelve you hit.
+ * Counting every zone as its own chance is what broke the two harder sweeps.
+ * A flawless run means every chance taken cleanly, so a card offering twelve of
+ * them needed twelve unscraped taps where the easy card needed four — and the
+ * middle tier came back GOOD ninety-eight times in a hundred whatever you did.
+ * Passes are comparable between the three cards; zone counts are not.
  */
 export function crossings(durationMs: number, params: TimingParams): number {
-  return Math.floor(durationMs / params.sweepMs) * params.zones
+  return Math.floor(durationMs / params.sweepMs)
 }

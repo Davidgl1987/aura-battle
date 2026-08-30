@@ -51,16 +51,19 @@ export { crossings } from '../../engine/qte'
 /**
  * Where each green zone sits along the bar, as a share of its width.
  *
- * Spread evenly with a margin at both ends, so a zone is never so close to a
- * turn that the cursor is standing still inside it. One zone sits dead centre,
- * which is what a timing bar has always been; three make you read the bar
- * before you can aim at it.
+ * The bar is cut into `zones + 1` equal stretches and a zone goes on every
+ * join: one lands dead centre, two land on the thirds, three on the quarters.
+ * The ends of the bar are as far from a zone as the middle of a gap is, so the
+ * cursor meets targets at an even beat wherever it is.
+ *
+ * Spreading them from a margin instead pushed them outward — two zones sat at a
+ * sixth and five sixths, right against the turns. The cursor passed one, bounced
+ * off the end and passed it again a quarter of a second later, then crawled the
+ * whole middle of the bar with nothing to hit: a stutter and a wait rather than
+ * a rhythm, on the one card whose targets were all at an edge.
  */
 export function zoneCentres(zones: number): number[] {
-  if (zones <= 1) return [0.5]
-  const margin = 0.5 / (zones + 1)
-  const span = 1 - 2 * margin
-  return Array.from({ length: zones }, (_, i) => margin + (span * i) / (zones - 1))
+  return Array.from({ length: Math.max(1, zones) }, (_, i) => (i + 1) / (zones + 1))
 }
 
 /**
@@ -80,4 +83,15 @@ export function zoneErrorAt(
   const x = cursorAt(t, startedAt, sweepMs, edge)
   const nearest = Math.min(...zoneCentres(params.zones).map((c) => Math.abs(x - c)))
   return nearest * sweepMs
+}
+
+/**
+ * Which pass of the bar a moment falls in, counting from the first.
+ *
+ * The unit a sweep is scored in. A pass is one chance however many zones sit on
+ * it: a busy bar gives you more moments to commit in, not more to bank, and
+ * once you have answered a pass the rest of it is yours to watch go by.
+ */
+export function passAt(t: number, startedAt: number, sweepMs: number): number {
+  return Math.floor((t - startedAt) / sweepMs)
 }

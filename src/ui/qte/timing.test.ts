@@ -2,7 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { getCard } from '../../engine/cards'
 import type { TimingParams } from '../../engine/types'
 import { CARDS } from '../../engine/cards'
-import { combine, crossings, cursorAt, errorAt, gradeHit, startPhase, zoneCentres, zoneErrorAt } from './timing'
+import {
+  combine,
+  crossings,
+  cursorAt,
+  errorAt,
+  gradeHit,
+  passAt,
+  startPhase,
+  zoneCentres,
+  zoneErrorAt,
+} from './timing'
 
 const params = getCard('mewing').qte as TimingParams
 
@@ -129,6 +139,30 @@ describe('grading', () => {
   })
 })
 
+/**
+ * The unit a sweep is scored in. Counting every zone as its own chance meant a
+ * flawless run on the three-zone card needed twelve unscraped taps where the
+ * one-zone card needed four, and the middle tier came back GOOD ninety-eight
+ * times in a hundred whatever you did.
+ */
+describe('one chance per pass of the bar', () => {
+  const s = params.sweepMs
+
+  it('counts a pass for every traverse, whatever is drawn on it', () => {
+    expect(passAt(0, 0, s)).toBe(0)
+    expect(passAt(s - 1, 0, s)).toBe(0)
+    expect(passAt(s, 0, s)).toBe(1)
+    expect(passAt(s * 3.5, 0, s)).toBe(3)
+  })
+
+  it('gives every sweep the same handful of chances, not one per zone', () => {
+    const counts = CARDS.filter((c) => c.qte.game === 'sweep').map((c) =>
+      crossings(c.durationMs, c.qte as TimingParams),
+    )
+    expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1)
+  })
+})
+
 describe('combining multi-tap cards', () => {
   it('needs every tap perfect to score PERFECT', () => {
     expect(combine(['PERFECT', 'PERFECT'])).toBe('PERFECT')
@@ -148,11 +182,10 @@ describe('a bar that comes past often enough', () => {
   it('comes past more often than it asks to be hit', () => {
     for (const card of CARDS) {
       if (card.qte.game !== 'sweep') continue
-      // Two more than it asks for, at its opening pace and before any of the
-      // quickening a landed tap brings: one for the fumble a GOOD is allowed
-      // and one for the room above the bar. At exactly the bar plus one, a
-      // single slip was already a MISS and the sweeps were the harshest cards
-      // in the game.
+      // Two more than it asks for: one for the fumble a GOOD is allowed, and
+      // one for the room above the bar. At exactly the bar plus one, a single
+      // slip was already a MISS and the sweeps were the harshest cards in the
+      // game.
       expect(crossings(card.durationMs, card.qte), card.name).toBeGreaterThanOrEqual(
         card.qte.goodAt + 2,
       )
