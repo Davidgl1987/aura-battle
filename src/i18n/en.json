@@ -7,7 +7,6 @@
   "common.cardsLeft": "{n} cards left",
   "common.cardsLeft.one": "1 card left",
   "common.pause": "Pause",
-
   "kind.timing": "Timing",
   "kind.speed": "Speed",
   "kind.control": "Control",
@@ -17,18 +16,15 @@
   "fresh.FRESH": "FRESH",
   "fresh.NEUTRAL": "NEUTRAL",
   "fresh.STALE": "STALE",
-
   "home.play": "PLAY",
   "home.collection": "COLLECTION",
   "home.customize": "CUSTOMIZE",
   "home.soon": "SOON",
   "home.settings": "SETTINGS",
   "home.howToPlay": "HOW TO PLAY",
-
   "rules.step1": "Answer the rival with a different kind of gesture.",
   "rules.step2": "Nail the QTE. Every card you play is gone for good.",
   "rules.step3": "Own the aura bar when the moves run out.",
-
   "mode.label": "Choose a mode",
   "mode.solo": "SOLO",
   "mode.local": "1 VS 1",
@@ -37,7 +33,6 @@
   "mode.allBeaten": "Every rival beaten. Go back for the objectives you left.",
   "mode.cardsPerDeck": "CARDS PER DECK",
   "mode.timeToChoose": "TIME TO CHOOSE",
-
   "rivals.label": "Rivals",
   "rivals.difficulty": "Difficulty {n} of 5",
   "rivals.lockedAria": "{name}, locked",
@@ -45,7 +40,6 @@
   "rivals.plays": "Plays {card} · yours if you win",
   "rivals.lockedBy": "Beat {name} to get here.",
   "rivals.goTo": "GO TO {name}",
-
   "objective.win": "WIN THE BATTLE",
   "objective.aura": "GET {n} AURA",
   "objective.mogged": "WIN BY MOGGED",
@@ -58,17 +52,14 @@
   "objective.hardLanded": "LAND {n} HARD CARDS",
   "objective.momentum": "REACH {n} MOMENTUM",
   "objective.new": "NEW",
-
   "reward.card": "NEW MOVE · {name}",
   "reward.coins": "+{n} COINS",
   "reward.accessory": "NEW DRIP · {name}",
-
   "collection.deck": "DECK {n}/{total}",
   "collection.moves": "{n}/{total} MOVES",
   "collection.hint": "Tap a move to add it. Tap it again to take it out.",
   "collection.full": "Deck is full · tap a move to take it out first",
   "collection.locked": "{card} · beat {name} to unlock",
-
   "settings.title": "SETTINGS",
   "settings.music": "MUSIC",
   "settings.musicNote": "Backing track during a battle",
@@ -78,12 +69,16 @@
   "settings.vibrationNote": "A buzz on every judgement",
   "settings.language": "LANGUAGE",
   "settings.languageNote": "Tap to switch",
-
+  "settings.wipe": "DELETE DATA",
+  "settings.wipeNote": "Cards, coins, rivals and settings, all of it",
+  "settings.wipeConfirm": "TAP AGAIN TO DELETE",
+  "settings.wipeConfirmNote": "This cannot be undone",
+  "settings.wipeDone": "DELETED",
+  "settings.wipeDoneNote": "Back to a clean save",
   "pause.title": "PAUSED",
   "pause.note": "nothing is ticking",
   "pause.resume": "RESUME",
   "pause.quit": "QUIT",
-
   "match.move": "move {n}/{total}",
   "match.last": "last: {kind} {card}",
   "match.firstMove": "first move of the battle",
@@ -106,7 +101,6 @@
   "match.rivalTurn": "{name}'S TURN",
   "match.slideResult": "SLIDE TO SEE WHO WON",
   "match.slideReady": "SLIDE WHEN READY",
-
   "bill.miss": "MISS",
   "bill.base.PERFECT": "PERFECT",
   "bill.base.GOOD": "GOOD",
@@ -116,16 +110,13 @@
   "bill.streak": "PERFECT STREAK ×{n}",
   "bill.outaurad": "OUTAURA'D",
   "bill.god": "GOD AURA",
-
   "cpu.thinking": "{name} IS COOKING",
   "cpu.plays": "{name} PLAYS",
-
   "handoff.passTo": "PASS THE PHONE TO",
   "handoff.slide": "SLIDE WHEN YOU HAVE IT",
   "handoff.opponent": "YOUR OPPONENT",
   "handoff.start": "START",
   "handoff.p2Note": "P1 is playing {name}",
-
   "result.mogged": "MOGGED",
   "result.outOfMoves": "OUT OF MOVES",
   "result.deadHeat": "DEAD HEAT",
@@ -145,7 +136,6 @@
   "result.changeDeck": "CHANGE YOUR DECK",
   "result.best": "best: {card} +{n}",
   "result.bestStreak": " · PERFECT ×{n}",
-
   "setup.pickFighter": "PICK YOUR FIGHTER",
   "setup.deck": "DECK {n}/{total}",
   "setup.taken": "TAKEN",
@@ -154,7 +144,6 @@
   "setup.next": "NEXT",
   "setup.lockIn": "LOCK IT IN",
   "setup.pickMore": "PICK {n} MORE",
-
   "glossary.scoring": "HOW A PLAY SCORES",
   "glossary.judgement": "PERFECT / GOOD / MISS",
   "glossary.judgementText": "How cleanly you hit the gesture. A MISS costs you aura.",

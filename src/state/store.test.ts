@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS, SOLO_SETTINGS } from '../engine/balance'
+import { DEFAULT_SETTINGS, SOLO_DECK_SIZE, SOLO_SETTINGS } from '../engine/balance'
 import { CARDS, STARTER_CARD_IDS } from '../engine/cards'
 import { getCharacter } from '../engine/characters'
 import { playerColor } from '../engine/match'
@@ -144,7 +144,7 @@ describe('starting a solo battle', () => {
   })
 
   it('takes the deck the player has actually saved', () => {
-    const chosen = [...STARTER_CARD_IDS].reverse().slice(0, 5)
+    const chosen = [...STARTER_CARD_IDS].reverse().slice(0, SOLO_DECK_SIZE)
     useProgress.getState().setDeck(chosen)
     useGame.getState().startBattle({ mode: 'solo', opponentId: ROOKIE.id })
 

@@ -7,7 +7,7 @@ import type { Reward } from '../engine/rewards'
 import { RIVALS, getRival, rivalIndex } from '../engine/rivals'
 import type { BattleStats } from '../engine/stats'
 import type { Lang } from '../i18n'
-import type { AccessorySlot, PlayerId, QteKind } from '../engine/types'
+import type {AccessorySlot, PlayerId } from '../engine/types'
 
 /**
  * The only thing in the game that survives closing the tab. Everything else —
@@ -52,26 +52,22 @@ export interface ClaimResult {
  * kind, so a starting deck of three Timing cards teaches the wrong lesson on
  * the first battle a player ever plays.
  */
+/**
+ * The EASY card of every gesture — six of them, which is exactly a hand.
+ *
+ * A starting deck teaches the six minigames before it tries to win anything,
+ * and it is the one deck where you have played every card in it by the end of
+ * your first battle. Swap up a tier in the collection once you know which of
+ * them you actually like.
+ */
 export function defaultDeck(): string[] {
-  const byKind = new Map<QteKind, string[]>()
-  // Strongest first within each kind. Taken in pool order the deck filled up
-  // with the easiest card of every gesture, which is a deck handed to you
-  // already losing: the last rival plays nothing but HARD cards.
-  const ranked = [...STARTER_CARD_IDS].sort(
-    (a, b) =>
-      getCard(b).difficulty - getCard(a).difficulty || getCard(b).baseAura - getCard(a).baseAura,
-  )
-  for (const id of ranked) {
-    const kind = getCard(id).kind
-    byKind.set(kind, [...(byKind.get(kind) ?? []), id])
+  const easiest = new Map<string, string>()
+  for (const id of STARTER_CARD_IDS) {
+    const card = getCard(id)
+    const held = easiest.get(card.qte.game)
+    if (!held || card.difficulty < getCard(held).difficulty) easiest.set(card.qte.game, id)
   }
-  const out: string[] = []
-  for (let round = 0; out.length < SOLO_DECK_SIZE; round++) {
-    for (const ids of byKind.values()) {
-      if (ids[round] && out.length < SOLO_DECK_SIZE) out.push(ids[round])
-    }
-  }
-  return out
+  return [...easiest.values()].slice(0, SOLO_DECK_SIZE)
 }
 
 export const INITIAL_PROGRESS: Progress = {

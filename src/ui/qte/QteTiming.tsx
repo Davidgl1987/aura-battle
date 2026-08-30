@@ -4,7 +4,7 @@ import type { Card, QteOutcome, TimingParams } from '../../engine/types'
 import { useArming } from './arming'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
-import { cursorAt, gradeHit, rephase, startEdge, zoneCentres, zoneErrorAt } from './timing'
+import { cursorAt, gradeHit, startPhase, zoneCentres, zoneErrorAt } from './timing'
 
 interface Props {
   card: Card
@@ -23,12 +23,7 @@ interface Props {
  * let off. Taps they never take are counted as ignored at the end, which is
  * what stops standing still from being a clean sheet.
  */
-/** What one landed tap takes off the sweep, and how fast it may ever get. */
-const QUICKEN = 0.94
-const FLOOR_MS = 260
-
 export function QteTiming({ card, params, startedAt, variation, onResult }: Props) {
-  const edge = startEdge(variation)
   const run = useRun(card, onResult)
   const arming = useArming(startedAt)
 
@@ -38,9 +33,9 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
   const timeRef = useRef<HTMLDivElement>(null)
   const hitsRef = useRef<HTMLDivElement>(null)
 
-  // The sweep tightens with every landed tap, so the last one of a card is a
-  // different ask from the first.
-  const sweep = useRef(params.sweepMs)
+  // One pace from the first frame to the last. The bar used to tighten with
+  // every landed tap, which made the same input worth less the better you were
+  // doing and read as the card moving the target under you.
   const phase = useRef(0)
 
   useEffect(() => {
@@ -49,7 +44,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
       const t = now()
       const armedAt = arming.resolve(t)
 
-      const x = armedAt === null ? edge : cursorAt(t, phase.current, sweep.current, edge)
+      const x = armedAt === null ? 0.5 : cursorAt(t, phase.current, params.sweepMs)
       if (cursorRef.current) cursorRef.current.style.left = `${x * 100}%`
       if (rootRef.current) rootRef.current.dataset.live = String(armedAt !== null)
       if (armRef.current) armRef.current.textContent = `${(arming.countdown(t) / 1000).toFixed(1)}s`
@@ -66,7 +61,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [startedAt, card.durationMs, edge, arming, run])
+  }, [startedAt, card.durationMs, params.sweepMs, arming, run])
 
   const tap = (event: React.PointerEvent) => {
     // No ceiling: tap the centre as many times as the bar comes past.
@@ -79,24 +74,15 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
     // parked cursor would be a free MISS.
     if (arming.armedAt === null) {
       arming.arm(t)
-      phase.current = t
+      // Live from the middle of the bar, so the card opens on its target
+      // rather than on half a stroke of waiting.
+      phase.current = startPhase(t, params.sweepMs, variation)
       return
     }
 
     // Against the nearest green zone, of which there may be one, two or three.
-    const hit = gradeHit(zoneErrorAt(t, phase.current, sweep.current, params, edge), params)
+    const hit = gradeHit(zoneErrorAt(t, phase.current, params.sweepMs, params), params)
     run.beat(hit === 'PERFECT' ? 'clean' : hit === 'GOOD' ? 'scrappy' : 'missed')
-
-    if (hit !== 'MISS') {
-      // Faster, but not restarted: the cursor carries on from exactly where it
-      // is, in the direction it was already going. Re-anchoring the phase is
-      // what keeps the stroke unbroken while the pace changes.
-      // A little quicker every time, and nothing more than that. The bar
-      // stays a bar you can read; what changes is how long you have to read it.
-      const next = Math.max(FLOOR_MS, sweep.current * QUICKEN)
-      phase.current = rephase(t, phase.current, sweep.current, next, edge)
-      sweep.current = next
-    }
 
     const dot = hitsRef.current?.children[run.ledger.taken - 1] as HTMLElement | undefined
     if (dot) dot.dataset.hit = hit
@@ -117,7 +103,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
           TAP TO START <b ref={armRef} className="qte__count" />
         </em>
         <em className="qte__hint-live">
-          KEEP GOING, IT SPEEDS UP · AMBER SCORES BUT IS NOT CLEAN
+          AMBER SCORES BUT IS NOT CLEAN
         </em>
       </div>
 

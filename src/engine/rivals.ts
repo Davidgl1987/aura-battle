@@ -54,7 +54,7 @@ export const RIVALS: readonly Rival[] = [
       jitter: 0.35,
       hesitates: 0.16,
     },
-    deck: ['speedrun', 'mewing', 'six-seven', 'locked-in', 'tier-list'],
+    deck: ['speedrun', 'mewing', 'six-seven', 'locked-in', 'tier-list', 'vibe-check'],
     signatureCardId: 'speedrun',
     objectives: [
       { check: { kind: 'win' }, reward: { kind: 'card', cardId: 'speedrun' } },
@@ -84,7 +84,7 @@ export const RIVALS: readonly Rival[] = [
       jitter: 0.25,
       hesitates: 0.06,
     },
-    deck: ['sturdy', 'six-seven', 'rizz-clap', 'tier-list', 'beat-drop'],
+    deck: ['sturdy', 'six-seven', 'rizz-clap', 'tier-list', 'beat-drop', 'npc-mode'],
     signatureCardId: 'sturdy',
     objectives: [
       { check: { kind: 'win' }, reward: { kind: 'card', cardId: 'sturdy' } },
@@ -117,7 +117,7 @@ export const RIVALS: readonly Rival[] = [
       jitter: 0.10,
       hesitates: 0.03,
     },
-    deck: ['griddy-drop', 'mewing', 'sigma-stare', 'beat-drop', 'lean'],
+    deck: ['griddy-drop', 'mewing', 'sigma-stare', 'beat-drop', 'lean', 'vibe-check'],
     signatureCardId: 'griddy-drop',
     objectives: [
       { check: { kind: 'win' }, reward: { kind: 'card', cardId: 'griddy-drop' } },
@@ -149,7 +149,7 @@ export const RIVALS: readonly Rival[] = [
     },
     // One card from each kind twice over: whatever you play, they have a
     // fresh answer to it.
-    deck: ['levitate', 'beat-drop', 'rizz-clap', 'split-focus', 'sigma-stare'],
+    deck: ['levitate', 'beat-drop', 'rizz-clap', 'split-focus', 'sigma-stare', 'cruise-control'],
     signatureCardId: 'levitate',
     objectives: [
       { check: { kind: 'win' }, reward: { kind: 'card', cardId: 'levitate' } },
@@ -181,7 +181,7 @@ export const RIVALS: readonly Rival[] = [
       jitter: 0.20,
       hesitates: 0.02,
     },
-    deck: ['hyperpop', 'sturdy', 'speedrun', 'levitate', 'griddy-drop'],
+    deck: ['hyperpop', 'sturdy', 'speedrun', 'levitate', 'griddy-drop', 'split-focus'],
     signatureCardId: 'hyperpop',
     objectives: [
       { check: { kind: 'win' }, reward: { kind: 'card', cardId: 'hyperpop' } },
@@ -209,12 +209,12 @@ export const RIVALS: readonly Rival[] = [
       prefersSafeCards: 0.4,
       chasesOutaura: 0.6,
       chasesMomentum: 0.8,
-      qteSkill: 0.735,
+      qteSkill: 0.70,
       consistency: 0.90,
       jitter: 0.05,
       hesitates: 0.00,
     },
-    deck: ['galaxy-brain', 'griddy-drop', 'sturdy', 'hyperpop', 'split-focus'],
+    deck: ['galaxy-brain', 'griddy-drop', 'sturdy', 'hyperpop', 'split-focus', 'levitate'],
     signatureCardId: 'galaxy-brain',
     objectives: [
       { check: { kind: 'win' }, reward: { kind: 'card', cardId: 'galaxy-brain' } },

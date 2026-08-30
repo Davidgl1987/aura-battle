@@ -52,7 +52,7 @@ export const CHOOSE_SECONDS_DEFAULT = 4
  * landed, and a run that goes past the bar is worth more still — the median
  * went half again, so this had to as well or a battle was over in three moves.
  */
-export const MOGGED_THRESHOLD = 11000
+export const MOGGED_THRESHOLD = 8500
 
 /**
  * How hard the bar leans toward whoever is ahead. The needle is a curve, not a
@@ -155,11 +155,16 @@ export const QTE_MISTAKE_COST = 1
 export const QTE_GOOD_RATIO = 1
 
 /**
- * How much harder a card is by its last opportunity than by its first. A run
- * that starts comfortable and ends flat out is what separates two players who
- * would both have cleared a single threshold.
+ * How much harder a card is by its last opportunity than by its first.
+ *
+ * Flat. A card that tightened as it ran meant the same input was worth less the
+ * longer you kept it up, which reads as the game moving the target rather than
+ * as a test getting harder — and it stacked with the tiers, so the hard cards
+ * were fast, narrow *and* accelerating. Difficulty is what the card asks for
+ * now: how many zones are on the bar, how short the notes get, how many pads
+ * there are to walk, how small the ring is.
  */
-export const QTE_RAMP = 1.5
+export const QTE_RAMP = 1
 
 /**
  * How much better or worse than usual one card can go.
@@ -202,7 +207,7 @@ export const FRESH_AURA = 400
  * often, so at 400 a good player was better off never bringing one — which
  * would have made the whole difficulty axis decoration.
  */
-export const HARD_AURA: Record<Difficulty, number> = { 1: 0, 2: 250, 3: 1800 }
+export const HARD_AURA: Record<Difficulty, number> = { 1: 0, 2: 150, 3: 400 }
 
 /** Consecutive PERFECTs needed before the streak is worth anything. */
 export const STREAK_MIN = 2
@@ -258,7 +263,7 @@ export const GOD_AURA_BREAK = 55
  * across decks of 4, 5 and 6 — so a "get 8,000 aura" goal set against a
  * variable deck size would mean something different every battle.
  */
-export const SOLO_DECK_SIZE = 5
+export const SOLO_DECK_SIZE = 6
 
 export const SOLO_SETTINGS: MatchSettings = {
   deckSize: SOLO_DECK_SIZE,

@@ -7,7 +7,6 @@
   "common.cardsLeft": "quedan {n} cartas",
   "common.cardsLeft.one": "queda 1 carta",
   "common.pause": "Pausa",
-
   "kind.timing": "Ritmo",
   "kind.speed": "Velocidad",
   "kind.control": "Control",
@@ -17,18 +16,15 @@
   "fresh.FRESH": "FRESCA",
   "fresh.NEUTRAL": "NEUTRA",
   "fresh.STALE": "REPETIDA",
-
   "home.play": "JUGAR",
   "home.collection": "COLECCIÓN",
   "home.customize": "PERSONALIZAR",
   "home.soon": "PRONTO",
   "home.settings": "AJUSTES",
   "home.howToPlay": "CÓMO SE JUEGA",
-
   "rules.step1": "Responde al rival con un tipo de gesto distinto.",
   "rules.step2": "Clava el QTE. Cada carta que juegas ya no vuelve.",
   "rules.step3": "Sé dueño de la barra de aura cuando se acaben los turnos.",
-
   "mode.label": "Elige modo",
   "mode.solo": "SOLO",
   "mode.local": "1 VS 1",
@@ -37,7 +33,6 @@
   "mode.allBeaten": "Todos los rivales caídos. Vuelve a por los objetivos que dejaste.",
   "mode.cardsPerDeck": "CARTAS POR MAZO",
   "mode.timeToChoose": "TIEMPO PARA ELEGIR",
-
   "rivals.label": "Rivales",
   "rivals.difficulty": "Dificultad {n} de 5",
   "rivals.lockedAria": "{name}, bloqueado",
@@ -45,7 +40,6 @@
   "rivals.plays": "Juega {card} · tuya si ganas",
   "rivals.lockedBy": "Gana a {name} para llegar aquí.",
   "rivals.goTo": "IR A {name}",
-
   "objective.win": "GANA EL COMBATE",
   "objective.aura": "CONSIGUE {n} AURA",
   "objective.mogged": "GANA POR MOGGED",
@@ -58,17 +52,14 @@
   "objective.hardLanded": "CLAVA {n} CARTAS DIFÍCILES",
   "objective.momentum": "LLEGA A {n} DE MOMENTUM",
   "objective.new": "NUEVO",
-
   "reward.card": "NUEVO MOVIMIENTO · {name}",
   "reward.coins": "+{n} MONEDAS",
   "reward.accessory": "NUEVO ACCESORIO · {name}",
-
   "collection.deck": "MAZO {n}/{total}",
   "collection.moves": "{n}/{total} MOVIMIENTOS",
   "collection.hint": "Toca un movimiento para añadirlo. Tócalo otra vez para quitarlo.",
   "collection.full": "Mazo lleno · quita antes un movimiento",
   "collection.locked": "{card} · gana a {name} para desbloquearla",
-
   "settings.title": "AJUSTES",
   "settings.music": "MÚSICA",
   "settings.musicNote": "La base que suena durante el combate",
@@ -78,12 +69,16 @@
   "settings.vibrationNote": "Un aviso en cada juicio",
   "settings.language": "IDIOMA",
   "settings.languageNote": "Toca para cambiar",
-
+  "settings.wipe": "BORRAR DATOS",
+  "settings.wipeNote": "Cartas, monedas, rivales y ajustes, todo",
+  "settings.wipeConfirm": "PULSA OTRA VEZ PARA BORRAR",
+  "settings.wipeConfirmNote": "Esto no se puede deshacer",
+  "settings.wipeDone": "BORRADO",
+  "settings.wipeDoneNote": "Partida limpia otra vez",
   "pause.title": "EN PAUSA",
   "pause.note": "nada corre ahora mismo",
   "pause.resume": "SEGUIR",
   "pause.quit": "SALIR",
-
   "match.move": "turno {n}/{total}",
   "match.last": "última: {kind} {card}",
   "match.firstMove": "primer turno del combate",
@@ -106,7 +101,6 @@
   "match.rivalTurn": "TURNO DE {name}",
   "match.slideResult": "DESLIZA PARA VER QUIÉN GANA",
   "match.slideReady": "DESLIZA CUANDO ESTÉS",
-
   "bill.miss": "MISS",
   "bill.base.PERFECT": "PERFECT",
   "bill.base.GOOD": "GOOD",
@@ -116,16 +110,13 @@
   "bill.streak": "RACHA PERFECT ×{n}",
   "bill.outaurad": "OUTAURA",
   "bill.god": "GOD AURA",
-
   "cpu.thinking": "{name} ESTÁ COCINANDO",
   "cpu.plays": "{name} JUEGA",
-
   "handoff.passTo": "PASA EL MÓVIL A",
   "handoff.slide": "DESLIZA CUANDO LO TENGAS",
   "handoff.opponent": "TU RIVAL",
   "handoff.start": "EMPEZAR",
   "handoff.p2Note": "P1 juega con {name}",
-
   "result.mogged": "MOGGED",
   "result.outOfMoves": "SIN TURNOS",
   "result.deadHeat": "EMPATE",
@@ -145,7 +136,6 @@
   "result.changeDeck": "CAMBIAR EL MAZO",
   "result.best": "mejor: {card} +{n}",
   "result.bestStreak": " · PERFECT ×{n}",
-
   "setup.pickFighter": "ELIGE LUCHADOR",
   "setup.deck": "MAZO {n}/{total}",
   "setup.taken": "PILLADO",
@@ -154,7 +144,6 @@
   "setup.next": "SIGUIENTE",
   "setup.lockIn": "CERRAR MAZO",
   "setup.pickMore": "ELIGE {n} MÁS",
-
   "glossary.scoring": "CÓMO PUNTÚA UNA JUGADA",
   "glossary.judgement": "PERFECT / GOOD / MISS",
   "glossary.judgementText": "Lo limpio que clavas el gesto. Un MISS te cuesta aura.",

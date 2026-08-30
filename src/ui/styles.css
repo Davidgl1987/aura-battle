@@ -2745,6 +2745,22 @@
   font-family: system-ui, sans-serif;
   color: var(--muted);
 }
+/* Last in the list and coloured like what it does. Armed it says so; done it
+   goes quiet again rather than staying red at somebody who already knows. */
+.setting--danger {
+  margin-top: 6px;
+  border-color: rgba(251, 113, 133, 0.45);
+}
+.setting--danger .setting__label {
+  color: var(--miss);
+}
+.setting--danger[data-state='armed'] {
+  border-color: var(--miss);
+  background: rgba(251, 113, 133, 0.12);
+}
+.setting--danger[data-state='done'] .setting__label {
+  color: var(--perfect);
+}
 .setting__value {
   font-size: 11px;
   letter-spacing: 0.08em;

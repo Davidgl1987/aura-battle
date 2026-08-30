@@ -70,8 +70,11 @@ export function useRun(card: Card, onResult: (outcome: QteOutcome) => void): Run
     const announce = (beat: Beat) => {
       // The first fumble is the whole difference between PERFECT and GOOD, so
       // it gets a sound of its own rather than a quieter version of a hit.
+      // A scrape is a hit. It sounded like the fumble noise, which had you
+      // hearing a failure every time you landed one — the cost of the amber is
+      // the flawless run, and the meter is where that is said.
       if (beat === 'missed') play(ledger.mistakes === 0 ? 'godAuraLost' : 'dead')
-      else play(beat === 'clean' ? 'tap' : 'dead')
+      else play('tap')
     }
 
     return {

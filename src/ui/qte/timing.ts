@@ -6,12 +6,17 @@ import type { Judgement, TimingParams } from '../../engine/types'
  */
 
 /**
- * Which end the cursor sets off from. Both ends are equally far from the
- * target, so this costs nothing in fairness and stops the sweep from being the
- * same countdown every single time.
+ * A phase origin that puts the cursor in the middle of the bar the moment the
+ * card goes live, heading for one end or the other.
+ *
+ * It used to set off from an end, which meant the first thing every sweep asked
+ * of you was to wait out half a stroke before anything could be hit. Starting
+ * on the target costs nothing — the first tap is what arms the card and is
+ * never graded — and it makes the opening of a sweep read as "here it comes"
+ * rather than as dead time.
  */
-export function startEdge(variation: number): number {
-  return variation < 0.5 ? 0 : 1
+export function startPhase(startedAt: number, sweepMs: number, variation: number): number {
+  return startedAt - (variation < 0.5 ? 0.5 : 1.5) * sweepMs
 }
 
 /** Triangle wave: 0 → 1 → 0 across the bar, one crossing per `sweepMs`. */
@@ -20,36 +25,6 @@ export function cursorAt(t: number, startedAt: number, sweepMs: number, edge = 0
   const shifted = t - startedAt + edge * sweepMs
   const p = (((shifted % span) + span) % span) / sweepMs
   return p <= 1 ? p : 2 - p
-}
-
-/**
- * Where in its stroke the cursor is: 0 to 2 across a there-and-back, so it
- * carries the direction as well as the position.
- */
-export function strokeAt(t: number, startedAt: number, sweepMs: number, edge = 0): number {
-  const span = 2 * sweepMs
-  const shifted = t - startedAt + edge * sweepMs
-  return (((shifted % span) + span) % span) / sweepMs
-}
-
-/**
- * A new phase origin that leaves the cursor exactly where it is, moving the
- * way it was, while the sweep changes speed.
- *
- * The bar speeds up after every hit, and without this the stroke restarted
- * from the tap — the cursor jumped to the middle and set off again, which read
- * as the card resetting under you. It sweeps side to side without pause now,
- * whether the tap landed or not; only the pace changes.
- */
-export function rephase(
-  t: number,
-  startedAt: number,
-  sweepMs: number,
-  nextSweepMs: number,
-  edge = 0,
-): number {
-  const stroke = strokeAt(t, startedAt, sweepMs, edge)
-  return t + edge * nextSweepMs - stroke * nextSweepMs
 }
 
 /** How far the tap landed from the centre of the bar, in milliseconds. */

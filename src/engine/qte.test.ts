@@ -80,12 +80,14 @@ describe('what a card offers', () => {
     }
   })
 
-  it('gets harder as it runs, and by the same curve every time', () => {
+  /**
+   * A card no longer tightens as it runs. The same input being worth less the
+   * longer you kept it up reads as the game moving the target, and it stacked
+   * with the tiers: the hard cards were fast, narrow *and* accelerating.
+   */
+  it('asks the same thing on its last chance as on its first', () => {
     const total = 8
-    const steps = Array.from({ length: total }, (_, i) => rampAt(i, total))
-    expect(steps[0]).toBe(1)
-    for (let i = 1; i < total; i++) expect(steps[i]).toBeGreaterThan(steps[i - 1])
-    // A single-opportunity card cannot ramp into anything.
+    for (let i = 0; i < total; i++) expect(rampAt(i, total), `beat ${i}`).toBe(1)
     expect(rampAt(0, 1)).toBe(1)
   })
 })

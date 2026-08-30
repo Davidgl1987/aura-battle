@@ -18,6 +18,16 @@ interface Props {
 /** Never bank a frame longer than this: a stall is not a held finger. */
 const MAX_FRAME_MS = 60
 
+/**
+ * How far outside the ring still counts as touching it, in pixels.
+ *
+ * A pointer is one coordinate; a finger is a pad about this wide. Requiring
+ * that single point to sit inside the ring meant the smallest ring asked you to
+ * place a fingertip more precisely than you can see it, and the card you could
+ * not see under your own thumb was the hardest one in the game.
+ */
+const FINGER_SLOP = 22
+
 export function QteControl({ card, params, startedAt, variation, onResult }: Props) {
   const run = useRun(card, onResult)
   const held = useRef(0)
@@ -67,7 +77,7 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
 
         const p = pointer.current
         const inside =
-          p !== null && Math.hypot(p.x - rect.left - cx, p.y - rect.top - cy) <= radius
+          p !== null && Math.hypot(p.x - rect.left - cx, p.y - rect.top - cy) <= radius + FINGER_SLOP
 
         // The card says to put your finger on the ring, so that is what starts
         // it — landing on it or sliding onto it, but never a stray tap in a

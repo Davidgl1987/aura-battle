@@ -36,13 +36,19 @@ describe('the drifting zone', () => {
     }
   })
 
-  it('moves further in the same time when the card is harder', () => {
+  /**
+   * The tier is the size of the ring, not how fast it runs away from you.
+   * A hard card that also drifted faster was doing the difficulty twice, and
+   * the small ring was already the whole of what makes it hard.
+   */
+  it('drifts at one speed whatever the tier', () => {
     const travel = (p: ControlParams) => {
       const a = zoneAt(0, p)
       const b = zoneAt(600, p)
       return Math.hypot(b.x - a.x, b.y - a.y)
     }
-    expect(travel(hard)).toBeGreaterThan(travel(easy))
+    expect(travel(hard)).toBeCloseTo(travel(easy), 6)
+    expect(hard.zoneRadius).toBeLessThan(easy.zoneRadius)
   })
 })
 

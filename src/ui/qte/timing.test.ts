@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getCard } from '../../engine/cards'
 import type { TimingParams } from '../../engine/types'
 import { CARDS } from '../../engine/cards'
-import { combine, crossings, cursorAt, errorAt, gradeHit, rephase, startEdge } from './timing'
+import { combine, crossings, cursorAt, errorAt, gradeHit, startPhase, zoneCentres, zoneErrorAt } from './timing'
 
 const params = getCard('mewing').qte as TimingParams
 
@@ -23,22 +23,33 @@ describe('cursor', () => {
   })
 })
 
-describe('which end it sets off from', () => {
+/**
+ * The bar opens on its target rather than at an end. Setting off from an edge
+ * meant the first thing every sweep asked of you was to sit out half a stroke.
+ */
+describe('where it sets off from', () => {
   const s = params.sweepMs
 
-  it('picks an end from the play variation', () => {
-    expect(startEdge(0.1)).toBe(0)
-    expect(startEdge(0.9)).toBe(1)
+  it('puts the cursor in the middle at the moment it goes live', () => {
+    for (const variation of [0, 0.2, 0.49, 0.5, 0.8, 0.99]) {
+      expect(cursorAt(1000, startPhase(1000, s, variation), s), `v${variation}`).toBeCloseTo(0.5)
+    }
   })
 
-  it('runs the other way when it starts on the right', () => {
-    expect(cursorAt(0, 0, s, 1)).toBeCloseTo(1)
-    expect(cursorAt(s / 2, 0, s, 1)).toBeCloseTo(0.5)
-    expect(cursorAt(s, 0, s, 1)).toBeCloseTo(0)
+  it('sets off toward one end or the other, by the play', () => {
+    const rising = cursorAt(1010, startPhase(1000, s, 0.2), s) > 0.5
+    const falling = cursorAt(1010, startPhase(1000, s, 0.8), s) < 0.5
+    expect(rising).toBe(true)
+    expect(falling).toBe(true)
   })
 
-  it('reaches dead centre at the same moment from either end', () => {
-    expect(errorAt(s / 2, 0, s, 0)).toBeCloseTo(errorAt(s / 2, 0, s, 1))
+  it('reaches both ends whichever way it left', () => {
+    for (const variation of [0.2, 0.8]) {
+      const phase = startPhase(1000, s, variation)
+      const seen = Array.from({ length: 240 }, (_, i) => cursorAt(1000 + i * 10, phase, s))
+      expect(Math.min(...seen), `v${variation}`).toBeLessThan(0.05)
+      expect(Math.max(...seen), `v${variation}`).toBeGreaterThan(0.95)
+    }
   })
 })
 
@@ -66,12 +77,55 @@ describe('grading', () => {
     expect(out).toBeCloseTo(back)
   })
 
-  it('gets harder as difficulty goes up', () => {
+  /**
+   * The tier is what the bar asks of you, not how fast it moves. Every sweep
+   * runs at the same pace: a hard card puts more targets on the bar and makes
+   * each one narrower.
+   */
+  it('gets harder by asking more, not by going faster', () => {
     const easy = getCard('mewing').qte as TimingParams
+    const mid = getCard('sigma-stare').qte as TimingParams
     const hard = getCard('griddy-drop').qte as TimingParams
-    expect(hard.perfectMs).toBeLessThan(easy.perfectMs)
-    expect(hard.sweepMs).toBeLessThan(easy.sweepMs)
-    expect(hard.goodAt).toBeGreaterThan(easy.goodAt)
+
+    expect(hard.perfectMs).toBeLessThan(mid.perfectMs)
+    expect(mid.perfectMs).toBeLessThan(easy.perfectMs)
+    expect(hard.zones).toBeGreaterThan(mid.zones)
+    expect(mid.zones).toBeGreaterThan(easy.zones)
+    expect(mid.sweepMs).toBe(easy.sweepMs)
+    expect(hard.sweepMs).toBe(easy.sweepMs)
+  })
+
+  it('keeps the amber a border on the green rather than a target of its own', () => {
+    for (const card of CARDS) {
+      if (card.qte.game !== 'sweep') continue
+      const amber = card.qte.goodMs - card.qte.perfectMs
+      expect(amber, `${card.name} has amber`).toBeGreaterThan(0)
+      expect(amber, `${card.name} amber is the smaller band`).toBeLessThan(card.qte.perfectMs)
+    }
+  })
+
+  it('spreads its zones evenly and keeps them clear of the turns', () => {
+    for (const zones of [1, 2, 3]) {
+      const centres = zoneCentres(zones)
+      expect(centres).toHaveLength(zones)
+      for (const c of centres) {
+        expect(c, `${zones} zones`).toBeGreaterThan(0.1)
+        expect(c, `${zones} zones`).toBeLessThan(0.9)
+      }
+    }
+    expect(zoneCentres(1)).toEqual([0.5])
+  })
+
+  it('grades against whichever zone the cursor was nearest', () => {
+    const three = getCard('griddy-drop').qte as TimingParams
+    const s = three.sweepMs
+    // Dead on the outer zone of a three-zone bar is as good as dead centre.
+    const [first, , last] = zoneCentres(three.zones)
+    expect(gradeHit(zoneErrorAt(first * s, 0, s, three), three)).toBe('PERFECT')
+    expect(gradeHit(zoneErrorAt(last * s, 0, s, three), three)).toBe('PERFECT')
+    // And the gap between two of them is not.
+    const between = ((first + zoneCentres(three.zones)[1]) / 2) * s
+    expect(gradeHit(zoneErrorAt(between, 0, s, three), three)).toBe('MISS')
   })
 })
 
@@ -81,55 +135,6 @@ describe('combining multi-tap cards', () => {
     expect(combine(['PERFECT', 'GOOD'])).toBe('GOOD')
     expect(combine(['PERFECT', 'MISS'])).toBe('MISS')
     expect(combine([])).toBe('MISS')
-  })
-})
-
-/**
- * The bar speeds up after every hit and it must not restart doing it. The
- * cursor used to jump back to the tap and set off again, which read as the
- * card resetting under you rather than tightening.
- */
-describe('changing pace mid-sweep', () => {
-  const sweep = 900
-  const faster = 600
-
-  it('leaves the cursor exactly where it was', () => {
-    for (const edge of [0, 1]) {
-      for (const at of [0, 120, 450, 899, 1200, 1750]) {
-        const t = 1000 + at
-        const before = cursorAt(t, 1000, sweep, edge)
-        const phase = rephase(t, 1000, sweep, faster, edge)
-        expect(cursorAt(t, phase, faster, edge), `edge ${edge} at ${at}`).toBeCloseTo(before, 6)
-      }
-    }
-  })
-
-  it('leaves it going the way it was going', () => {
-    for (const at of [200, 700, 1100, 1600]) {
-      const t = 1000 + at
-      const step = 1
-      const wasRising = cursorAt(t + step, 1000, sweep) > cursorAt(t, 1000, sweep)
-
-      const phase = rephase(t, 1000, sweep, faster)
-      const isRising = cursorAt(t + step, phase, faster) > cursorAt(t, phase, faster)
-      expect(isRising, `at ${at}`).toBe(wasRising)
-    }
-  })
-
-  it('actually runs faster afterwards', () => {
-    const t = 1300
-    const phase = rephase(t, 1000, sweep, faster)
-    const travel = (p: number, ms: number) =>
-      Math.abs(cursorAt(t + 20, p, ms) - cursorAt(t, p, ms))
-    expect(travel(phase, faster)).toBeGreaterThan(travel(1000, sweep))
-  })
-
-  it('keeps sweeping side to side rather than parking', () => {
-    // A whole stroke of the faster sweep still reaches both ends.
-    const phase = rephase(1300, 1000, sweep, faster)
-    const seen = Array.from({ length: 200 }, (_, i) => cursorAt(1300 + i * 6, phase, faster))
-    expect(Math.min(...seen)).toBeLessThan(0.05)
-    expect(Math.max(...seen)).toBeGreaterThan(0.95)
   })
 })
 

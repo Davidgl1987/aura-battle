@@ -200,7 +200,7 @@ describe('the deck you take in', () => {
 
   it('takes a legal one, including a card just won', () => {
     claim(ROOKIE.id, won())
-    const withPrize = [ROOKIE.signatureCardId, ...STARTER_CARD_IDS.slice(0, 4)]
+    const withPrize = [ROOKIE.signatureCardId, ...STARTER_CARD_IDS.slice(0, SOLO_DECK_SIZE - 1)]
     useProgress.getState().setDeck(withPrize)
     expect(state().deck).toEqual(withPrize)
   })
