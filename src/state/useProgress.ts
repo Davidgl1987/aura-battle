@@ -26,6 +26,14 @@ export interface Progress {
   coins: number
   unlockedCards: string[]
   unlockedAccessories: string[]
+  /**
+   * Which minigames have had their tutorial shown, by `qte.game`.
+   *
+   * Per device rather than per player: a second thumb on a hot-seat battle
+   * gets whatever the phone has already been taught. Somebody handing the
+   * phone to a newcomer can put them all back from the settings.
+   */
+  seenTutorials: string[]
   equippedAccessories: Partial<Record<AccessorySlot, string>>
   /** The deck taken into every solo battle. Exactly `SOLO_DECK_SIZE` cards. */
   deck: string[]
@@ -74,6 +82,7 @@ export const INITIAL_PROGRESS: Progress = {
   coins: 0,
   unlockedCards: [...STARTER_CARD_IDS],
   unlockedAccessories: [],
+  seenTutorials: [],
   equippedAccessories: {},
   deck: defaultDeck(),
   objectives: {},
@@ -139,6 +148,10 @@ interface ProgressStore extends Progress {
   equip: (slot: AccessorySlot, accessoryId: string | null) => void
   setSettings: (patch: Partial<SoloSettings>) => void
   resetProgress: () => void
+  /** Remembers that a minigame has been explained. */
+  markTutorialSeen: (game: string) => void
+  /** Puts every tutorial back, for the next person to hold the phone. */
+  resetTutorials: () => void
 }
 
 /**
@@ -225,7 +238,15 @@ export const useProgress = create<ProgressStore>()(
 
       setSettings: (patch) => set({ settings: { ...get().settings, ...patch } }),
 
-      resetProgress: () => set({ ...INITIAL_PROGRESS, deck: defaultDeck(), objectives: {} }),
+      resetProgress: () =>
+        set({ ...INITIAL_PROGRESS, deck: defaultDeck(), objectives: {}, seenTutorials: [] }),
+
+      markTutorialSeen: (game) =>
+        set((s) =>
+          s.seenTutorials.includes(game) ? s : { seenTutorials: [...s.seenTutorials, game] },
+        ),
+
+      resetTutorials: () => set({ seenTutorials: [] }),
     }),
     {
       name: 'aura-battle-progress',

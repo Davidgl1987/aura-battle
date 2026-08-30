@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { CARDS } from '../engine/cards'
 import en from './en.json'
 import es from './es.json'
 import { LANGUAGES, translate, type Lang, type TextKey } from './index'
@@ -24,6 +25,23 @@ describe('the dictionaries', () => {
     for (const [lang, dict] of Object.entries(DICTS)) {
       for (const key of KEYS) expect(dict[key], `${lang}: ${key}`).toBeTypeOf('string')
       expect(Object.keys(dict).sort(), `${lang} has no extra keys`).toEqual([...KEYS].sort())
+    }
+  })
+
+  /**
+   * A card whose gesture had no tutorial would stop the battle on an empty
+   * explanation the first time it came up, and key parity between the two
+   * languages cannot see that — the key would simply be missing from both.
+   */
+  it('has a tutorial for every minigame in the pool', () => {
+    const games = [...new Set(CARDS.map((c) => c.qte.game))]
+    expect(games).toHaveLength(6)
+    for (const [lang, dict] of Object.entries(DICTS)) {
+      for (const game of games) {
+        expect(dict[`tutorial.${game}` as (typeof KEYS)[number]], `${lang}: ${game}`).toBeTypeOf(
+          'string',
+        )
+      }
     }
   })
 

@@ -129,6 +129,24 @@ difference is a whole judgement grade.
 The meter is green while a flawless run is still possible and amber once it is
 not, which is the only place a player is told a scrape cost them something.
 
+## The first time each one comes up
+
+The battle stops and explains the gesture: an animated hand doing it, one line
+of text, and a button to put it away. One tutorial per *minigame*, not per card
+— a sweep and a chart are both Timing and have nothing in common, so what needs
+explaining is never the tier.
+
+It takes **its own hold on the game clock** (`showTutorial` / `dismissTutorial`
+in the store) rather than reusing `paused`, which is the pause *menu* and would
+render behind it. Both stop the same clock, and it stays stopped while either
+wants it stopped. That hold is the whole safety of the feature: `now()` freezes,
+so the QTE's own `endsAt` is not running behind the explanation and nobody loses
+a card to reading one.
+
+Seen flags live in `useProgress`, so they survive closing the tab, and they are
+per device rather than per player — a hot-seat guest gets whatever the phone was
+already taught. Settings has a button to hand them all back.
+
 ## The dev range
 
 `?qte` opens a range where one card's QTE repeats as many times as it takes to

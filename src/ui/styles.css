@@ -2838,3 +2838,394 @@
     transition: none;
   }
 }
+
+/* --- The first time a minigame comes up ----------------------------------- */
+/* The battle is stopped behind this, so it can take as long as it takes. */
+.tutorial {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(10, 6, 24, 0.86);
+  backdrop-filter: blur(6px);
+  animation: tutorial-in 200ms ease-out;
+}
+@keyframes tutorial-in {
+  from {
+    opacity: 0;
+  }
+}
+.tutorial__card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 20px;
+  border-radius: var(--radius);
+  background: #1b1436;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+}
+.tutorial__eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  opacity: 0.55;
+}
+.tutorial__text {
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.45;
+  text-wrap: balance;
+}
+
+/* The stage the hand moves over: enough of the real widget to recognise it a
+   second later, and no more. */
+.tutorial__demo {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tutorial__hand {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  margin: -6px 0 0 -6px;
+  font-size: 34px;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 2;
+}
+.tutorial__hand::before {
+  content: '👆';
+}
+
+/* --- sweep: tap as it crosses the green --- */
+.demo-bar {
+  position: relative;
+  width: 84%;
+  height: 38px;
+  border-radius: 8px;
+  background: #2a2148;
+}
+.demo-bar__zone {
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: 22%;
+  transform: translateX(-50%);
+  border-radius: 6px;
+  background: rgba(74, 222, 128, 0.45);
+}
+.demo-bar__cursor {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 3px;
+  background: #fff;
+  animation: demo-sweep 2.2s ease-in-out infinite alternate;
+}
+@keyframes demo-sweep {
+  from {
+    left: 8%;
+  }
+  to {
+    left: 92%;
+  }
+}
+/* The hand meets the cursor in the middle and taps exactly there. */
+[data-game='sweep'] .tutorial__hand {
+  left: 50%;
+  top: 58%;
+  animation: demo-tap-centre 2.2s ease-in-out infinite;
+}
+@keyframes demo-tap-centre {
+  0%,
+  38%,
+  62%,
+  100% {
+    transform: translateY(10px) scale(1);
+    opacity: 0.55;
+  }
+  48%,
+  52% {
+    transform: translateY(0) scale(0.86);
+    opacity: 1;
+  }
+}
+
+/* --- lanes: hit the note on the line --- */
+.demo-lanes {
+  display: flex;
+  gap: 6px;
+  width: 84%;
+  height: 84%;
+}
+.demo-lanes__lane {
+  position: relative;
+  flex: 1;
+  border-radius: 8px;
+  background: #241c44;
+}
+.demo-lanes__line {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 74%;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+}
+.demo-lanes__note {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--perfect);
+  animation: demo-fall 1.8s linear infinite;
+}
+@keyframes demo-fall {
+  from {
+    top: -14px;
+  }
+  to {
+    top: 74%;
+  }
+}
+[data-game='lanes'] .tutorial__hand {
+  left: 50%;
+  top: 74%;
+  margin-left: -14px;
+  animation: demo-strike 1.8s linear infinite;
+}
+@keyframes demo-strike {
+  0%,
+  84% {
+    transform: translateY(14px);
+    opacity: 0.5;
+  }
+  92%,
+  99% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(14px);
+    opacity: 0.5;
+  }
+}
+
+/* --- mash: walk the pads, never the same one twice --- */
+.demo-pads {
+  display: flex;
+  gap: 8px;
+  width: 84%;
+  height: 70%;
+}
+.demo-pads__pad {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 2px solid var(--speed);
+  background: rgba(31, 24, 56, 0.55);
+  font-size: 18px;
+}
+.demo-pads__pad:nth-child(1) {
+  animation: demo-lit 2.4s steps(1) infinite;
+}
+.demo-pads__pad:nth-child(2) {
+  animation: demo-lit 2.4s steps(1) infinite -0.6s;
+}
+.demo-pads__pad:nth-child(3) {
+  animation: demo-lit 2.4s steps(1) infinite -1.2s;
+}
+@keyframes demo-lit {
+  0%,
+  24% {
+    background: var(--speed);
+    color: #2a1c00;
+  }
+  25%,
+  100% {
+    background: rgba(31, 24, 56, 0.55);
+    color: inherit;
+  }
+}
+/* Left, middle, right, middle — the walk the card actually asks for. */
+[data-game='mash'] .tutorial__hand {
+  top: 56%;
+  animation: demo-walk 2.4s steps(1) infinite;
+}
+@keyframes demo-walk {
+  0% {
+    left: 25%;
+  }
+  25% {
+    left: 50%;
+  }
+  50% {
+    left: 75%;
+  }
+  75% {
+    left: 50%;
+  }
+}
+
+/* --- order: 1, 2, 3 wherever they landed --- */
+.demo-order {
+  position: relative;
+  width: 84%;
+  height: 84%;
+}
+.demo-order__key {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 2px solid var(--speed);
+  font-size: 15px;
+}
+.demo-order__key:nth-child(1) {
+  left: 8%;
+  top: 55%;
+}
+.demo-order__key:nth-child(2) {
+  left: 62%;
+  top: 8%;
+}
+.demo-order__key:nth-child(3) {
+  left: 30%;
+  top: 20%;
+}
+.demo-order__key:nth-child(4) {
+  left: 74%;
+  top: 60%;
+}
+[data-game='order'] .tutorial__hand {
+  animation: demo-order-hop 3.2s steps(1) infinite;
+}
+@keyframes demo-order-hop {
+  0% {
+    left: 16%;
+    top: 66%;
+  }
+  25% {
+    left: 70%;
+    top: 19%;
+  }
+  50% {
+    left: 38%;
+    top: 31%;
+  }
+  75% {
+    left: 82%;
+    top: 71%;
+  }
+}
+
+/* --- zone: keep the finger on a ring that drifts --- */
+.demo-zone {
+  position: relative;
+  width: 84%;
+  height: 84%;
+}
+.demo-zone__ring {
+  position: absolute;
+  width: 66px;
+  height: 66px;
+  margin: -33px 0 0 -33px;
+  border-radius: 999px;
+  border: 2px dashed var(--control);
+  background: rgba(167, 139, 250, 0.14);
+  animation: demo-drift 4.2s ease-in-out infinite;
+}
+@keyframes demo-drift {
+  0%,
+  100% {
+    left: 28%;
+    top: 34%;
+  }
+  33% {
+    left: 72%;
+    top: 60%;
+  }
+  66% {
+    left: 46%;
+    top: 24%;
+  }
+}
+/* The hand rides with it: the gesture is following, not tapping. */
+[data-game='zone'] .tutorial__hand {
+  animation: demo-drift 4.2s ease-in-out infinite;
+  opacity: 0.95;
+}
+
+/* --- paths: a thumb in each lane while they wander --- */
+.demo-paths {
+  position: relative;
+  display: flex;
+  gap: 14%;
+  justify-content: center;
+  width: 84%;
+  height: 84%;
+}
+.demo-paths__lane {
+  width: 26%;
+  height: 100%;
+  border-radius: 8px;
+  background: rgba(167, 139, 250, 0.16);
+  border: 2px solid var(--control);
+}
+.demo-paths__lane:nth-child(1) {
+  animation: demo-wander 3.4s ease-in-out infinite alternate;
+}
+.demo-paths__lane:nth-child(2) {
+  animation: demo-wander 3.4s ease-in-out infinite alternate-reverse;
+}
+@keyframes demo-wander {
+  from {
+    transform: translateX(-16px);
+  }
+  to {
+    transform: translateX(16px);
+  }
+}
+/* Two thumbs, so the single hand is hidden and each lane carries its own. */
+[data-game='paths'] .tutorial__hand {
+  display: none;
+}
+.demo-paths__lane::after {
+  content: '👆';
+  position: absolute;
+  bottom: 8%;
+  font-size: 30px;
+  transform: translateX(-50%);
+}
+.demo-paths__lane:nth-child(1)::after {
+  left: 24%;
+}
+.demo-paths__lane:nth-child(2)::after {
+  left: 76%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial__demo *,
+  .tutorial__hand {
+    animation: none !important;
+  }
+}

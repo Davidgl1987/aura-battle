@@ -75,8 +75,44 @@ export function SettingsList({ compact = false }: { compact?: boolean }) {
         <span className="setting__value">{LANGUAGES[current]?.label}</span>
       </button>
 
+      <TutorialsButton />
       <WipeButton />
     </div>
+  )
+}
+
+/**
+ * Putting the tutorials back for the next person to hold the phone.
+ *
+ * Tutorials are remembered per device rather than per player, so a hot-seat
+ * battle against somebody who has never played gets whatever the phone was
+ * already taught. This is how you give it back to them.
+ */
+function TutorialsButton() {
+  const { t } = useI18n()
+  const resetTutorials = useProgress((s) => s.resetTutorials)
+  const seen = useProgress((s) => s.seenTutorials)
+  const [done, setDone] = useState(false)
+  const timer = useRef(0)
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  const press = () => {
+    resetTutorials()
+    setDone(true)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setDone(false), 2500)
+  }
+
+  return (
+    <button className="setting" onPointerDown={press} disabled={done || seen.length === 0}>
+      <span className="setting__text">
+        <span className="setting__label">{t('settings.tutorials')}</span>
+        <span className="setting__note">
+          {done ? t('settings.tutorialsDone') : t('settings.tutorialsNote')}
+        </span>
+      </span>
+    </button>
   )
 }
 

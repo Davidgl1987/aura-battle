@@ -86,9 +86,21 @@ interface GameStore {
   bus: GameEvent[]
   /** Nothing timed advances while this is on. See `useGameClock`. */
   paused: boolean
+  /**
+   * The minigame a tutorial is being shown for, or null.
+   *
+   * Its own hold on the clock rather than a use of `paused`, because `paused`
+   * is the pause *menu* — sharing it would put the menu on screen behind the
+   * tutorial. Both stop the same clock; see `holdClock`.
+   */
+  tutorial: string | null
 
   setSettings: (patch: Partial<MatchSettings>) => void
   setPaused: (value: boolean) => void
+  /** Holds the clock and shows the tutorial for a minigame. */
+  showTutorial: (game: string) => void
+  /** Puts it away and lets the clock run again. */
+  dismissTutorial: () => void
   go: (screen: Screen) => void
   /**
    * One way into a battle, whoever is answering the other side of it. `seed`
@@ -155,10 +167,22 @@ export const useGame = create<GameStore>((set, get) => ({
   claimed: null,
   bus: [],
   paused: false,
+  tutorial: null,
 
   setPaused: (value) => {
-    holdClock(value)
     set({ paused: value })
+    holdClock(value || get().tutorial !== null)
+  },
+
+  showTutorial: (game) => {
+    set({ tutorial: game })
+    holdClock(true)
+  },
+
+  dismissTutorial: () => {
+    set({ tutorial: null })
+    // The pause menu may be open behind it; the clock stays held if so.
+    holdClock(get().paused)
   },
 
   setSettings: (patch) => set({ settings: { ...get().settings, ...patch } }),

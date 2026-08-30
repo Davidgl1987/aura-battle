@@ -1,5 +1,6 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { getCard } from '../engine/cards'
+import type { QteGame } from '../engine/types'
 import { getCharacter } from '../engine/characters'
 import { outauraTarget, playerColor } from '../engine/match'
 import { getRival } from '../engine/rivals'
@@ -20,6 +21,8 @@ import { PlayedStrip } from './PlayedStrip'
 import { ResultScreen } from './ResultScreen'
 import { SlideToPass } from './SlideToPass'
 import { QtePanel } from './qte/QtePanel'
+import { QteTutorial } from './qte/QteTutorial'
+import { useProgress } from '../state/useProgress'
 
 /**
  * three.js is most of the download, and none of it is needed for the title or
@@ -37,6 +40,11 @@ export function MatchScreen() {
   const dispatch = useGame((s) => s.dispatch)
   const paused = useGame((s) => s.paused)
   const setPaused = useGame((s) => s.setPaused)
+  const tutorial = useGame((s) => s.tutorial)
+  const showTutorial = useGame((s) => s.showTutorial)
+  const dismissTutorial = useGame((s) => s.dismissTutorial)
+  const seenTutorials = useProgress((s) => s.seenTutorials)
+  const markTutorialSeen = useProgress((s) => s.markTutorialSeen)
   const mode = useGame((s) => s.mode)
   const opponentId = useGame((s) => s.opponentId)
   // Plays the rival's turns through the same reducer a thumb drives.
@@ -49,6 +57,17 @@ export function MatchScreen() {
   // Whether the console is waiting for a thumb or watching one play out. The
   // battle itself does not change; only who is answering it.
   const cpuUp = player.controller === 'cpu'
+
+  /**
+   * The first time a minigame comes up, stop everything and explain it.
+   *
+   * Only for a thumb: the rival's turn is watched, not played. And only on the
+   * gesture — the same six explanations however many cards are built on them.
+   */
+  const upcoming = phase.kind === 'qte' && !cpuUp ? getCard(phase.cardId).qte.game : null
+  useEffect(() => {
+    if (upcoming && !seenTutorials.includes(upcoming)) showTutorial(upcoming)
+  }, [upcoming, seenTutorials, showTutorial])
   const solo = mode === 'solo' && opponentId !== null
   const accent = playerColor(player)
   // Derived from the match, not held anywhere: the same question `useCpuTurn`
@@ -169,7 +188,9 @@ export function MatchScreen() {
           </>
         )}
 
-        {!cpuUp && phase.kind === 'qte' && (
+        {/* Held back until the tutorial is dismissed, so the widget's own
+            arming clock does not start behind an explanation. */}
+        {!cpuUp && phase.kind === 'qte' && tutorial === null && (
           <QtePanel
             card={getCard(phase.cardId)}
             startedAt={phase.startedAt}
@@ -248,6 +269,15 @@ export function MatchScreen() {
 
       {phase.kind === 'matchEnd' && <ResultScreen winner={phase.winner} reason={phase.reason} />}
 
+      {tutorial !== null && (
+        <QteTutorial
+          game={tutorial as QteGame}
+          onDismiss={() => {
+            markTutorialSeen(tutorial)
+            dismissTutorial()
+          }}
+        />
+      )}
       {paused && <PauseScreen />}
 
     </div>
