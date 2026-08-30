@@ -8,7 +8,7 @@ import {
   cursorAt,
   errorAt,
   gradeHit,
-  passAt,
+  zoneTripAt,
   startPhase,
   zoneCentres,
   zoneErrorAt,
@@ -140,26 +140,55 @@ describe('grading', () => {
 })
 
 /**
- * The unit a sweep is scored in. Counting every zone as its own chance meant a
- * flawless run on the three-zone card needed twelve unscraped taps where the
- * one-zone card needed four, and the middle tier came back GOOD ninety-eight
- * times in a hundred whatever you did.
+ * A chance is one trip through a green zone. Zones sit in the middle of equal
+ * slices, so the cursor reaches one at a constant beat and a busy bar is a
+ * quicker rhythm rather than a scramble.
  */
-describe('one chance per pass of the bar', () => {
-  const s = params.sweepMs
+describe('one chance per trip through a zone', () => {
+  const three = getCard('griddy-drop').qte as TimingParams
+  const one = getCard('mewing').qte as TimingParams
 
-  it('counts a pass for every traverse, whatever is drawn on it', () => {
-    expect(passAt(0, 0, s)).toBe(0)
-    expect(passAt(s - 1, 0, s)).toBe(0)
-    expect(passAt(s, 0, s)).toBe(1)
-    expect(passAt(s * 3.5, 0, s)).toBe(3)
+  it('meets a zone at a constant beat, out and back alike', () => {
+    for (const p of [one, getCard('sigma-stare').qte as TimingParams, three]) {
+      const beat = p.sweepMs / p.zones
+      const seen: number[] = []
+      // Two full there-and-backs, sampled finely enough to catch every zone.
+      for (let t = 0; t < 4 * p.sweepMs; t += 0.5) {
+        const x = cursorAt(t, 0, p.sweepMs)
+        if (zoneCentres(p.zones).some((c) => Math.abs(x - c) < 0.0004)) seen.push(t)
+      }
+      const gaps = seen.slice(1).map((t, i) => t - seen[i])
+      for (const gap of gaps) expect(gap, `${p.zones} zones`).toBeCloseTo(beat, 0)
+    }
   })
 
-  it('gives every sweep the same handful of chances, not one per zone', () => {
-    const counts = CARDS.filter((c) => c.qte.game === 'sweep').map((c) =>
-      crossings(c.durationMs, c.qte as TimingParams),
-    )
-    expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1)
+  it('answers a zone once however many times it is tapped', () => {
+    const beat = three.sweepMs / three.zones
+    expect(zoneTripAt(0, 0, three)).toBe(0)
+    expect(zoneTripAt(beat * 0.4, 0, three)).toBe(0)
+    expect(zoneTripAt(beat, 0, three)).toBe(1)
+    expect(zoneTripAt(beat * 5.2, 0, three)).toBe(5)
+  })
+
+  it('offers more chances the busier the bar is', () => {
+    const counts = CARDS.filter((c) => c.qte.game === 'sweep').map((c) => ({
+      zones: (c.qte as TimingParams).zones,
+      chances: crossings(c.durationMs, c.qte as TimingParams),
+    }))
+    counts.sort((a, b) => a.zones - b.zones)
+    for (let i = 1; i < counts.length; i++) {
+      expect(counts[i].chances).toBeGreaterThan(counts[i - 1].chances)
+    }
+  })
+
+  it('does not count the zone the bar opens on', () => {
+    // An odd number of zones puts one dead centre, which is where the cursor
+    // starts: that trip is already going, so it is neither hit nor fumble.
+    const withCentre = { ...one, zones: 3 }
+    const without = { ...one, zones: 2 }
+    const trips = (p: TimingParams) => (3300 / p.sweepMs) * p.zones
+    expect(crossings(3300, withCentre)).toBe(Math.floor(trips(withCentre)))
+    expect(crossings(3300, without)).toBe(Math.floor(trips(without) + 0.5))
   })
 })
 

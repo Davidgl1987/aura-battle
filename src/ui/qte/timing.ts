@@ -51,19 +51,21 @@ export { crossings } from '../../engine/qte'
 /**
  * Where each green zone sits along the bar, as a share of its width.
  *
- * The bar is cut into `zones + 1` equal stretches and a zone goes on every
- * join: one lands dead centre, two land on the thirds, three on the quarters.
- * The ends of the bar are as far from a zone as the middle of a gap is, so the
- * cursor meets targets at an even beat wherever it is.
+ * The bar is cut into `zones` equal slices and a zone goes in the middle of
+ * each. That is the one arrangement where the cursor meets a target at a
+ * constant beat — every `sweepMs / zones`, out and back alike — because the
+ * turn at each end lands exactly half a gap past the last zone, which is the
+ * same half gap it takes to reach the first one on the way back.
  *
- * Spreading them from a margin instead pushed them outward — two zones sat at a
- * sixth and five sixths, right against the turns. The cursor passed one, bounced
- * off the end and passed it again a quarter of a second later, then crawled the
- * whole middle of the bar with nothing to hit: a stutter and a wait rather than
- * a rhythm, on the one card whose targets were all at an edge.
+ * Every other spacing stutters. Placing them on the joins between slices put
+ * two zones on the thirds, which the cursor met at 266ms and then 534ms; from a
+ * margin they went further out still, so it passed one, bounced off the end and
+ * passed it again a quarter of a second later, then crawled the whole middle of
+ * the bar with nothing to hit.
  */
 export function zoneCentres(zones: number): number[] {
-  return Array.from({ length: Math.max(1, zones) }, (_, i) => (i + 1) / (zones + 1))
+  const n = Math.max(1, zones)
+  return Array.from({ length: n }, (_, i) => (2 * i + 1) / (2 * n))
 }
 
 /**
@@ -86,12 +88,18 @@ export function zoneErrorAt(
 }
 
 /**
- * Which pass of the bar a moment falls in, counting from the first.
+ * Which trip through a green zone a moment falls in, counting from the bar's
+ * left edge.
  *
- * The unit a sweep is scored in. A pass is one chance however many zones sit on
- * it: a busy bar gives you more moments to commit in, not more to bank, and
- * once you have answered a pass the rest of it is yours to watch go by.
+ * The unit a sweep is scored in: one chance per zone the cursor goes through.
+ * Zones sit in the middle of equal slices, so the cursor reaches one every
+ * `sweepMs / zones` however far along the bar it is, and a moment's index is
+ * just how many of those beats have gone by.
+ *
+ * It is an index rather than a count so the widget can tell two taps in the
+ * same trip apart from two taps in consecutive ones — a zone is answered once.
  */
-export function passAt(t: number, startedAt: number, sweepMs: number): number {
-  return Math.floor((t - startedAt) / sweepMs)
+export function zoneTripAt(t: number, startedAt: number, params: TimingParams): number {
+  const zones = Math.max(1, params.zones)
+  return Math.floor(((t - startedAt) / params.sweepMs) * zones + 0.5)
 }

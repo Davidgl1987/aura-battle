@@ -361,19 +361,20 @@ export function tickBeat(insideMs: number, tickMs = QTE_TICK_MS): Beat {
 }
 
 /**
- * How many chances a sweep offers: one per pass of the bar.
+ * How many chances a sweep offers: one per trip the cursor makes through a
+ * green zone, which is what a flawless run has to answer.
  *
- * A pass is a chance, however many zones are on it. Three zones are three
- * moments in that pass where you could commit rather than three chances to
- * bank — the widget grades the first tap of each pass and ignores the rest, so
- * the skill on a busy bar is choosing which zone to go for and hitting it.
+ * Zones sit in the middle of equal slices of the bar, so the cursor reaches one
+ * every `sweepMs / zones` — a steady beat that gets quicker the more zones
+ * there are. That is the whole of the tier: the same bar at the same speed,
+ * asking for a faster rhythm.
  *
- * Counting every zone as its own chance is what broke the two harder sweeps.
- * A flawless run means every chance taken cleanly, so a card offering twelve of
- * them needed twelve unscraped taps where the easy card needed four — and the
- * middle tier came back GOOD ninety-eight times in a hundred whatever you did.
- * Passes are comparable between the three cards; zone counts are not.
+ * An odd number of zones puts one dead centre, which is exactly where the bar
+ * opens. That trip is already going as the card starts, so nobody could answer
+ * it and it is not counted.
  */
 export function crossings(durationMs: number, params: TimingParams): number {
-  return Math.floor(durationMs / params.sweepMs)
+  const zones = Math.max(1, params.zones)
+  const trips = (durationMs / params.sweepMs) * zones
+  return Math.max(1, Math.floor(zones % 2 === 1 ? trips : trips + 0.5))
 }

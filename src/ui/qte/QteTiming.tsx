@@ -4,7 +4,14 @@ import type { Card, QteOutcome, TimingParams } from '../../engine/types'
 import { useArming } from './arming'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
-import { cursorAt, gradeHit, passAt, startPhase, zoneCentres, zoneErrorAt } from './timing'
+import {
+  cursorAt,
+  gradeHit,
+  startPhase,
+  zoneCentres,
+  zoneErrorAt,
+  zoneTripAt,
+} from './timing'
 
 interface Props {
   card: Card
@@ -37,7 +44,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
   // every landed tap, which made the same input worth less the better you were
   // doing and read as the card moving the target under you.
   const phase = useRef(0)
-  /** The last pass of the bar that was graded, so each one is answered once. */
+  /** The last zone trip that was graded, so each one is answered once. */
   const answered = useRef(-1)
 
   useEffect(() => {
@@ -79,17 +86,20 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
       // Live from the middle of the bar, so the card opens on its target
       // rather than on half a stroke of waiting.
       phase.current = startPhase(t, params.sweepMs, variation)
+      // An odd number of zones puts one dead centre, so the card opens with a
+      // trip already under way. Marking it answered spends it: nobody could
+      // have reacted to a zone that was there before the bar started moving,
+      // so it counts as neither a hit nor a fumble.
+      answered.current = zoneTripAt(t, phase.current, params)
       return
     }
 
-    // One answer per pass of the bar. A busy bar gives you more moments to
-    // commit in rather than more to bank, and once a pass is answered the rest
-    // of it goes by for free — so tapping more can never cost you, which is
-    // what made the three-zone card unplayable when every zone was its own
-    // chance to get wrong.
-    const pass = passAt(t, phase.current, params.sweepMs)
-    if (pass === answered.current) return
-    answered.current = pass
+    // One answer per trip through a zone. A second tap inside the same trip is
+    // the same chance twice, so it is dropped rather than charged — otherwise
+    // drumming on a busy bar would fumble chances that were never offered.
+    const trip = zoneTripAt(t, phase.current, params)
+    if (trip === answered.current) return
+    answered.current = trip
 
     // Against the nearest green zone, of which there may be one, two or three.
     const hit = gradeHit(zoneErrorAt(t, phase.current, params.sweepMs, params), params)
@@ -114,7 +124,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
           TAP TO START <b ref={armRef} className="qte__count" />
         </em>
         <em className="qte__hint-live">
-          ONE HIT PER PASS · AMBER SCORES BUT IS NOT CLEAN
+          ONE HIT PER ZONE · AMBER SCORES BUT IS NOT CLEAN
         </em>
       </div>
 
