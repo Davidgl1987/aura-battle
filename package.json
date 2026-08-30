@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "balance": "VITE_BALANCE=1 vitest run src/engine/balance.test.ts"
+    "balance": "VITE_BALANCE=1 vitest run src/engine/balance.test.ts",
+    "measure": "VITE_MEASURE=1 vitest run src/engine/measure.test.ts --disable-console-intercept"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",

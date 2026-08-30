@@ -17,14 +17,19 @@ Open it on a phone from the same network at the address Vite prints as
 `Network:` — the game is portrait-first and built around thumbs.
 
 ```bash
-npm test        # engine, QTE maths, scene, audio, balance
+npm test        # engine, QTE maths, scene, audio, balance — ~3s
 npm run build   # typecheck + production build
+npm run measure # the ladder, every card, and what a match looks like
 npm run balance -- --disable-console-intercept   # the balance table, printed
 ```
 
+`CLAUDE.md` is the short version for anyone — human or model — picking the
+project up. `docs/qte.md` covers the six minigames and how a run is graded;
+`docs/balance.md` maps every tunable to what it moves and which test guards it.
+
 **QTE range** (dev only): `?qte` opens a range where you can repeat one card's
 QTE as many times as it takes to tune it — `?qte=sturdy` starts on that card,
-and the row of chips switches between all fifteen. `window.__game` is the live
+and the row of chips switches between all eighteen. `window.__game` is the live
 store, for driving a phase from the console without playing up to it, and
 `window.__audio` is the synth, for firing a sound without earning it.
 
@@ -50,7 +55,7 @@ player.controller = 'cpu'     //  answered by engine/cpu.ts
 Both players agree on two things: **cards per deck** (4–6)
 and **time to choose** (3–5 s). Then each player picks a fighter — no two
 players can take the same one — an optional alias, and their deck out of the
-15 gestures. Both decks are open information: you can see what the rival
+18 gestures. Both decks are open information: you can see what the rival
 brought and count what they have left.
 
 ### Solo
@@ -84,9 +89,10 @@ rival is wearing while you fail to do it). Every reward is paid once. Beating
 them is what opens the next rival; the other two are optional, which is what
 makes a rematch worth playing.
 
-Nine of the fifteen moves are yours from the start — the three NORMAL cards of
-each kind — and the six HARD ones are what the six rivals are holding. A rival
-brings the move it is going to lose, so you watch it before you own it.
+Twelve of the eighteen moves are yours from the start — the EASY and NORMAL
+card of every minigame — and the six HARD ones are what the six rivals are
+holding. A rival brings the move it is going to lose, so you watch it before
+you own it.
 
 Every turn:
 
@@ -149,38 +155,52 @@ THE MEWER; only the words around them change. The language is picked from the
 phone on first run and can be switched in Settings, from the hub or from the
 pause menu.
 
-## The three QTEs
+## The six QTEs
+
+Three kinds — what a card is filed under, and what freshness is measured on —
+holding two minigames each. Every one has an EASY, a NORMAL and a HARD card.
+
+- **🎯 Timing** — *sweep*: a cursor crosses the bar; hit it inside a green zone.
+  *lanes*: notes fall down lanes; hit each one on the line.
+- **⚡ Speed** — *mash*: tap the pads as fast as you can. *order*: numbers
+  scattered on a pad, pressed 1, 2, 3…
+- **🧠 Control** — *zone*: keep a finger inside a drifting ring. *paths*: keep
+  it inside a lane that scrolls and wanders.
+
+**Difficulty is what the card asks for, never how fast it goes.** Every gesture
+runs at one pace across all three tiers, and a card does not tighten as it runs
+either. A card that was narrower *and* quicker *and* accelerating was doing the
+difficulty three times over, and the same input being worth less the longer you
+kept it up reads as the game moving the target rather than as a test getting
+harder.
+
+| | EASY | NORMAL | HARD |
+|---|---|---|---|
+| sweep | 1 green zone | 2 zones | 3 zones |
+| lanes | quarters | + eighths | + sixteenths |
+| mash | 1 pad, mashed | 2 pads, alternated | 3 pads, walked L·M·R·M·L |
+| order | 5 numbers | 6 | 7 |
+| zone | a big ring | medium | small |
+| paths | a wide lane | medium | narrow |
 
 **No two plays of a card are the same puzzle.** Every QTE gets a `variation`
-drawn from the match seed when the phase opens: the control ring sets off from
-a different spot along a different path, and the timing cursor starts from
-whichever end the roll picked. Without it a card traced the identical route
-every single time and stopped being a test of tracking after two attempts.
-Because the number comes from the seed and not from `Math.random()`, a battle
-still replays exactly.
+drawn from the match seed when the phase opens: the ring sets off from a
+different spot along a different path, the chart rolls a different rhythm, and
+the sweep picks which way to leave the middle. Because the number comes from
+the seed and not from `Math.random()`, a battle still replays exactly.
 
 **None of them starts until you touch the screen.** The card is already
 committed by the time a QTE opens, so reaching for the glass is not part of the
 challenge: the cursor sits parked, the ring holds still, the pads wait. On a
-Timing card that first tap only starts the sweep — grading it against a parked
-cursor would be a free MISS — while on a Speed card it counts, because
-swallowing the first hit of a mash feels like theft. If nobody touches at all,
-the QTE arms itself after `QTE_ARM_MS` so refusing to play cannot stall the
-battle.
+sweep that first tap only starts the bar — grading it against a parked cursor
+would be a free MISS — while on a mash it counts, because swallowing the first
+hit feels like theft. If nobody touches at all, the QTE arms itself after
+`QTE_ARM_MS` so refusing to play cannot stall the battle.
 
-- **🎯 Timing** — a cursor sweeps the bar; tap it dead centre. Harder cards
-  sweep faster, narrow the window, and ask for up to three taps in a row. One
-  bad tap sinks the card.
-- **⚡ Speed** — reach the tap target before the bar empties. Easy cards are a
-  one-pad mash; harder ones split into two pads you must alternate, so drumming
-  a single finger gets you nowhere. Hitting the target early ends it on a
-  PERFECT.
-- **🧠 Control** — hold your finger inside a drifting ring, which is what
-  starts the card. What counts is the share of the window you stayed inside, so
-  slipping out costs you continuously rather than all at once.
-  `control.test.ts` pins the drift speed and ring size to a band a finger can
-  actually follow, and checks that a varied path is a genuinely different one
-  rather than the same curve started later.
+**One grade, read the same way six times.** Clear the bar and you have scored.
+Clear it having never scraped or fumbled, and having answered every chance the
+card held, and you have scored flawlessly — PERFECT is not a higher count than
+GOOD, it is a clean one. `docs/qte.md` has the whole of it.
 
 ## Layout
 
@@ -189,7 +209,7 @@ src/
   engine/     pure TS, no React and no clock reads — the whole game is a reducer
     types.ts       state, actions, events
     balance.ts     every tunable number lives here
-    cards.ts       the 15 gestures: five of each kind, three NORMAL and two HARD
+    cards.ts       the 18 gestures: six minigames, one card each per tier
     simulate.ts    plays whole matches between skill profiles, headless
     recap.ts       turns a finished match into its story
     stats.ts       a finished match as plain numbers, for objectives to read
@@ -222,7 +242,7 @@ src/
     home/          the hub, and the sheet that picks a mode
     solo/          the rival carousel and its objectives
     collection/    what you own and the deck you take in
-    settings/      four rows
+    settings/      music, sfx, vibration, language, and deleting your save
 ```
 
 Three rules keep the feel honest:
@@ -245,7 +265,7 @@ Nobody downloads a model. Each fighter is assembled from primitives at their
 own proportions — BLOCKY really is a wide box with stubby limbs, NOODLE really
 is tall, thin and floppy — and every gesture is a function of time over those
 fifteen pose numbers. That means a move can be tested without a renderer:
-`animations.test.ts` checks all ten cards have a body to go with them, that no
+`animations.test.ts` checks every card has a body to go with it, that no
 pose folds a fighter into a shape it could not hold, that each one rises out of
 standing and returns to it, and that a celebration goes up while a MISS goes
 down.
@@ -345,20 +365,31 @@ future tweak that quietly flattens the game fails a test instead of shipping.
 
 It found the next one too. The game was beatable end to end on a first run,
 because clearing a single threshold once was the whole test and nothing after
-it counted. Scoring the gesture over its whole length fixed that, and the
-measurements say so: PERFECT / GOOD / MISS now runs 9 / 18 / 73% for a poor
-player, 37 / 35 / 28% for a decent one and 78 / 17 / 4% for a good one, where
-before there was barely a gap between the last two.
+it counted. A run is scored over its whole length now: the card's worth times
+how much of the gesture was actually landed.
 
-Two things came out of that change and are worth knowing:
+```bash
+npm run measure    # the ladder, every card in three pairs of hands, and a match
+```
 
-- **Averaging six to eight opportunities takes most of the luck out of a card.**
-  That is the point, but it also means a small difference in hands moves the
-  win rate a long way — which is why `QTE_FORM_SWING` exists, and why the two
-  rivals in the middle of the ladder measure as a tie.
-- **Hard cards had to pay much more.** A hard card is now landed less
-  *cleanly* as well as less often, and at the old premium a good player was
-  better off never bringing one.
+Read the card table for **spread**. A tier should tell three hands apart, and a
+card that hands the same grade to a sloppy player and a decent one has stopped
+discriminating — which is a bug even when every test is green. Two ways that
+happens, both found the hard way:
+
+- **Chances that multiply.** A flawless run means every chance answered
+  cleanly, so a card offering twelve of them needs twelve unscraped taps where
+  one offering four needs four. Meanwhile a bar at half of twelve is trivially
+  cleared. Both ends of the range get squeezed and everything lands on GOOD.
+- **Difficulty applied twice.** Narrower *and* faster *and* accelerating
+  compounds into a card nobody can play, while its own tier-mates stay easy.
+
+And one thing to know before touching a number: **the simulation scores a card
+from its `difficulty` alone.** Millisecond windows, zone counts, ring sizes and
+lane widths are invisible to it, so widening a window moves what a human feels
+and nothing that `npm run measure` reports. Judge geometry in the dev range and
+counts by measuring. `docs/balance.md` maps every knob to what it moves and
+which test guards it.
 
 ## Roadmap
 
@@ -371,5 +402,7 @@ Two things came out of that change and are worth knowing:
 - [x] **F6** Results recap, and a balance pass driven by simulation
 - [x] **F7** Solo: six rivals as data, a measured ladder, objectives and
       rewards, persistent progress, and the hub the modes hang off
-- [ ] **F8** Customize: the wardrobe screen behind the slots the rivals already
+- [x] **F8** Six minigames on three difficulty axes, eighteen cards, and one
+      meter that says what each is asking for
+- [ ] **F9** Customize: the wardrobe screen behind the slots the rivals already
       wear, and a shop for the coins to go into
