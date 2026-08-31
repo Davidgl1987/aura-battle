@@ -403,6 +403,11 @@
   gap: 8px;
   padding: 34px 12px calc(env(safe-area-inset-bottom) + 10px);
   background: linear-gradient(to top, rgba(11, 7, 19, 0.96) 74%, transparent);
+  /* The last line of defence on a screen shorter than anything measured here:
+     the console grows upward from the bottom, so without this a tall hand would
+     push its own first row off the top instead of the bottom. */
+  max-height: 100dvh;
+  overflow-y: auto;
 }
 
 .prompt {
@@ -749,11 +754,18 @@
 
 /* --- Hand ----------------------------------------------------------------- */
 
+/*
+ * Rows size to what a card actually needs, never to a number measured once.
+ *
+ * It was a fixed 224px split into two `1fr` rows — 108px each — and a card at
+ * three columns wants 120. Grid does not shrink content to fit a track, so the
+ * second row hung 24px out of the bottom of the screen and the last three cards
+ * were cut in half. The floor keeps a two-card hand from looking mean.
+ */
 .hand {
-  height: 224px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  grid-auto-rows: minmax(104px, auto);
   gap: 8px;
 }
 
@@ -1253,7 +1265,7 @@
 /* --- QTE: speed ------------------------------------------------------------ */
 .qte__pads {
   width: 100%;
-  height: 200px;
+  height: clamp(140px, calc(100dvh - 180px), 200px);
   display: flex;
   gap: 10px;
 }
@@ -1281,7 +1293,11 @@
    and it is translucent, so the fighter still performs behind it. */
 .qte__area {
   width: 100%;
-  height: 340px;
+  /* Shrinks on a short screen instead of pushing itself off the bottom. The
+     180px is everything stacked around the board inside the console — title,
+     timer, meter, gaps and the console's own padding — measured once and given
+     headroom. */
+  height: clamp(180px, calc(100dvh - 180px), 340px);
   position: relative;
   border-radius: var(--radius);
   background: rgba(31, 24, 56, 0.5);
@@ -1441,7 +1457,11 @@
    the control pad and the driving test, so the console never jumps height. */
 .lanes {
   width: 100%;
-  height: 340px;
+  /* Shrinks on a short screen instead of pushing itself off the bottom. The
+     180px is everything stacked around the board inside the console — title,
+     timer, meter, gaps and the console's own padding — measured once and given
+     headroom. */
+  height: clamp(180px, calc(100dvh - 180px), 340px);
   display: flex;
   gap: 8px;
 }
@@ -1588,7 +1608,11 @@
   flex-direction: column;
   gap: 8px;
   width: 100%;
-  height: 340px;
+  /* Shrinks on a short screen instead of pushing itself off the bottom. The
+     180px is everything stacked around the board inside the console — title,
+     timer, meter, gaps and the console's own padding — measured once and given
+     headroom. */
+  height: clamp(180px, calc(100dvh - 180px), 340px);
 }
 .drive__track {
   position: relative;
