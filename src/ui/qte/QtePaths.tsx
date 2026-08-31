@@ -2,11 +2,13 @@ import { useEffect, useRef } from 'react'
 import { now } from '../../state/store'
 import type { Card, PathsParams, QteOutcome } from '../../engine/types'
 import { useI18n } from '../../i18n'
+import { paintDrive, type DriveHandle } from './boardPaint'
+import { DriveBoard } from './boards'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import { isDown } from '../pointers'
 import { useArming } from './arming'
-import { bothHands, laneCentre, laneRange, onTrack } from './paths'
+import { bothHands, laneRange } from './paths'
 
 interface Props {
   card: Card
@@ -18,12 +20,6 @@ interface Props {
 
 /** Never bank a frame longer than this: a stall is not a held finger. */
 const MAX_FRAME_MS = 60
-/** Where the markers sit down the track, as a share of its height. */
-const MARKER_Y = 0.6
-/** How much track is on screen at once, in the units `laneCentre` takes. */
-const VIEW = 3
-/** How many points the drawn corridor is built from. */
-const STEPS = 26
 
 export function QtePaths({ card, params, startedAt, variation, onResult }: Props) {
   const { t } = useI18n()
@@ -42,10 +38,7 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
 
   const rootRef = useRef<HTMLDivElement>(null)
   const armRef = useRef<HTMLElement>(null)
-  const trackRef = useRef<HTMLDivElement>(null)
-  const laneRefs = useRef<(SVGPathElement | null)[]>([])
-  const markRefs = useRef<(HTMLDivElement | null)[]>([])
-  const knobRefs = useRef<(HTMLDivElement | null)[]>([])
+  const board = useRef<DriveHandle>(null)
   const timeRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -80,48 +73,18 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
 
       const live = armedAt === null ? 0 : t - armedAt
       const scroll = (live / 1000) * params.speed
-      const track = trackRef.current
 
-      if (track) {
-        const width = track.clientWidth
-        const height = track.clientHeight
-        const half = width / 2
-        // Pad units run -1 to 1 across, so a unit is half the width.
-        const toPx = (x: number) => half + x * half
-        let holding = true
-
-        for (const lane of [0, 1] as const) {
-          // The corridor, drawn from the marker line outward in both
-          // directions: above the line is track still to come.
-          let d = ''
-          for (let i = 0; i <= STEPS; i++) {
-            const y = (i / STEPS) * height
-            const distance = scroll + (MARKER_Y - y / height) * VIEW
-            d += `${i === 0 ? 'M' : 'L'}${toPx(laneCentre(distance, params, variation, lane)).toFixed(1)} ${y.toFixed(1)}`
-          }
-          const path = laneRefs.current[lane]
-          if (path) {
-            path.setAttribute('d', d)
-            path.setAttribute('stroke-width', String(params.laneWidth * 2 * half))
-          }
-
-          const centre = laneCentre(scroll, params, variation, lane)
-          const inside = bothOn && onTrack(at.current[lane], centre, params)
-          if (!inside) holding = false
-
-          const mark = markRefs.current[lane]
-          if (mark) {
-            mark.style.left = `${toPx(at.current[lane])}px`
-            mark.style.top = `${MARKER_Y * height}px`
-            mark.dataset.on = String(inside)
-          }
-          const knob = knobRefs.current[lane]
-          if (knob) {
-            const [min, max] = laneRange(lane)
-            knob.style.left = `${((at.current[lane] - min) / (max - min)) * 100}%`
-            knob.dataset.on = String(grip.current[lane] !== null)
-          }
-        }
+      {
+        const { onLanes } = paintDrive(board.current, {
+          scroll,
+          at: at.current,
+          params,
+          variation,
+          gripped: [grip.current[0] !== null, grip.current[1] !== null],
+        })
+        // Both hands on the glass is a condition of its own: a marker sitting
+        // in its lane with nobody holding the wheel is not a held card.
+        const holding = bothOn && onLanes
 
         if (armedAt !== null && holding) {
           both.current += dt
@@ -202,54 +165,15 @@ export function QtePaths({ card, params, startedAt, variation, onResult }: Props
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
 
-      <div className="drive">
-        <div className="drive__track" ref={trackRef}>
-          <svg className="drive__lanes" aria-hidden="true">
-            {[0, 1].map((lane) => (
-              <path
-                key={lane}
-                ref={(node) => {
-                  laneRefs.current[lane] = node
-                }}
-                className="drive__lane"
-                fill="none"
-                strokeLinecap="round"
-              />
-            ))}
-          </svg>
-          {[0, 1].map((lane) => (
-            <div
-              key={lane}
-              ref={(node) => {
-                markRefs.current[lane] = node
-              }}
-              className="drive__mark"
-              data-on="false"
-            />
-          ))}
-        </div>
-
-        <div className="drive__wheels">
-          {([0, 1] as const).map((lane) => (
-            <div
-              key={lane}
-              className="drive__wheel"
-              onPointerDown={take(lane)}
-              onPointerMove={move(lane)}
-              onPointerUp={release(lane)}
-              onPointerCancel={release(lane)}
-            >
-              <div
-                ref={(node) => {
-                  knobRefs.current[lane] = node
-                }}
-                className="drive__knob"
-                data-on="false"
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+      <DriveBoard
+        ref={board}
+        wheel={(lane) => ({
+          onPointerDown: take(lane),
+          onPointerMove: move(lane),
+          onPointerUp: release(lane),
+          onPointerCancel: release(lane),
+        })}
+      />
 
       <QteMeter run={run} unit={t('qte.unit.held')} />
     </div>

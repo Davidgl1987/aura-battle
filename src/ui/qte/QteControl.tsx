@@ -3,10 +3,12 @@ import { play } from '../../audio/engine'
 import { now } from '../../state/store'
 import type { Card, ControlParams, QteOutcome } from '../../engine/types'
 import { useI18n } from '../../i18n'
+import { paintZone, type ZoneHandle } from './boardPaint'
+import { ZoneBoard } from './boards'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
-import { drifted, zoneAt } from './control'
+import { drifted } from './control'
 
 interface Props {
   card: Card
@@ -41,8 +43,7 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
 
   const rootRef = useRef<HTMLDivElement>(null)
   const armRef = useRef<HTMLElement>(null)
-  const areaRef = useRef<HTMLDivElement>(null)
-  const zoneRef = useRef<HTMLDivElement>(null)
+  const board = useRef<ZoneHandle>(null)
   const timeRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -58,24 +59,17 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
       let armedAt = arming.resolve(t)
       const elapsed = armedAt === null ? 0 : t - armedAt
 
-      const area = areaRef.current
-      const zone = zoneRef.current
-      if (area && zone) {
+      const area = board.current?.area
+      // The ring picks up speed across the card, so holding it at the end is a
+      // different ask from holding it at the start.
+      const ring = paintZone(board.current, {
+        at: drifted(elapsed, card.durationMs),
+        params,
+        variation,
+      })
+      if (area && ring) {
         const rect = area.getBoundingClientRect()
-        const size = Math.min(rect.width, rect.height)
-        const radius = params.zoneRadius * size
-        // Both axes travel the same square region, so the drift is not twice
-        // as fast down the long side of the pad.
-        const span = size / 2 - radius
-        // The ring picks up speed across the card, so holding it at the end
-        // is a different ask from holding it at the start.
-        const offset = zoneAt(drifted(elapsed, card.durationMs), params, variation)
-        const cx = rect.width / 2 + offset.x * span
-        const cy = rect.height / 2 + offset.y * span
-
-        zone.style.width = `${radius * 2}px`
-        zone.style.height = `${radius * 2}px`
-        zone.style.transform = `translate(${cx - radius}px, ${cy - radius}px)`
+        const { cx, cy, radius } = ring
 
         const p = pointer.current
         const inside =
@@ -95,8 +89,11 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
           inTick.current += banked
         }
 
-        zone.dataset.inside = String(inside)
-        zone.dataset.live = String(armedAt !== null)
+        const zone = board.current?.zone
+        if (zone) {
+          zone.dataset.inside = String(inside)
+          zone.dataset.live = String(armedAt !== null)
+        }
       }
 
       if (rootRef.current) rootRef.current.dataset.live = String(armedAt !== null)
@@ -173,22 +170,15 @@ export function QteControl({ card, params, startedAt, variation, onResult }: Pro
       </div>
       <QteMeter run={run} unit={t('qte.unit.held')} />
 
-      <div
-        ref={areaRef}
-        className="qte__area"
-        onPointerDown={grab}
-        onPointerMove={track}
-        onPointerUp={release}
-        onPointerCancel={release}
-      >
-        {/* The wrapper owns the position and nothing else. Anything that
-            animates lives on the ring inside it — a keyframe touching
-            `transform` out here would fight the inline one and walk the
-            target across the pad. */}
-        <div ref={zoneRef} className="zone" data-live="false">
-          <div className="zone__ring" />
-        </div>
-      </div>
+      <ZoneBoard
+        ref={board}
+        handlers={{
+          onPointerDown: grab,
+          onPointerMove: track,
+          onPointerUp: release,
+          onPointerCancel: release,
+        }}
+      />
     </div>
   )
 }

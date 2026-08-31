@@ -3,10 +3,12 @@ import { play } from '../../audio/engine'
 import { now, stamp } from '../../state/store'
 import type { Card, Judgement, LanesParams, QteOutcome } from '../../engine/types'
 import { useI18n } from '../../i18n'
+import { paintLanes, type LanesHandle } from './boardPaint'
+import { LanesBoard } from './boards'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
-import { chart, noteProgress, strikeAt } from './lanes'
+import { chart, strikeAt } from './lanes'
 
 interface Props {
   card: Card
@@ -15,12 +17,6 @@ interface Props {
   variation: number
   onResult: (outcome: QteOutcome) => void
 }
-
-/**
- * How far down a lane the hit line sits. Low, because that is where the thumb
- * already is: notes fall toward it with the whole lane above as warning.
- */
-const LINE = 0.78
 
 export function QteLanes({ card, params, startedAt, variation, onResult }: Props) {
   const { t } = useI18n()
@@ -34,10 +30,7 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
   const rootRef = useRef<HTMLDivElement>(null)
   const armRef = useRef<HTMLElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
-  const laneNodes = useRef<(HTMLButtonElement | null)[]>([])
-  const lineRefs = useRef<(HTMLSpanElement | null)[]>([])
-  const boardRef = useRef<HTMLDivElement>(null)
-  const noteRefs = useRef<(HTMLSpanElement | null)[]>([])
+  const board = useRef<LanesHandle>(null)
   /** When the last tap into an empty lane was charged. See `EMPTY_GUARD_MS`. */
   const lastEmpty = useRef(Number.NEGATIVE_INFINITY)
 
@@ -69,16 +62,11 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
       const left = armedAt === null ? 1 : 1 - elapsed / card.durationMs
       if (timeRef.current) timeRef.current.style.transform = `scaleX(${Math.max(0, left)})`
 
-      // One layout read for the whole board rather than one per note.
-      const height = boardRef.current?.clientHeight ?? 0
+      paintLanes(board.current, { elapsed, notes, params, parked: armedAt === null })
 
       notes.forEach((note, i) => {
-        const node = noteRefs.current[i]
+        const node = board.current?.notes[i]
         if (!node) return
-        // Parked at the top until the board starts moving.
-        const at = armedAt === null ? 1 : noteProgress(note, elapsed, params.travelMs)
-        node.style.transform = `translateY(${(LINE - at * LINE) * height}px)`
-
         // Once it is past the window it can no longer be hit; count it lost.
         if (armedAt !== null && !settled.current.has(i) && elapsed - note.atMs > params.goodMs) {
           settled.current.set(i, 'MISS')
@@ -86,7 +74,7 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
           // so the meter shows a dropped note the moment it goes past.
           run.beat('missed')
           node.dataset.hit = 'MISS'
-          flash(laneNodes.current[note.lane], 'MISS')
+          flash(board.current?.lanes[note.lane] ?? null, 'MISS')
         }
       })
 
@@ -131,7 +119,7 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
         lastEmpty.current = elapsed
         run.beat('missed')
       }
-      flash(laneNodes.current[lane], 'DEAD')
+      flash(board.current?.lanes[lane] ?? null, 'DEAD')
       play('dead')
       return
     }
@@ -139,10 +127,10 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
     const hit = result.grade
     settled.current.set(result.note, hit)
     run.beat(hit === 'PERFECT' ? 'clean' : hit === 'GOOD' ? 'scrappy' : 'missed')
-    const node = noteRefs.current[result.note]
+    const node = board.current?.notes[result.note]
     if (node) node.dataset.hit = hit
-    flash(laneNodes.current[lane], hit)
-    flash(lineRefs.current[lane], hit)
+    flash(board.current?.lanes[lane] ?? null, hit)
+    flash(board.current?.lines[lane] ?? null, hit)
     play(hit === 'MISS' ? 'dead' : 'tap')
   }
 
@@ -162,38 +150,7 @@ export function QteLanes({ card, params, startedAt, variation, onResult }: Props
 
       <QteMeter run={run} unit={t('qte.unit.notes')} />
 
-      <div className="lanes" ref={boardRef}>
-        {Array.from({ length: params.lanes }, (_, lane) => (
-          <button
-            key={lane}
-            type="button"
-            className="lanes__lane"
-            ref={(node) => {
-              laneNodes.current[lane] = node
-            }}
-            onPointerDown={strike(lane)}
-          >
-            <span
-              ref={(node) => {
-                lineRefs.current[lane] = node
-              }}
-              className="lanes__line"
-              style={{ top: `${LINE * 100}%` }}
-            />
-            {notes.map((note, i) =>
-              note.lane === lane ? (
-                <span
-                  key={i}
-                  ref={(node) => {
-                    noteRefs.current[i] = node
-                  }}
-                  className="lanes__note"
-                />
-              ) : null,
-            )}
-          </button>
-        ))}
-      </div>
+      <LanesBoard params={params} notes={notes} onLane={strike} ref={board} />
     </div>
   )
 }

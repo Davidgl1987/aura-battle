@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { now, stamp } from '../../state/store'
 import type { Card, OrderParams, QteOutcome } from '../../engine/types'
 import { useI18n } from '../../i18n'
+import type { OrderHandle } from './boardPaint'
+import { OrderBoard } from './boards'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
@@ -45,7 +47,7 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
   const armRef = useRef<HTMLElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
   const [taken, setTaken] = useState(0)
-  const padRef = useRef<HTMLDivElement>(null)
+  const board = useRef<OrderHandle>(null)
 
   /**
    * Every number goes red for a moment. Clearing the attribute and reading a
@@ -53,7 +55,7 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
    * slip changes nothing and the animation never plays again.
    */
   const flashPad = () => {
-    const pad = padRef.current
+    const pad = board.current?.pad
     if (!pad) return
     pad.dataset.wrong = ''
     void pad.offsetWidth
@@ -149,20 +151,7 @@ export function QteOrder({ card, params, startedAt, variation, onResult }: Props
 
       <QteMeter run={run} unit={t('qte.unit.numbers')} />
 
-      <div className="qte__area order" ref={padRef}>
-        {spots.map((spot) => (
-          <button
-            key={spot.n}
-            type="button"
-            className="order__key"
-            data-next={spot.n === taken + 1}
-            style={{ left: `${spot.x * 100}%`, top: `${spot.y * 100}%` }}
-            onPointerDown={press(spot.n)}
-          >
-            {spot.n}
-          </button>
-        ))}
-      </div>
+      <OrderBoard spots={spots} next={taken + 1} onKey={press} ref={board} />
     </div>
   )
 }

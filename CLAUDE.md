@@ -25,6 +25,9 @@ fast; there is no reason to skip one.
   is a reducer. `balance.ts` holds every tunable number.
 - `src/ui/qte/` — one widget per minigame, plus the pure maths behind each in a
   sibling module (`timing.ts`, `lanes.ts`, `speed.ts`, `control.ts`, `paths.ts`).
+  The boards themselves live once, in `boards.tsx` / `boardPaint.ts`: the card
+  and its tutorial render the same components from the same geometry, so a
+  change to one cannot leave the other showing a gesture the game does not have.
 - `src/scene/` — the react-three-fiber stage. A pose is fifteen numbers.
 - `src/state/` — zustand store, the rAF clock, and the only thing that survives
   closing the tab (`useProgress.ts`).

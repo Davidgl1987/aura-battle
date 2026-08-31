@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import { now, stamp } from '../../state/store'
 import type { Card, QteOutcome, SpeedParams } from '../../engine/types'
 import { useI18n } from '../../i18n'
+import { PadsBoard } from './boards'
+import { padLabel } from './speed'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import { useArming } from './arming'
@@ -81,11 +83,6 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
     run.beat('clean')
   }
 
-  const zones = Array.from({ length: params.pads }, (_, i) => i)
-  /** Left, middle, right — or just the two hands, or the one pad. */
-  const label = (zone: number) =>
-    params.pads === 1 ? 'TAP' : params.pads === 2 ? (zone === 0 ? 'L' : 'R') : 'LMR'[zone]
-
   return (
     <div className="qte" ref={rootRef} data-live="false">
       <div className="qte__title">
@@ -109,13 +106,7 @@ export function QteSpeed({ card, params, startedAt, onResult }: Props) {
 
       <QteMeter run={run} unit={t('qte.unit.taps')} />
 
-      <div className="qte__pads">
-        {zones.map((zone) => (
-          <button key={zone} className="pad" onPointerDown={tap(zone)}>
-            {label(zone)}
-          </button>
-        ))}
-      </div>
+      <PadsBoard params={params} label={padLabel} onPad={tap} />
     </div>
   )
 }

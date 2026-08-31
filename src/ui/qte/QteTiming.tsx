@@ -4,14 +4,14 @@ import type { Card, QteOutcome, TimingParams } from '../../engine/types'
 import { useArming } from './arming'
 import { play } from '../../audio/engine'
 import { useI18n } from '../../i18n'
+import { paintSweep, type SweepHandle } from './boardPaint'
+import { SweepBoard } from './boards'
 import { useRun } from './run'
 import { QteMeter } from './QteMeter'
 import {
-  cursorAt,
   startEdge,
   gradeHit,
   startPhase,
-  zoneCentres,
   zoneErrorAt,
   zoneTripAt,
 } from './timing'
@@ -40,10 +40,9 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
 
   const rootRef = useRef<HTMLDivElement>(null)
   const armRef = useRef<HTMLElement>(null)
-  const cursorRef = useRef<HTMLDivElement>(null)
+  const board = useRef<SweepHandle>(null)
   const timeRef = useRef<HTMLDivElement>(null)
   const hitsRef = useRef<HTMLDivElement>(null)
-  const barRef = useRef<HTMLDivElement>(null)
 
   // One pace from the first frame to the last. The bar used to tighten with
   // every landed tap, which made the same input worth less the better you were
@@ -80,7 +79,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
    * changes nothing and never plays.
    */
   const pulse = (kind: string) => {
-    const node = barRef.current
+    const node = board.current?.bar ?? null
     if (!node) return
     node.dataset.flash = ''
     void node.offsetWidth
@@ -98,8 +97,12 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
 
       // Parked at the end it will set off from, so the cursor never appears to
       // jump when the bar goes live.
-      const x = armedAt === null ? startEdge(variation) : cursorAt(t, phase.current, params.sweepMs)
-      if (cursorRef.current) cursorRef.current.style.left = `${x * 100}%`
+      paintSweep(board.current, {
+        t,
+        phase: phase.current,
+        params,
+        parkedAt: armedAt === null ? startEdge(variation) : null,
+      })
       if (rootRef.current) rootRef.current.dataset.live = String(armedAt !== null)
       if (armRef.current) armRef.current.textContent = `${(arming.countdown(t) / 1000).toFixed(1)}s`
       run.paint(rootRef.current)
@@ -115,7 +118,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [startedAt, card.durationMs, params.sweepMs, variation, arming, begin, run])
+  }, [startedAt, card.durationMs, params, variation, arming, begin, run])
 
   const tap = (event: React.PointerEvent) => {
     // No ceiling: answer the bar as many times as it comes past.
@@ -158,13 +161,6 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
     if (dot) dot.dataset.hit = hit
   }
 
-  // The cursor covers the whole bar in one sweep, so a window measured in
-  // milliseconds is a share of the width. Doubled because the numbers are
-  // half-widths: the window opens on both sides of the zone.
-  const goodWidth = (params.goodMs / params.sweepMs) * 200
-  const perfectWidth = (params.perfectMs / params.sweepMs) * 200
-  const centres = zoneCentres(params.zones)
-
   return (
     <div className="qte" ref={rootRef} data-live="false" data-perfect="true" onPointerDown={tap}>
       <div className="qte__title">
@@ -179,29 +175,7 @@ export function QteTiming({ card, params, startedAt, variation, onResult }: Prop
         <div ref={timeRef} className="qte__timer-fill" />
       </div>
 
-      <div className="qte__bar" ref={barRef}>
-        {/* Amber outside, green inside. Landing on the amber still scores, and
-            it is also the moment a flawless run stops being one — so it is
-            drawn as the border of the target rather than as a target of its
-            own. Both are placed against the bar itself: the widths are shares
-            of the bar, so a wrapper of its own would have nothing to be a
-            share of. */}
-        {centres.map((centre, i) => (
-          <div
-            key={`good-${i}`}
-            className="qte__zone qte__zone--good"
-            style={{ left: `${centre * 100}%`, width: `${goodWidth}%` }}
-          />
-        ))}
-        {centres.map((centre, i) => (
-          <div
-            key={`perfect-${i}`}
-            className="qte__zone qte__zone--perfect"
-            style={{ left: `${centre * 100}%`, width: `${perfectWidth}%` }}
-          />
-        ))}
-        <div ref={cursorRef} className="qte__cursor" />
-      </div>
+      <SweepBoard params={params} ref={board} />
 
       {/* One dot per pass the bar makes, so the count you are keeping is the
           same count the card is keeping. */}

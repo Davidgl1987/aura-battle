@@ -2907,436 +2907,98 @@
   text-wrap: balance;
 }
 
-/* The stage the hand moves over: enough of the real widget to recognise it a
-   second later, and no more. */
+/*
+ * The demo is the card's own board, at the card's own scale, with a hand over
+ * it. There is no second drawing of a bar or a chart or a set of wheels here —
+ * that is what drifted, and badly: the drive-test demo ended up showing two
+ * upright bars with a finger in each, a gesture the game does not have.
+ *
+ * So this only has to give the real board a frame to sit in and hold the hand
+ * above it. Everything inside is styled by the rules the card already uses.
+ */
 .tutorial__demo {
   position: relative;
   width: 100%;
-  height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  /* Room under the board for the hand, which hangs below the point it is
+     pointing at. */
+  padding: 10px 10px 30px;
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.28);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* A board is built for a whole phone; here it is an illustration. */
+  --demo-scale: 0.62;
 }
+.tutorial__demo .qte__bar {
+  height: 34px;
+}
+/* Near the proportions the real console gives them. Squashed to a wide strip a
+   winding corridor reads as a blob and a falling note has no run-up. */
+.tutorial__demo .lanes,
+.tutorial__demo .qte__area,
+.tutorial__demo .drive {
+  width: 100%;
+  max-width: 230px;
+  height: 200px;
+}
+.tutorial__demo .drive {
+  max-width: 260px;
+}
+.tutorial__demo .drive__wheels {
+  max-width: 260px;
+}
+.tutorial__demo .qte__pads {
+  height: 96px;
+}
+.tutorial__demo .order__key {
+  width: 38px;
+  height: 38px;
+  font-size: 15px;
+}
+.tutorial__demo .drive__wheels {
+  height: 38px;
+}
+.tutorial__demo .drive__knob {
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+}
+.tutorial__demo .pad {
+  font-size: 16px;
+}
+/* Lit by the demo's own walk, since nothing is really being tapped. */
+.tutorial__demo .pad[data-lit='true'] {
+  background: var(--speed);
+  color: #2a1c00;
+}
+/* The wheels and the pads need a positioned frame for the hand to measure
+   against; the boards that already have one are left alone. */
+.tutorial__host {
+  position: relative;
+  width: 100%;
+}
+
+/*
+ * Placed in pixels by the demo, from whatever the board's geometry returned.
+ * `left`/`top` name the point the finger is pointing at; the glyph hangs below
+ * it, centred, so a demo can aim at a target's centre rather than at a corner
+ * of the emoji's box.
+ */
 .tutorial__hand {
   position: absolute;
-  font-size: 32px;
+  left: 0;
+  top: 0;
+  font-size: 30px;
   line-height: 1;
   pointer-events: none;
   z-index: 2;
-  /* `left`/`top` name the point the finger is pointing at. The glyph hangs
-     below it, centred, so a stage can aim at a target's centre rather than at
-     a corner of the emoji's box. */
   transform: translate(-50%, -6%);
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
 }
 .tutorial__hand::before {
   content: '👆';
-}
-
-/* --- sweep: tap as it crosses the green --- */
-.demo-bar {
-  position: relative;
-  width: 84%;
-  height: 38px;
-  border-radius: 8px;
-  background: #2a2148;
-}
-.demo-bar__zone {
-  position: absolute;
-  inset: 0 auto 0 50%;
-  width: 22%;
-  transform: translateX(-50%);
-  border-radius: 6px;
-  background: rgba(74, 222, 128, 0.45);
-}
-.demo-bar__cursor {
-  position: absolute;
-  top: -4px;
-  bottom: -4px;
-  width: 3px;
-  background: #fff;
-  animation: demo-sweep 2.2s ease-in-out infinite alternate;
-}
-@keyframes demo-sweep {
-  from {
-    left: 8%;
-  }
-  to {
-    left: 92%;
-  }
-}
-/* The hand meets the cursor in the middle and taps exactly there. */
-.demo-bar .tutorial__hand {
-  left: 50%;
-  top: 62%;
-  animation: demo-tap-centre 2.2s ease-in-out infinite;
-}
-@keyframes demo-tap-centre {
-  0%,
-  38%,
-  62%,
-  100% {
-    transform: translate(-50%, 8px) scale(1);
-    opacity: 0.55;
-  }
-  48%,
-  52% {
-    transform: translate(-50%, -6%) scale(0.88);
-    opacity: 1;
-  }
-}
-
-/* --- lanes: hit the note on the line --- */
-.demo-lanes {
-  display: flex;
-  gap: 6px;
-  width: 84%;
-  height: 84%;
-}
-.demo-lanes__lane {
-  position: relative;
-  flex: 1;
-  border-radius: 8px;
-  background: #241c44;
-}
-.demo-lanes__line {
-  position: absolute;
-  left: 6%;
-  right: 6%;
-  top: 74%;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.35);
-}
-.demo-lanes__note {
-  position: absolute;
-  left: 18%;
-  right: 18%;
-  height: 14px;
-  border-radius: 4px;
-  background: var(--perfect);
-  animation: demo-fall 1.8s linear infinite;
-}
-@keyframes demo-fall {
-  from {
-    top: -14px;
-  }
-  to {
-    top: 74%;
-  }
-}
-.demo-lanes .tutorial__hand {
-  left: 50%;
-  top: 74%;
-  animation: demo-strike 1.8s linear infinite;
-}
-@keyframes demo-strike {
-  0%,
-  84% {
-    transform: translate(-50%, 14px);
-    opacity: 0.5;
-  }
-  92%,
-  99% {
-    transform: translate(-50%, -6%);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, 14px);
-    opacity: 0.5;
-  }
-}
-
-/* --- mash: walk the pads, never the same one twice --- */
-.demo-pads {
-  display: flex;
-  gap: 8px;
-  width: 84%;
-  height: 70%;
-}
-.demo-pads__pad {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  border: 2px solid var(--speed);
-  background: rgba(31, 24, 56, 0.55);
-  font-size: 18px;
-}
-.demo-pads__pad:nth-child(1) {
-  animation: demo-lit 2.4s steps(1) infinite;
-}
-.demo-pads__pad:nth-child(2) {
-  animation: demo-lit 2.4s steps(1) infinite -0.6s;
-}
-.demo-pads__pad:nth-child(3) {
-  animation: demo-lit 2.4s steps(1) infinite -1.2s;
-}
-@keyframes demo-lit {
-  0%,
-  24% {
-    background: var(--speed);
-    color: #2a1c00;
-  }
-  25%,
-  100% {
-    background: rgba(31, 24, 56, 0.55);
-    color: inherit;
-  }
-}
-/* Left, middle, right, middle — the walk the card actually asks for. */
-.demo-pads .tutorial__hand {
-  top: 58%;
-  animation: demo-walk 2.4s steps(1) infinite;
-}
-@keyframes demo-walk {
-  0% {
-    left: 25%;
-  }
-  25% {
-    left: 50%;
-  }
-  50% {
-    left: 75%;
-  }
-  75% {
-    left: 50%;
-  }
-}
-
-/* --- order: 1, 2, 3 wherever they landed --- */
-.demo-order {
-  position: relative;
-  width: 84%;
-  height: 84%;
-}
-.demo-order__key {
-  position: absolute;
-  width: 34px;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  border: 2px solid var(--speed);
-  font-size: 15px;
-}
-.demo-order__key:nth-child(1) {
-  left: 8%;
-  top: 55%;
-}
-.demo-order__key:nth-child(2) {
-  left: 62%;
-  top: 8%;
-}
-.demo-order__key:nth-child(3) {
-  left: 30%;
-  top: 20%;
-}
-.demo-order__key:nth-child(4) {
-  left: 74%;
-  top: 60%;
-}
-/* Aimed at the centre of each key: the key's own offset plus half a key. In
-   `calc` against the same box the keys are laid out in, which is exactly what
-   the hand was missing when it hung off the outer frame instead — the finger
-   landed beside the numbers rather than on them. */
-.demo-order .tutorial__hand {
-  animation: demo-order-hop 3.6s steps(1) infinite;
-}
-@keyframes demo-order-hop {
-  0% {
-    left: calc(8% + 17px);
-    top: calc(55% + 17px);
-  }
-  25% {
-    left: calc(62% + 17px);
-    top: calc(8% + 17px);
-  }
-  50% {
-    left: calc(30% + 17px);
-    top: calc(20% + 17px);
-  }
-  75% {
-    left: calc(74% + 17px);
-    top: calc(60% + 17px);
-  }
-}
-
-/* --- zone: keep the finger on a ring that drifts --- */
-.demo-zone {
-  position: relative;
-  width: 84%;
-  height: 84%;
-}
-.demo-zone__ring {
-  position: absolute;
-  width: 66px;
-  height: 66px;
-  margin: -33px 0 0 -33px;
-  border-radius: 999px;
-  border: 2px dashed var(--control);
-  background: rgba(167, 139, 250, 0.14);
-  animation: demo-drift 4.2s ease-in-out infinite;
-}
-@keyframes demo-drift {
-  0%,
-  100% {
-    left: 28%;
-    top: 34%;
-  }
-  33% {
-    left: 72%;
-    top: 60%;
-  }
-  66% {
-    left: 46%;
-    top: 24%;
-  }
-}
-/* The hand rides with it: the gesture is following, not tapping. */
-.demo-zone .tutorial__hand {
-  animation: demo-drift 4.2s ease-in-out infinite;
-  opacity: 0.95;
-}
-
-/* --- paths: two lanes winding past, and a wheel under each to steer with --- */
-/* The thumbs never touch the lanes. They sit on the wheels below, which is the
-   whole shape of the gesture and the thing the old drawing got wrong: it showed
-   two upright bars with a finger inside each, so somebody who had read it would
-   have reached for the wrong half of the screen. */
-.demo-drive {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 84%;
-  height: 88%;
-}
-.demo-drive__track {
-  position: relative;
-  flex: 1;
-  border-radius: 8px;
-  background: rgba(31, 24, 56, 0.5);
-  border: 2px solid var(--control);
-  overflow: hidden;
-}
-.demo-drive__lanes {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.demo-drive__lane {
-  fill: none;
-  stroke: rgba(226, 222, 245, 0.82);
-  stroke-width: 14;
-  stroke-linecap: round;
-}
-/* Two wavelengths are drawn; scrolling by exactly one loops with no seam. */
-.demo-drive__scroll {
-  animation: demo-scroll 3.6s linear infinite;
-}
-@keyframes demo-scroll {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(120px);
-  }
-}
-/* The diamond the real track puts on each lane to show where your thumb is. */
-.demo-drive__mark {
-  position: absolute;
-  top: 56%;
-  width: 16px;
-  height: 16px;
-  margin-left: -8px;
-  border-radius: 5px;
-  border: 2px solid var(--perfect);
-  background: rgba(11, 7, 19, 0.72);
-}
-/* Linear, like the scroll it is tracking: any easing here and the diamond
-   drifts off the lane between keyframes. */
-.demo-drive__mark--left {
-  animation: demo-steer-left 4.2s linear infinite;
-}
-.demo-drive__mark--right {
-  animation: demo-steer-right 4.2s linear infinite;
-}
-/* A mark and the knob under it run on one keyframe set each, because one is
-   driving the other. Same period as the scroll, so the diamond keeps its lane. */
-/* Where the lane actually is at the mark's height, sampled from the same sine
-   the path is drawn from: x = 28 + 12·sin(π(y + 60) / 60), read at y = 33.6 as
-   the group scrolls a full wavelength. Eyeballing these is what put the
-   diamonds on the wrong side of their lanes. */
-@keyframes demo-steer-left {
-  0%,
-  100% {
-    left: 16.2%;
-  }
-  25% {
-    left: 25.8%;
-  }
-  50% {
-    left: 39.8%;
-  }
-  75% {
-    left: 30.2%;
-  }
-}
-@keyframes demo-steer-right {
-  0%,
-  100% {
-    left: 83.8%;
-  }
-  25% {
-    left: 74.2%;
-  }
-  50% {
-    left: 60.2%;
-  }
-  75% {
-    left: 69.8%;
-  }
-}
-
-.demo-drive__wheels {
-  display: flex;
-  gap: 6px;
-  height: 40px;
-}
-.demo-drive__wheel {
-  position: relative;
-  flex: 1;
-  border-radius: 8px;
-  background: rgba(31, 24, 56, 0.75);
-  border: 2px solid #3b2f63;
-}
-.demo-drive__knob {
-  position: absolute;
-  top: 50%;
-  width: 24px;
-  height: 24px;
-  margin-top: -12px;
-  margin-left: -12px;
-  border-radius: 50%;
-  background: var(--panel-2);
-  border: 2px solid var(--control);
-}
-.demo-drive__wheel:nth-child(1) .demo-drive__knob,
-.demo-drive__wheel:nth-child(1) .tutorial__hand {
-  animation: demo-steer-left 4.2s linear infinite;
-}
-.demo-drive__wheel:nth-child(2) .demo-drive__knob,
-.demo-drive__wheel:nth-child(2) .tutorial__hand {
-  animation: demo-steer-right 4.2s linear infinite;
-}
-.demo-drive__wheel .tutorial__hand {
-  top: 40%;
-  font-size: 24px;
 }
 
 @media (prefers-reduced-motion: reduce) {

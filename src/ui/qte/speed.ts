@@ -29,3 +29,11 @@ export function countsAsTap(zone: number, lastZone: number | null, pads: number)
   if (pads <= 1 || lastZone === null) return true
   return Math.abs(zone - lastZone) === 1
 }
+
+/**
+ * What a pad is called: left, middle, right — or just the two hands, or the one
+ * pad. Shared so the tutorial names them the way the card does.
+ */
+export function padLabel(zone: number, pads: number): string {
+  return pads === 1 ? 'TAP' : pads === 2 ? (zone === 0 ? 'L' : 'R') : 'LMR'[zone]
+}

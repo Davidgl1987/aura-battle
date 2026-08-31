@@ -113,6 +113,28 @@ on screen is indistinguishable from one the phone missed.
 Both ways of starting — the first touch, and the automatic start after
 `QTE_ARM_MS` — go through one `begin()`, so they produce identical state.
 
+## One drawing of each board
+
+`boards.tsx` holds the six boards as presentational components — the bar and its
+zones, the lanes, the pads, the number pad, the ring, the track and its wheels —
+and `boardPaint.ts` holds the one `paint` per board that positions whatever
+moves, from the same pure geometry the card is graded on.
+
+The widget wraps a board and grades what happens on it. **The tutorial wraps the
+same board** and moves a scripted hand over it, on a clock of its own because
+the game's is deliberately stopped behind it. Neither draws its own version.
+
+That is not tidiness, it is the fix for a real bug. The tutorial used to draw
+each minigame again in CSS keyframes, and the drawings drifted: the drive-test
+one ended up showing two upright bars with a finger in each, which is not a
+gesture this game has — the thumbs never touch the lanes, they sit on the wheels
+below and steer. `boards.test.ts` fails if a board's class names appear anywhere
+but `boards.tsx`.
+
+The hand is placed from `getBoundingClientRect()` of the target the geometry
+returned, never from a tuned offset. Move a zone, widen a lane, rescatter the
+numbers, and the finger follows without anybody adjusting a keyframe.
+
 ## Every widget follows the same shape
 
 ```
