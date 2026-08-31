@@ -30,7 +30,6 @@ export function QteTutorial({ game, onDismiss }: Props) {
             cannot carry. */}
         <div className="tutorial__demo" data-game={game} aria-hidden>
           <TutorialStage game={game} />
-          <span className="tutorial__hand" />
         </div>
 
         <p className="tutorial__text">{t(`tutorial.${game}`)}</p>
@@ -47,6 +46,12 @@ export function QteTutorial({ game, onDismiss }: Props) {
  * The board the hand is moving over, drawn small and still. Enough of the real
  * widget to recognise it when it appears a second later, and no more — this is
  * a diagram, not a rehearsal.
+ *
+ * Each stage carries its own hand rather than the card holding one for all of
+ * them. The hand has to be positioned in the same box as the thing it is
+ * pointing at: hanging it off the outer frame while the numbers were laid out
+ * inside an inset one meant two different coordinate spaces, and the finger
+ * landed next to the keys instead of on them.
  */
 function TutorialStage({ game }: { game: QteGame }) {
   switch (game) {
@@ -55,6 +60,7 @@ function TutorialStage({ game }: { game: QteGame }) {
         <span className="demo-bar">
           <span className="demo-bar__zone" />
           <span className="demo-bar__cursor" />
+          <span className="tutorial__hand" />
         </span>
       )
     case 'lanes':
@@ -66,6 +72,7 @@ function TutorialStage({ game }: { game: QteGame }) {
               {i === 1 && <span className="demo-lanes__note" />}
             </span>
           ))}
+          <span className="tutorial__hand" />
         </span>
       )
     case 'mash':
@@ -76,30 +83,88 @@ function TutorialStage({ game }: { game: QteGame }) {
               {label}
             </span>
           ))}
+          <span className="tutorial__hand" />
         </span>
       )
     case 'order':
       return (
         <span className="demo-order">
           {[1, 2, 3, 4].map((n) => (
-            <span key={n} className="demo-order__key" style={{ '--n': n } as React.CSSProperties}>
+            <span key={n} className="demo-order__key">
               {n}
             </span>
           ))}
+          <span className="tutorial__hand" />
         </span>
       )
     case 'zone':
       return (
         <span className="demo-zone">
           <span className="demo-zone__ring" />
+          <span className="tutorial__hand" />
         </span>
       )
     case 'paths':
-      return (
-        <span className="demo-paths">
-          <span className="demo-paths__lane" />
-          <span className="demo-paths__lane" />
-        </span>
-      )
+      return <DriveDemo />
   }
 }
+
+/**
+ * The drive test: two lanes winding past above, a diamond on each showing where
+ * your thumb has put it, and a wheel under each to slide it back on.
+ *
+ * It used to be drawn as two upright bars with a finger in each, which is not
+ * the gesture at all — the thumbs never touch the lanes, they sit on the wheels
+ * below and steer. Somebody who had read that tutorial would have reached for
+ * the wrong half of the screen.
+ */
+function DriveDemo() {
+  return (
+    <span className="demo-drive">
+      <span className="demo-drive__track">
+        <svg className="demo-drive__lanes" viewBox="0 0 100 60" preserveAspectRatio="none">
+          {/* Two wavelengths tall and scrolled by exactly one, so the loop has
+              no seam. The marks below swing on the same period. */}
+          <g className="demo-drive__scroll">
+            <path className="demo-drive__lane" d={LANE_LEFT} />
+            <path className="demo-drive__lane" d={LANE_RIGHT} />
+          </g>
+        </svg>
+        <span className="demo-drive__mark demo-drive__mark--left" />
+        <span className="demo-drive__mark demo-drive__mark--right" />
+      </span>
+
+      <span className="demo-drive__wheels">
+        <span className="demo-drive__wheel">
+          <span className="demo-drive__knob" />
+          <span className="tutorial__hand tutorial__hand--left" />
+        </span>
+        <span className="demo-drive__wheel">
+          <span className="demo-drive__knob" />
+          <span className="tutorial__hand tutorial__hand--right" />
+        </span>
+      </span>
+    </span>
+  )
+}
+
+/**
+ * One lane, drawn over two full waves so scrolling by one leaves the shape
+ * exactly where it started. `C` curves rather than straight segments, because
+ * the real track is a spline and a zigzag reads as a different gesture.
+ */
+const lane = (x: number, amp: number, phase: number) => {
+  const at = (i: number) => x + amp * Math.sin(phase + (i * Math.PI) / 2)
+  return (
+    `M ${at(0)} -60` +
+    ` C ${at(0)} -45, ${at(1)} -45, ${at(1)} -30` +
+    ` C ${at(1)} -15, ${at(2)} -15, ${at(2)} 0` +
+    ` C ${at(2)} 15, ${at(3)} 15, ${at(3)} 30` +
+    ` C ${at(3)} 45, ${at(4)} 45, ${at(4)} 60` +
+    ` C ${at(4)} 75, ${at(5)} 75, ${at(5)} 90` +
+    ` C ${at(5)} 105, ${at(6)} 105, ${at(6)} 120`
+  )
+}
+
+const LANE_LEFT = lane(28, 12, 0)
+const LANE_RIGHT = lane(72, 12, Math.PI)

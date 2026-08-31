@@ -2898,13 +2898,14 @@
 }
 .tutorial__hand {
   position: absolute;
-  width: 40px;
-  height: 40px;
-  margin: -6px 0 0 -6px;
-  font-size: 34px;
+  font-size: 32px;
   line-height: 1;
   pointer-events: none;
   z-index: 2;
+  /* `left`/`top` name the point the finger is pointing at. The glyph hangs
+     below it, centred, so a stage can aim at a target's centre rather than at
+     a corner of the emoji's box. */
+  transform: translate(-50%, -6%);
 }
 .tutorial__hand::before {
   content: '👆';
@@ -2943,9 +2944,9 @@
   }
 }
 /* The hand meets the cursor in the middle and taps exactly there. */
-[data-game='sweep'] .tutorial__hand {
+.demo-bar .tutorial__hand {
   left: 50%;
-  top: 58%;
+  top: 62%;
   animation: demo-tap-centre 2.2s ease-in-out infinite;
 }
 @keyframes demo-tap-centre {
@@ -2953,12 +2954,12 @@
   38%,
   62%,
   100% {
-    transform: translateY(10px) scale(1);
+    transform: translate(-50%, 8px) scale(1);
     opacity: 0.55;
   }
   48%,
   52% {
-    transform: translateY(0) scale(0.86);
+    transform: translate(-50%, -6%) scale(0.88);
     opacity: 1;
   }
 }
@@ -3002,25 +3003,24 @@
     top: 74%;
   }
 }
-[data-game='lanes'] .tutorial__hand {
+.demo-lanes .tutorial__hand {
   left: 50%;
   top: 74%;
-  margin-left: -14px;
   animation: demo-strike 1.8s linear infinite;
 }
 @keyframes demo-strike {
   0%,
   84% {
-    transform: translateY(14px);
+    transform: translate(-50%, 14px);
     opacity: 0.5;
   }
   92%,
   99% {
-    transform: translateY(0);
+    transform: translate(-50%, -6%);
     opacity: 1;
   }
   100% {
-    transform: translateY(14px);
+    transform: translate(-50%, 14px);
     opacity: 0.5;
   }
 }
@@ -3064,8 +3064,8 @@
   }
 }
 /* Left, middle, right, middle — the walk the card actually asks for. */
-[data-game='mash'] .tutorial__hand {
-  top: 56%;
+.demo-pads .tutorial__hand {
+  top: 58%;
   animation: demo-walk 2.4s steps(1) infinite;
 }
 @keyframes demo-walk {
@@ -3116,25 +3116,29 @@
   left: 74%;
   top: 60%;
 }
-[data-game='order'] .tutorial__hand {
-  animation: demo-order-hop 3.2s steps(1) infinite;
+/* Aimed at the centre of each key: the key's own offset plus half a key. In
+   `calc` against the same box the keys are laid out in, which is exactly what
+   the hand was missing when it hung off the outer frame instead — the finger
+   landed beside the numbers rather than on them. */
+.demo-order .tutorial__hand {
+  animation: demo-order-hop 3.6s steps(1) infinite;
 }
 @keyframes demo-order-hop {
   0% {
-    left: 16%;
-    top: 66%;
+    left: calc(8% + 17px);
+    top: calc(55% + 17px);
   }
   25% {
-    left: 70%;
-    top: 19%;
+    left: calc(62% + 17px);
+    top: calc(8% + 17px);
   }
   50% {
-    left: 38%;
-    top: 31%;
+    left: calc(30% + 17px);
+    top: calc(20% + 17px);
   }
   75% {
-    left: 82%;
-    top: 71%;
+    left: calc(74% + 17px);
+    top: calc(60% + 17px);
   }
 }
 
@@ -3170,57 +3174,145 @@
   }
 }
 /* The hand rides with it: the gesture is following, not tapping. */
-[data-game='zone'] .tutorial__hand {
+.demo-zone .tutorial__hand {
   animation: demo-drift 4.2s ease-in-out infinite;
   opacity: 0.95;
 }
 
-/* --- paths: a thumb in each lane while they wander --- */
-.demo-paths {
-  position: relative;
+/* --- paths: two lanes winding past, and a wheel under each to steer with --- */
+/* The thumbs never touch the lanes. They sit on the wheels below, which is the
+   whole shape of the gesture and the thing the old drawing got wrong: it showed
+   two upright bars with a finger inside each, so somebody who had read it would
+   have reached for the wrong half of the screen. */
+.demo-drive {
   display: flex;
-  gap: 14%;
-  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
   width: 84%;
-  height: 84%;
+  height: 88%;
 }
-.demo-paths__lane {
-  width: 26%;
-  height: 100%;
+.demo-drive__track {
+  position: relative;
+  flex: 1;
   border-radius: 8px;
-  background: rgba(167, 139, 250, 0.16);
+  background: rgba(31, 24, 56, 0.5);
   border: 2px solid var(--control);
+  overflow: hidden;
 }
-.demo-paths__lane:nth-child(1) {
-  animation: demo-wander 3.4s ease-in-out infinite alternate;
+.demo-drive__lanes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
-.demo-paths__lane:nth-child(2) {
-  animation: demo-wander 3.4s ease-in-out infinite alternate-reverse;
+.demo-drive__lane {
+  fill: none;
+  stroke: rgba(226, 222, 245, 0.82);
+  stroke-width: 14;
+  stroke-linecap: round;
 }
-@keyframes demo-wander {
+/* Two wavelengths are drawn; scrolling by exactly one loops with no seam. */
+.demo-drive__scroll {
+  animation: demo-scroll 3.6s linear infinite;
+}
+@keyframes demo-scroll {
   from {
-    transform: translateX(-16px);
+    transform: translateY(0);
   }
   to {
-    transform: translateX(16px);
+    transform: translateY(120px);
   }
 }
-/* Two thumbs, so the single hand is hidden and each lane carries its own. */
-[data-game='paths'] .tutorial__hand {
-  display: none;
-}
-.demo-paths__lane::after {
-  content: '👆';
+/* The diamond the real track puts on each lane to show where your thumb is. */
+.demo-drive__mark {
   position: absolute;
-  bottom: 8%;
-  font-size: 30px;
-  transform: translateX(-50%);
+  top: 56%;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  border-radius: 5px;
+  border: 2px solid var(--perfect);
+  background: rgba(11, 7, 19, 0.72);
 }
-.demo-paths__lane:nth-child(1)::after {
-  left: 24%;
+/* Linear, like the scroll it is tracking: any easing here and the diamond
+   drifts off the lane between keyframes. */
+.demo-drive__mark--left {
+  animation: demo-steer-left 4.2s linear infinite;
 }
-.demo-paths__lane:nth-child(2)::after {
-  left: 76%;
+.demo-drive__mark--right {
+  animation: demo-steer-right 4.2s linear infinite;
+}
+/* A mark and the knob under it run on one keyframe set each, because one is
+   driving the other. Same period as the scroll, so the diamond keeps its lane. */
+/* Where the lane actually is at the mark's height, sampled from the same sine
+   the path is drawn from: x = 28 + 12·sin(π(y + 60) / 60), read at y = 33.6 as
+   the group scrolls a full wavelength. Eyeballing these is what put the
+   diamonds on the wrong side of their lanes. */
+@keyframes demo-steer-left {
+  0%,
+  100% {
+    left: 16.2%;
+  }
+  25% {
+    left: 25.8%;
+  }
+  50% {
+    left: 39.8%;
+  }
+  75% {
+    left: 30.2%;
+  }
+}
+@keyframes demo-steer-right {
+  0%,
+  100% {
+    left: 83.8%;
+  }
+  25% {
+    left: 74.2%;
+  }
+  50% {
+    left: 60.2%;
+  }
+  75% {
+    left: 69.8%;
+  }
+}
+
+.demo-drive__wheels {
+  display: flex;
+  gap: 6px;
+  height: 40px;
+}
+.demo-drive__wheel {
+  position: relative;
+  flex: 1;
+  border-radius: 8px;
+  background: rgba(31, 24, 56, 0.75);
+  border: 2px solid #3b2f63;
+}
+.demo-drive__knob {
+  position: absolute;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  margin-top: -12px;
+  margin-left: -12px;
+  border-radius: 50%;
+  background: var(--panel-2);
+  border: 2px solid var(--control);
+}
+.demo-drive__wheel:nth-child(1) .demo-drive__knob,
+.demo-drive__wheel:nth-child(1) .tutorial__hand {
+  animation: demo-steer-left 4.2s linear infinite;
+}
+.demo-drive__wheel:nth-child(2) .demo-drive__knob,
+.demo-drive__wheel:nth-child(2) .tutorial__hand {
+  animation: demo-steer-right 4.2s linear infinite;
+}
+.demo-drive__wheel .tutorial__hand {
+  top: 40%;
+  font-size: 24px;
 }
 
 @media (prefers-reduced-motion: reduce) {
