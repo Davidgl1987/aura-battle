@@ -190,11 +190,21 @@
   align-items: center;
   justify-content: center;
   padding-left: 46px;
+  padding-right: 8px;
   font-size: 11px;
   letter-spacing: 0.14em;
+  /* One line, and it gives up its letter-spacing before it gives up a word:
+     a rival's name is on the end of this and names are not a fixed length. */
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--muted);
   pointer-events: none;
+}
+@media (max-width: 360px) {
+  .slide__label {
+    letter-spacing: 0.06em;
+  }
 }
 .slide__knob {
   position: relative;
@@ -2986,19 +2996,32 @@
  * it, centred, so a demo can aim at a target's centre rather than at a corner
  * of the emoji's box.
  */
+/*
+ * `left`/`top` are the point the finger is pointing at, and the glyph hangs off
+ * it. Two elements rather than one so those stay separate concerns: the outer
+ * span is the anchor and the demos are free to transform it (a tap dips, a
+ * strike drops), while the inner one carries the one offset that says where the
+ * fingertip sits inside the emoji's own box. Folding both into a single
+ * transform meant every demo that wanted to animate had to restate the offset,
+ * and one of them restated it wrong.
+ */
 .tutorial__hand {
   position: absolute;
   left: 0;
   top: 0;
-  font-size: 30px;
-  line-height: 1;
+  width: 0;
+  height: 0;
   pointer-events: none;
   z-index: 2;
-  transform: translate(-50%, -6%);
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
 }
 .tutorial__hand::before {
   content: '👆';
+  position: absolute;
+  font-size: 30px;
+  line-height: 1;
+  /* Half a glyph left, and up by however far down its box the fingertip is. */
+  transform: translate(-50%, calc(-1 * var(--hand-tip, 20%)));
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
 }
 
 @media (prefers-reduced-motion: reduce) {

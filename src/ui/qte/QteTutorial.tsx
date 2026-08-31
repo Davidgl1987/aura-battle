@@ -169,7 +169,7 @@ function SweepDemo({ card }: { card: Card }) {
       place(hand.current, bar, target * box.width, box.height * 0.62)
       // Close to the zone is close to the tap.
       const near = Math.max(0, 1 - Math.abs(x - target) * 14)
-      hand.current.style.transform = `translate(-50%, ${8 - near * 14}px) scale(${1 - near * 0.12})`
+      hand.current.style.transform = `translateY(${10 - near * 10}px)`
       hand.current.style.opacity = String(0.55 + near * 0.45)
     }
   })
@@ -209,7 +209,7 @@ function LanesDemo({ card }: { card: Card }) {
       const box = lane.getBoundingClientRect()
       place(hand.current, lane, box.width / 2, box.height * LANE_LINE)
       const near = Math.max(0, 1 - Math.abs(next.atMs - elapsed) / (params.goodMs * 3))
-      hand.current.style.transform = `translate(-50%, ${12 - near * 18}px)`
+      hand.current.style.transform = `translateY(${14 - near * 14}px)`
       hand.current.style.opacity = String(0.5 + near * 0.5)
     }
   })
@@ -271,9 +271,11 @@ function OrderDemo({ card }: { card: Card }) {
     const n = Math.floor(elapsed / 700) % keys.length
     const key = keys[n]
     const box = key.getBoundingClientRect()
-    // The centre of the key itself, so the finger lands on the number rather
-    // than beside it however the scatter fell.
-    place(hand.current, key, box.width / 2, box.height / 2)
+    // Just under the key, measured from the key's own box so the scatter cannot
+    // put the finger somewhere else. Under rather than on it because the hand
+    // points upward and hangs down from its tip: sitting on the key it covered
+    // the very digit it was pointing at.
+    place(hand.current, key, box.width / 2, box.height * 1.04)
     keys.forEach((k, i) => ((k as HTMLElement).dataset.next = String(i === n)))
   })
 
@@ -303,7 +305,6 @@ function ZoneDemo({ card }: { card: Card }) {
       // Dead on the ring's centre, because that is the gesture: the finger goes
       // where the ring is and stays there.
       place(hand.current, area, ring.cx, ring.cy)
-      hand.current.style.transform = 'translate(-50%, -14%)'
     }
   })
 

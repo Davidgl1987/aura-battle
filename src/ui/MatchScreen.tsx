@@ -217,22 +217,22 @@ export function MatchScreen() {
                 {getCharacter(rival.characterId).emoji} {rival.name}
               </span>
             )}
-            {/* Sliding is a handover ritual. With nobody to hand it to, it is
-                just a longer tap, so solo gets a button. */}
-            {solo ? (
-              <button
-                className="btn btn--big"
-                onPointerDown={() => dispatch({ type: 'READY', now: now() })}
-              >
-                {match.pendingEnd ? t('match.seeResult') : t('match.rivalTurn', { name: rival.name })}
-              </button>
-            ) : (
-              <SlideToPass
-                color={match.pendingEnd ? 'var(--gold)' : playerColor(rival)}
-                label={match.pendingEnd ? t('match.slideResult') : t('match.slideReady')}
-                onComplete={() => dispatch({ type: 'READY', now: now() })}
-              />
-            )}
+            {/* Sliding is not only a handover ritual, which is why solo slides
+                too. The bill lands the instant a gesture is graded and the last
+                taps of a mash are still arriving — a button under them is gone
+                before it has been read, and the score sheet with it. Slide is
+                the one control a stray finger cannot fire: see `SlideToPass`. */}
+            <SlideToPass
+              color={match.pendingEnd ? 'var(--gold)' : playerColor(rival)}
+              label={
+                match.pendingEnd
+                  ? t('match.slideResult')
+                  : solo
+                    ? t('match.slideRival', { name: rival.name })
+                    : t('match.slideReady')
+              }
+              onComplete={() => dispatch({ type: 'READY', now: now() })}
+            />
           </div>
         )}
 
