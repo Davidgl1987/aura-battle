@@ -4,9 +4,11 @@ import type { BloomEffect } from 'postprocessing'
 import type { Mesh } from 'three'
 import { playerColor } from '../engine/match'
 import { now, useGame } from '../state/store'
-import { Fighter } from './Fighter'
+import { BodyBoundary } from './BodyBoundary'
+import { FiretoyFighter } from './FiretoyFighter'
 import { Motes } from './Motes'
 import { Floor, StageShell } from './StageShell'
+import { DEFAULT_PLAYER_CHARACTER } from './firetoy/cast'
 import { SLOTS, fighterAction, slotOf } from './stageState'
 
 /** How hard the camera is knocked by each result. */
@@ -119,18 +121,22 @@ function Cast({ bloomRef }: { bloomRef: React.RefObject<BloomEffect | null> }) {
       <CameraRig />
       <GodAuraGlow bloomRef={bloomRef} />
 
-      {match.players.map((player) => (
-        <Fighter
-          key={player.id}
-          characterId={player.characterId}
-          color={playerColor(player)}
-          slot={slotOf(match, player.id)}
-          action={fighterAction(match, player.id)}
-          charged={player.godAura}
-          accessories={player.look.accessories}
-          now={now}
-        />
-      ))}
+      {/* Twelve megabytes of body per gender. The stage — floor, lights and
+          all — is up while they arrive, and the console over it never waits. */}
+      <BodyBoundary>
+        {match.players.map((player) => (
+          <FiretoyFighter
+            key={player.id}
+            character={player.look.character ?? DEFAULT_PLAYER_CHARACTER}
+            characterId={player.characterId}
+            color={playerColor(player)}
+            slot={slotOf(match, player.id)}
+            action={fighterAction(match, player.id)}
+            charged={player.godAura}
+            now={now}
+          />
+        ))}
+      </BodyBoundary>
     </>
   )
 }

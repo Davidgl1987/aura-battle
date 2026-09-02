@@ -9,7 +9,7 @@ is built from primitives at runtime.
 
 ```bash
 npm run dev       # vite, portrait-first — open on a phone from the Network: address
-npm test          # 356 tests, ~3s
+npm test          # 612 tests, ~3s
 npm run build     # tsc -b && vite build
 npm run lint      # eslint
 npm run measure   # the whole game's numbers, printed — read docs/balance.md first
@@ -29,10 +29,17 @@ fast; there is no reason to skip one.
   and its tutorial render the same components from the same geometry, so a
   change to one cannot leave the other showing a gesture the game does not have.
 - `src/scene/` — the react-three-fiber stage. A pose is fifteen numbers.
+  `firetoy/` is the imported character pack: a catalogue of 310 wardrobe pieces
+  keyed by GLB node name, the twenty original presets, `cast.ts` for who wears
+  what, and one component that wears them. `?firetoy` opens the range. The
+  battle is Firetoy characters, and so is the title — behind a light HTML
+  splash that waits for the male body and nothing else.
 - `src/state/` — zustand store, the rAF clock, and the only thing that survives
   closing the tab (`useProgress.ts`).
 - `docs/qte.md` — the six minigames, their parameters and how a run is graded.
 - `docs/balance.md` — every knob, what it moves, and which test guards it.
+- `docs/firetoy.md` — the character pack: how an outfit is represented, the two
+  rules it really has, and where the loader disagrees with the asset map.
 
 ## Invariants
 

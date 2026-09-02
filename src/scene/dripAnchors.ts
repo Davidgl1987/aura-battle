@@ -11,15 +11,12 @@ import type { Accessory, AccessorySlot } from '../engine/types'
 export type Anchor = 'head' | 'body' | 'root'
 
 export const ANCHOR: Record<AccessorySlot, Anchor> = {
-  hair: 'head',
-  head: 'head',
+  hat: 'head',
   glasses: 'head',
-  neck: 'body',
-  top: 'body',
-  bottom: 'body',
-  shoes: 'root',
-  extras: 'body',
-  aura: 'root',
+  mask: 'head',
+  headphones: 'head',
+  torso: 'body',
+  gloves: 'body',
 }
 
 /** The accessories that hang off one anchor, at most one per slot. */

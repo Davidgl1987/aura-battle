@@ -2,20 +2,11 @@ import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Group } from 'three'
 import { NEUTRAL, type Pose } from './pose'
-import {
-  finalePose,
-  flourish,
-  idlePose,
-  moveAt,
-  reactPose,
-  settle,
-  watchPose,
-  windUpPose,
-} from './animations'
+import { poseForAction, settle } from './animations'
 import { getBuild, type Build } from './builds'
 import { Drip } from './Drip'
 import { dripFor } from './dripAnchors'
-import { SLOTS, actionProgress, type FighterAction, type Slot } from './stageState'
+import { SLOTS, type FighterAction, type Slot } from './stageState'
 
 interface Props {
   characterId: string
@@ -101,30 +92,7 @@ export function Fighter({ characterId, color, slot, action, charged, accessories
 
   useFrame((_, delta) => {
     const t = now()
-    const seconds = t / 1000
-    const p = actionProgress(action, t)
-
-    let target: Pose
-    switch (action.kind) {
-      case 'windUp':
-        target = windUpPose(p)
-        break
-      case 'move':
-        target = flourish(moveAt(action.animation, p), build, p)
-        break
-      case 'react':
-        target = reactPose(action.judgement, p)
-        break
-      case 'watch':
-        target = watchPose(action.judgement, p)
-        break
-      case 'finale':
-        target = finalePose(action.won, seconds)
-        break
-      default:
-        target = idlePose(seconds, build)
-    }
-
+    const target = poseForAction(action, build, t)
     const pose = settle(current.current, target, Math.min(delta, 0.1), 14)
     current.current = pose
 

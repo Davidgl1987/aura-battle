@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { CARDS, getCard } from '../engine/cards'
 import type { Rival } from '../engine/rivals'
 import type { Look } from '../engine/types'
-import { CHARACTERS, getCharacter } from '../engine/characters'
-import { now } from '../state/store'
+import { getCharacter } from '../engine/characters'
+import { PLAYER_CHARACTER, now } from '../state/store'
 import { AuraCore } from './AuraCore'
+import { BodyBoundary } from './BodyBoundary'
 import { getBuild, standingHeight } from './builds'
 import { Fighter } from './Fighter'
+import { FiretoyFighter } from './FiretoyFighter'
+import { DEFAULT_PLAYER_CHARACTER, RIVAL_CHARACTER_PRESETS } from './firetoy/cast'
+import { FIRETOY_HEIGHT, preloadFiretoy } from './firetoy/models'
 import { Floor, StageShell } from './StageShell'
 import { SLOTS, type FighterAction, type Slot } from './stageState'
 
@@ -88,77 +92,138 @@ function Performer({
   return (
     <>
       <pointLight position={keyLight(slot)} color={color} intensity={3} />
-      <Fighter
-        characterId={characterId}
-        color={color}
-        slot={slot}
-        action={action}
-        charged={false}
-        accessories={look?.accessories}
-        now={now}
-      />
+      {/* A look carrying a Firetoy character gets one. The title screen's ring
+          does not pass one, and must not: four bodies on the home screen would
+          be twenty-three megabytes before the game has been opened. */}
+      {look?.character ? (
+        <FiretoyFighter
+          character={look.character}
+          characterId={characterId}
+          color={color}
+          slot={slot}
+          action={action}
+          charged={false}
+          now={now}
+        />
+      ) : (
+        <Fighter
+          characterId={characterId}
+          color={color}
+          slot={slot}
+          action={action}
+          charged={false}
+          accessories={look?.accessories}
+          now={now}
+        />
+      )}
     </>
   )
 }
 
-/** Circles the ring, so every fighter gets the lens pointed at them in turn. */
-function Orbit({
+/**
+ * A slow arc to one side of them and back, never round the far side.
+ *
+ * The title used to hold a ring of four and the camera walked the whole
+ * circuit, which is how you get to see all of them. With one character on the
+ * mark, a full circuit means half the time looking at the back of their head.
+ */
+function Sway({
   radius,
   height,
   aim,
   periodMs,
+  spread,
 }: {
   radius: number
   height: number
   aim: number
   periodMs: number
+  /** Half the arc, in radians, either side of straight on. */
+  spread: number
 }) {
   useFrame(({ camera }) => {
     const t = now()
-    const angle = (t / periodMs) * Math.PI * 2
+    const angle = Math.sin((t / periodMs) * Math.PI * 2) * spread
     camera.position.x = Math.sin(angle) * radius
     camera.position.z = Math.cos(angle) * radius
-    camera.position.y = height + Math.sin(t / 3400) * 0.14
+    camera.position.y = height + Math.sin(t / 3400) * 0.08
     camera.lookAt(0, aim, 0)
   })
   return null
 }
 
-/** One member of the cast, warming up on their mark. */
-function RingMember({ index, characterId }: { index: number; characterId: string }) {
-  // Staggered so they are never all doing the same thing on the same beat.
-  const action = useIdleShow(300 + index * 900)
-  return <Performer characterId={characterId} slot={`ring${index}` as Slot} action={action} />
+/** Fires on the first frame the title is actually able to draw. */
+function OnScreen({ report }: { report: () => void }) {
+  const done = useRef(false)
+  useFrame(() => {
+    if (done.current) return
+    done.current = true
+    report()
+  })
+  return null
 }
 
-function TitleCast() {
-  // Everyone is on the title, in a shuffled order, so the ring is not the same
-  // picture every time the game is opened.
-  const [order] = useState(() => [...CHARACTERS].sort(() => Math.random() - 0.5))
+function TitleCast({ report }: { report: () => void }) {
+  const action = useIdleShow(600)
 
   return (
     <>
-      <Floor radius={20} />
-      <AuraCore />
-      {/* A phone in portrait is narrow: the ring is under three units across and
-          the lens only covers that much width from a dozen units back. The
-          height is what pulls the far side of the ring clear of the near one. */}
-      <Orbit radius={12.2} height={4.4} aim={0.9} periodMs={52_000} />
-      {order.map((c, i) => (
-        <RingMember key={c.id} index={i} characterId={c.id} />
-      ))}
+      <Floor radius={9} />
+      {/* Behind them rather than around them. The column of light is sized for
+          a camera a dozen units back, which is where the ring of four used to
+          stand; from four units it is a beam the width of a person, and a
+          person standing inside it is on fire rather than lit. */}
+      <group position={[0, 0, -2.1]}>
+        <AuraCore />
+      </group>
+      {/* Far enough back that the whole of them lands in the band between the
+          name and the PLAY button, gestures included: several moves throw the
+          arms overhead, and a title that crops them at the wrist is worse than
+          one where they stand a little smaller. */}
+      <Sway radius={5.6} height={1.0} aim={0.9} periodMs={19_000} spread={0.34} />
+      {/* Inside the canvas, never outside it — see `loading.test.ts`. The
+          splash is waiting on `report`, so the boundary has to settle it even
+          when the body never arrives. */}
+      <BodyBoundary onSettled={report}>
+        <Performer
+          characterId={PLAYER_CHARACTER}
+          slot="showCentre"
+          action={action}
+          look={{ character: DEFAULT_PLAYER_CHARACTER }}
+        />
+        <OnScreen report={report} />
+      </BodyBoundary>
     </>
   )
 }
 
-/** The whole cast in a ring behind the title, with the camera walking round. */
-export function TitleShowcase() {
+/**
+ * One character on the title, doing what they would do in a battle.
+ *
+ * It used to be all four primitive fighters in a ring with the camera walking
+ * round them, which was a picture of a cast the game no longer has. One
+ * Firetoy character reads at phone size, costs one body rather than two, and
+ * is the same fighter the player takes into a battle.
+ *
+ * `report` is what dismisses the splash: the entry bundle cannot ask three.js
+ * whether it is ready, so the scene says so from in here.
+ */
+export function TitleShowcase({ report }: { report: () => void }) {
+  const started = useRef(false)
+
+  const onScreen = () => {
+    if (started.current) return
+    started.current = true
+    report()
+    // The other body, now that nothing is waiting on it. By the time anyone
+    // reaches a female rival — or the hot-seat setup — it is already in.
+    preloadFiretoy('female')
+  }
+
   return (
     <div className="stage__scene">
-      {/* The cast stands a dozen units out, so the air has to reach much
-          further than the battle's or all four dissolve into it. */}
-      <StageShell camera={[0, 4.4, 12.2]} fog={[17, 40]} bloom={0.9}>
-        <TitleCast />
+      <StageShell camera={[0, 1.0, 5.6]} fog={[9, 24]} bloom={0.9}>
+        <TitleCast report={onScreen} />
       </StageShell>
     </div>
   )
@@ -189,10 +254,10 @@ const RIVAL_FRAME: Frame = { fill: 0.4, feetAt: 0.58 }
  * lens sized for NOODLE mid-levitate left BLOCKY marooned under a sky of empty
  * air, so the shot is worked out from the body that is actually standing there.
  */
-function framing(characterId: string, frame: Frame) {
+function framing(standing: number, frame: Frame) {
   // Gestures lift and stretch well past standing height, and the shot has to
   // hold the whole of one without cropping it.
-  const reach = standingHeight(getBuild(characterId)) * 1.42
+  const reach = standing * 1.42
   // Tall enough to hold `reach` across `fill` of the frame, aimed so the
   // ground lands at `feetAt` and the rest falls below as floor.
   const covers = reach / frame.fill
@@ -219,13 +284,20 @@ function PreviewCast({ characterId, preview, look, cardIds, frame = DECK_FRAME }
   const action: FighterAction = preview
     ? { kind: 'move', animation: preview.animation, startedAt: preview.startedAt, durationMs: preview.durationMs }
     : idle
-  const shot = framing(characterId, frame)
+  // A Firetoy body is the same height whichever character is wearing it, so
+  // the shot follows the body on the mark rather than the build behind it.
+  const shot = framing(
+    look?.character ? FIRETOY_HEIGHT : standingHeight(getBuild(characterId)),
+    frame,
+  )
 
   return (
     <>
       <Floor />
       <Drifting height={shot.height} distance={shot.distance} aim={shot.aim} />
-      <Performer characterId={characterId} slot="showCentre" action={action} look={look} />
+      <BodyBoundary>
+        <Performer characterId={characterId} slot="showCentre" action={action} look={look} />
+      </BodyBoundary>
     </>
   )
 }
@@ -259,11 +331,23 @@ export function SetupShowcase({ characterId, preview, look, cardIds, frame }: Pr
  * you have agreed to fight for it.
  */
 export function RivalShowcase({ rival }: { rival: Rival }) {
+  // The rival's own body comes down with this screen. The player's does not —
+  // they are not on it — so it is fetched here, while the objectives are being
+  // read, rather than at the first card of the battle. From inside this chunk
+  // rather than from the screen above, which would put three.js in the bundle
+  // the title screen loads.
+  useEffect(() => {
+    preloadFiretoy(DEFAULT_PLAYER_CHARACTER.gender)
+  }, [])
+
   return (
     <SetupShowcase
       characterId={rival.characterId}
       preview={null}
-      look={rival.look}
+      // The rival you are about to fight, wearing what you are playing for.
+      // Reading a challenge next to a fighter who is not wearing its reward is
+      // how the accessory stopped being a reason to take the challenge.
+      look={{ ...rival.look, character: RIVAL_CHARACTER_PRESETS[rival.id] }}
       cardIds={rival.deck}
       frame={RIVAL_FRAME}
     />

@@ -22,3 +22,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# --- Third-party paid assets ------------------------------------------------
+# The Firetoy character pack is a commercial Unity asset. The two GLB exports
+# the game loads stay on the machine that has a licence for them and never go
+# into a public repository; `public/models/characters/README.md` says how to
+# put them back. Named one by one rather than by folder, so the map beside
+# them — and anything the project draws itself — stays versioned.
+/public/models/characters/firetoy-male.glb
+/public/models/characters/firetoy-female.glb
+
+# The pack as it ships, in case a copy is ever unzipped inside the repo.
+/public/models/characters/*.fbx
+/public/models/characters/*.unitypackage
+Ib_MALE_01.*
+Ib_FEMALE_01.*
+B_Texture_[MF]_01.png
+B_Material_[MF]_01.mat

@@ -244,24 +244,22 @@ export interface MatchSettings {
  */
 export type Controller = 'human' | 'cpu'
 
-/** Where an accessory sits on a fighter. One item per slot at a time. */
-export type AccessorySlot =
-  | 'hair'
-  | 'head'
-  | 'glasses'
-  | 'neck'
-  | 'top'
-  | 'bottom'
-  | 'shoes'
-  | 'extras'
-  | 'aura'
+/**
+ * Where an accessory sits on a fighter. One item per slot at a time.
+ *
+ * These are the Firetoy wardrobe's own categories now, spelled exactly as the
+ * catalogue spells them, not the nine invented ones the slots used to be. A
+ * chain, a charm and an aura are not things the character pack contains, and a
+ * slot for each of them was a promise the wardrobe could not keep.
+ */
+export type AccessorySlot = 'hat' | 'glasses' | 'mask' | 'headphones' | 'torso' | 'gloves'
 
 export interface Accessory {
   id: string
   name: string
   emoji: string
   slot: AccessorySlot
-  /** Names the small procedural mesh the stage draws. Not a model file. */
+  /** Names the small procedural mesh the old primitive fighters draw. */
   shape: 'cap' | 'shades' | 'chain' | 'jacket' | 'charm' | 'auraRing'
   color: string
 }
@@ -272,11 +270,23 @@ export interface Accessory {
  * `characterId` and `name` already do, and splitting presentation across two
  * places would mean the stage looking a fighter up somewhere else mid-battle.
  */
+/**
+ * Which Firetoy character a fighter wears. The engine never looks inside it —
+ * these are GLB node names, and the only thing that reads them is the stage.
+ */
+export interface FiretoyLook {
+  gender: 'male' | 'female'
+  /** Exact node names to show. Everything else in the file stays hidden. */
+  outfit: readonly string[]
+}
+
 export interface Look {
   /** Overrides the character's own colour, for rivals that share a build. */
   color?: string
   /** Accessory ids, from the catalogue in `accessories.ts`. */
   accessories?: string[]
+  /** The body on the stage. Absent only for the primitive fighters. */
+  character?: FiretoyLook
 }
 
 export interface PlayerSetup {

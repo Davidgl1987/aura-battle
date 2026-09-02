@@ -1,6 +1,7 @@
 import type { Judgement } from '../engine/types'
 import type { Build } from './builds'
 import { NEUTRAL, type Pose, TAU, arc, blend, hold, overshoot, pose, snap, wave } from './pose'
+import { actionProgress, type FighterAction } from './stageState'
 
 /** A move, described over its own span: 0 is the first frame, 1 the last. */
 export type PoseFn = (p: number) => Pose
@@ -491,6 +492,29 @@ export function flourish(base: Pose, build: Build, p: number): Pose {
     tilt: base.tilt + 0.06 * wobble,
     headPitch: base.headPitch + 0.08 * wobble,
     squash: base.squash + 0.05 * wobble * build.rubber,
+  }
+}
+
+/**
+ * The pose an action is asking for, right now. The one place that decides
+ * which of the above a fighter is doing, so the primitive fighters and the
+ * Firetoy ones cannot drift into performing different things.
+ */
+export function poseForAction(action: FighterAction, build: Build, now: number): Pose {
+  const p = actionProgress(action, now)
+  switch (action.kind) {
+    case 'windUp':
+      return windUpPose(p)
+    case 'move':
+      return flourish(moveAt(action.animation, p), build, p)
+    case 'react':
+      return reactPose(action.judgement, p)
+    case 'watch':
+      return watchPose(action.judgement, p)
+    case 'finale':
+      return finalePose(action.won, now / 1000)
+    default:
+      return idlePose(now / 1000, build)
   }
 }
 

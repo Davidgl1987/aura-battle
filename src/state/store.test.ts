@@ -5,6 +5,10 @@ import { getCharacter } from '../engine/characters'
 import { playerColor } from '../engine/match'
 import { RIVALS } from '../engine/rivals'
 import type { PlayerSetup } from '../engine/types'
+import {
+  DEFAULT_PLAYER_CHARACTER,
+  RIVAL_CHARACTER_PRESETS,
+} from '../scene/firetoy/cast'
 import { PLAYER_CHARACTER, useGame } from './store'
 import { useProgress } from './useProgress'
 
@@ -141,6 +145,39 @@ describe('starting a solo battle', () => {
     expect(playerColor(useGame.getState().match.players[0])).toBe(
       getCharacter(PLAYER_CHARACTER).color,
     )
+  })
+
+  /**
+   * Everyone on the stage is a Firetoy character, and no two of them may be
+   * the same one. Two fighters sharing an outfit is not a cosmetic problem: in
+   * a hot-seat battle it is the only thing telling you whose turn it is.
+   */
+  it('puts a Firetoy character on both sides of a solo battle', () => {
+    useGame.getState().startBattle({ mode: 'solo', opponentId: ROOKIE.id })
+    const [you, rival] = useGame.getState().match.players
+
+    expect(you.look.character).toEqual(DEFAULT_PLAYER_CHARACTER)
+    expect(rival.look.character).toEqual(RIVAL_CHARACTER_PRESETS[ROOKIE.id])
+    expect(you.look.character).not.toEqual(rival.look.character)
+  })
+
+  it('gives every rival on the ladder their own body', () => {
+    for (const r of RIVALS) {
+      useGame.getState().startBattle({ mode: 'solo', opponentId: r.id })
+      const [you, rival] = useGame.getState().match.players
+      expect(rival.look.character, r.id).toEqual(RIVAL_CHARACTER_PRESETS[r.id])
+      expect(rival.look.character?.outfit).not.toEqual(you.look.character?.outfit)
+    }
+  })
+
+  it('dresses two people on one phone differently', () => {
+    playThrough()
+    const [p1, p2] = useGame.getState().match.players
+
+    expect(p1.look.character).toBeDefined()
+    expect(p2.look.character).toBeDefined()
+    // Same file or not, they must not be wearing the same clothes.
+    expect(p1.look.character).not.toEqual(p2.look.character)
   })
 
   it('takes the deck the player has actually saved', () => {

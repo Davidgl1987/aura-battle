@@ -1773,6 +1773,155 @@
   letter-spacing: 2px;
 }
 
+/* --- Wardrobe range (dev) -------------------------------------------------- */
+/* The character is the point of the screen, so it takes whatever the controls
+   leave, and the controls scroll rather than squeeze it. */
+.stage--wardrobe {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 34vh;
+}
+.wardrobe__node {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--gold);
+  overflow-x: auto;
+  white-space: nowrap;
+  min-height: 14px;
+}
+.wardrobe {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-y: auto;
+  padding-bottom: 8px;
+  flex: 0 1 auto;
+}
+.wardrobe__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.wardrobe__row .chip {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+.wardrobe__cat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  opacity: 0.4;
+}
+/* A category that is switched on comes forward; the rest stay out of the way. */
+.wardrobe__cat[data-on='true'] {
+  opacity: 1;
+}
+.wardrobe__name {
+  flex: 1;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.wardrobe__cat[data-on='true'] .wardrobe__name {
+  color: var(--ink);
+}
+.wardrobe__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.wardrobe__arrow {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  font-size: 14px;
+  line-height: 1;
+}
+.wardrobe__value {
+  min-width: 38px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+/* --- Boot splash ----------------------------------------------------------- */
+/* Over everything, including the title it is hiding, and it takes every tap
+   until it goes. No three.js on this screen: it is the one that has to be up
+   before three.js has been asked for. */
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: radial-gradient(120% 80% at 50% 0%, #1b1236 0%, var(--bg) 60%);
+  transition: opacity 420ms ease;
+}
+.splash-screen[data-done='true'] {
+  opacity: 0;
+  pointer-events: none;
+}
+.splash-screen__title {
+  font-size: clamp(44px, 14vw, 58px);
+}
+.splash-screen__line {
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+  /* Keyed on the message, so each one arrives rather than being swapped in. */
+  animation: splash-line 400ms ease;
+}
+@keyframes splash-line {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+/* Indeterminate on purpose. There is no honest percentage to show: the wait is
+   one file arriving, and a bar that invents its own progress is a bar that
+   sits at 90% while the real thing is still going. */
+.splash-screen__bar {
+  width: min(210px, 55vw);
+  height: 3px;
+  border-radius: 999px;
+  background: #2a2150;
+  overflow: hidden;
+  position: relative;
+}
+.splash-screen__bar::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: 999px;
+  background: var(--gold);
+  animation: splash-sweep 1250ms ease-in-out infinite;
+}
+@keyframes splash-sweep {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash-screen__bar::after {
+    animation-duration: 3s;
+  }
+  .splash-screen__line {
+    animation: none;
+  }
+}
+
 /* --- The 3D stage --------------------------------------------------------- */
 .stage__scene {
   position: absolute;

@@ -1,46 +1,43 @@
 import type { Accessory, AccessorySlot } from './types'
 
 /**
- * What a fighter can be wearing. Nine slots, because that is the shape the
- * wardrobe will eventually have; six items, because that is how many rivals
- * there are to take one off.
+ * What a fighter can be wearing. Six slots and six items, one per rival.
  *
- * Every accessory in here is worn by the rival who gives it up, so the thing
- * you are playing for is on screen for the whole battle. `shape` is the only
- * part the stage reads — it names a small procedural mesh, not a model file,
- * for the same reason the fighters are assembled from primitives: nobody
- * downloads anything.
+ * Every accessory in here is a real piece of the Firetoy wardrobe, worn by the
+ * rival who gives it up, so the thing you are playing for is on screen for the
+ * whole battle. `src/scene/firetoy/cast.ts` says which node each one is.
+ *
+ * These used to be nine invented slots holding six procedural shapes — a
+ * chain, a charm, an aura — and three of them named things the character pack
+ * does not contain. The ids are unchanged even where the names are not: a
+ * player's unlocks are saved under them, and `jawline-chain` is a real pair of
+ * headphones on a real head, which is worth more than a tidy identifier.
  */
 export const ACCESSORY_SLOTS: readonly AccessorySlot[] = [
-  'hair',
-  'head',
+  'hat',
   'glasses',
-  'neck',
-  'top',
-  'bottom',
-  'shoes',
-  'extras',
-  'aura',
+  'mask',
+  'headphones',
+  'torso',
+  'gloves',
 ]
 
 export const SLOT_LABEL: Record<AccessorySlot, string> = {
-  hair: 'Hair',
-  head: 'Hat / Head',
+  hat: 'Hat',
   glasses: 'Glasses',
-  neck: 'Neck',
-  top: 'Top',
-  bottom: 'Bottom',
-  shoes: 'Shoes',
-  extras: 'Extras',
-  aura: 'Aura',
+  mask: 'Mask',
+  headphones: 'Headphones',
+  torso: 'Top',
+  gloves: 'Gloves',
 }
 
 export const ACCESSORIES: readonly Accessory[] = [
   {
+    // A safety helmet, for the rival whose whole problem is playing it safe.
     id: 'starter-cap',
-    name: 'Starter Cap',
-    emoji: '🧢',
-    slot: 'head',
+    name: 'Safety Helmet',
+    emoji: '🪖',
+    slot: 'hat',
     shape: 'cap',
     color: '#94a3b8',
   },
@@ -53,10 +50,11 @@ export const ACCESSORIES: readonly Accessory[] = [
     color: '#1c1633',
   },
   {
+    // Was a chain. Firetoy has no chains, and the Mewer never rushes a note.
     id: 'jawline-chain',
-    name: 'Jawline Chain',
-    emoji: '🧊',
-    slot: 'neck',
+    name: 'Studio Cans',
+    emoji: '🎧',
+    slot: 'headphones',
     shape: 'chain',
     color: '#e0f2fe',
   },
@@ -64,23 +62,26 @@ export const ACCESSORIES: readonly Accessory[] = [
     id: 'drip-jacket',
     name: 'Drip Jacket',
     emoji: '🧥',
-    slot: 'top',
+    slot: 'torso',
     shape: 'jacket',
     color: '#7c3aed',
   },
   {
+    // Was a charm on a wrist. Now the gloves the wrists are actually wearing.
     id: 'dice-charm',
-    name: 'Dice Charm',
+    name: 'Lucky Gloves',
     emoji: '🎲',
-    slot: 'extras',
+    slot: 'gloves',
     shape: 'charm',
     color: '#fef3c7',
   },
   {
+    // Was a ring of light. The aura is the bloom on the stage; this is the face
+    // the Aura Demon keeps behind it.
     id: 'demon-aura',
-    name: 'Demon Aura',
+    name: 'Demon Mask',
     emoji: '😈',
-    slot: 'aura',
+    slot: 'mask',
     shape: 'auraRing',
     color: '#fb7185',
   },

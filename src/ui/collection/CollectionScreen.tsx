@@ -7,6 +7,7 @@ import { getRival } from '../../engine/rivals'
 import { PLAYER_CHARACTER, useGame } from '../../state/store'
 import { hasCard, unlockedBy, useProgress } from '../../state/useProgress'
 import type { QteKind } from '../../engine/types'
+import { DEFAULT_PLAYER_CHARACTER } from '../../scene/firetoy/cast'
 
 const SetupShowcase = lazy(() =>
   import('../../scene/Showcase').then((m) => ({ default: m.SetupShowcase })),
@@ -75,7 +76,12 @@ export function CollectionScreen() {
     <div className="screen screen--collection">
       <div className="collection__stage">
         <Suspense fallback={null}>
-          <SetupShowcase characterId={PLAYER_CHARACTER} preview={preview} cardIds={deck} />
+          <SetupShowcase
+            characterId={PLAYER_CHARACTER}
+            preview={preview}
+            cardIds={deck}
+            look={{ character: DEFAULT_PLAYER_CHARACTER }}
+          />
         </Suspense>
         <button className="setup__back" onPointerDown={() => go('home')}>
           ‹ {t('common.home')}

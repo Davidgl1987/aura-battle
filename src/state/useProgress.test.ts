@@ -210,17 +210,17 @@ describe('the wardrobe', () => {
   beforeEach(() => useProgress.getState().resetProgress())
 
   it('will not equip something you do not own', () => {
-    useProgress.getState().equip('head', 'starter-cap')
-    expect(state().equippedAccessories.head).toBeUndefined()
+    useProgress.getState().equip('hat', 'starter-cap')
+    expect(state().equippedAccessories.hat).toBeUndefined()
   })
 
   it('equips what you won, and takes it off again', () => {
     claim(ROOKIE.id, won({ mogged: true }))
-    useProgress.getState().equip('head', 'starter-cap')
-    expect(state().equippedAccessories.head).toBe('starter-cap')
+    useProgress.getState().equip('hat', 'starter-cap')
+    expect(state().equippedAccessories.hat).toBe('starter-cap')
 
-    useProgress.getState().equip('head', null)
-    expect(state().equippedAccessories.head).toBeUndefined()
+    useProgress.getState().equip('hat', null)
+    expect(state().equippedAccessories.hat).toBeUndefined()
   })
 })
 
@@ -229,7 +229,7 @@ describe('what survives closing the tab', () => {
 
   it('writes the whole of it out and reads the whole of it back', async () => {
     claim(ROOKIE.id, won({ mogged: true, totalAura: [9999, 0] }))
-    useProgress.getState().equip('head', 'starter-cap')
+    useProgress.getState().equip('hat', 'starter-cap')
     useProgress.getState().setSettings({ music: false, vibration: false })
     const saved = { ...state() }
 

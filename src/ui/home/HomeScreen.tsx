@@ -23,7 +23,7 @@ const TitleShowcase = lazy(() =>
  */
 type Panel = 'mode' | 'rules' | 'settings' | null
 
-export function HomeScreen() {
+export function HomeScreen({ onTitleReady }: { onTitleReady: () => void }) {
   const { t, n } = useI18n()
   const go = useGame((s) => s.go)
   const coins = useProgress((s) => s.coins)
@@ -35,8 +35,10 @@ export function HomeScreen() {
 
   return (
     <div className="screen screen--home">
+      {/* The splash over the top of all this is waiting on exactly one thing:
+          the first frame the title can actually draw. */}
       <Suspense fallback={null}>
-        <TitleShowcase />
+        <TitleShowcase report={onTitleReady} />
       </Suspense>
 
       <div className="home__top">

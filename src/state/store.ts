@@ -4,6 +4,11 @@ import { CHARACTERS } from '../engine/characters'
 import { createMatch, defaultSetup, step } from '../engine/match'
 import { battleStats } from '../engine/stats'
 import { getRival, type Rival } from '../engine/rivals'
+import {
+  DEFAULT_PLAYER_CHARACTER,
+  PLAYER_CHARACTERS,
+  RIVAL_CHARACTER_PRESETS,
+} from '../scene/firetoy/cast'
 import { useProgress, type ClaimResult } from './useProgress'
 import type {
   Action,
@@ -60,6 +65,22 @@ export type Mode = 'local' | 'solo'
  * you are never standing opposite yourself in a different colour.
  */
 export const PLAYER_CHARACTER = 'blocky'
+
+/**
+ * Everybody on the stage is a Firetoy character, so every setup that reaches a
+ * match has to arrive wearing one. A setup that brought its own — a rival —
+ * keeps it; anyone else gets the body that goes with the character they
+ * picked, which is what keeps two people on one phone from being twins.
+ *
+ * One place for both modes: solo and local go through `startMatch` together,
+ * and a second copy of this in the local branch would be a second copy to
+ * forget about.
+ */
+function dressed(setup: PlayerSetup): PlayerSetup {
+  if (setup.look?.character) return setup
+  const character = PLAYER_CHARACTERS[setup.characterId] ?? DEFAULT_PLAYER_CHARACTER
+  return { ...setup, look: { ...setup.look, character } }
+}
 
 const blankSetups = (settings: MatchSettings): [PlayerSetup, PlayerSetup] => [
   defaultSetup(0, settings),
@@ -124,12 +145,13 @@ function startMatch(
   settings: MatchSettings = state.settings,
   seed: number = (Math.random() * 0xffffffff) >>> 0,
 ): Partial<GameStore> {
+  const dressedSetups: [PlayerSetup, PlayerSetup] = [dressed(setups[0]), dressed(setups[1])]
   const match = step(state.match, {
     type: 'START',
     now: now(),
     seed,
     settings,
-    setups,
+    setups: dressedSetups,
   })
   // Deliberately not written back into the store: `settings` there is the
   // local game's configuration, which the players set themselves. Solo runs
@@ -138,7 +160,7 @@ function startMatch(
   //
   // START emits too — the opening handoff among others. Skipping the bus here
   // dropped the first sound of every match on the floor.
-  return { screen: 'match', setups, match, claimed: null, bus: match.events }
+  return { screen: 'match', setups: dressedSetups, match, claimed: null, bus: match.events }
 }
 
 /**
@@ -152,7 +174,7 @@ function rivalSetup(rival: Rival): PlayerSetup {
     characterId: rival.characterId,
     deck: [...rival.deck],
     controller: 'cpu',
-    look: rival.look,
+    look: { ...rival.look, character: RIVAL_CHARACTER_PRESETS[rival.id] },
   }
 }
 

@@ -4,6 +4,7 @@ import { useI18n } from '../i18n'
 import { kindLabel, tierLabel } from './labels'
 import { CHARACTERS, getCharacter } from '../engine/characters'
 import { takenCharacterId, useGame } from '../state/store'
+import { PLAYER_CHARACTERS } from '../scene/firetoy/cast'
 
 const SetupShowcase = lazy(() =>
   import('../scene/Showcase').then((m) => ({ default: m.SetupShowcase })),
@@ -44,7 +45,9 @@ export function SetupScreen() {
   } | null>(null)
 
   // Pull the 3D stage down while they are still choosing, so the battle does
-  // not open on an empty screen waiting for three.js.
+  // not open on an empty screen waiting for three.js. The body they picked
+  // comes down with the showcase below, which is the same twelve megabytes the
+  // battle will want.
   useEffect(() => {
     void import('../scene/StageScene')
   }, [])
@@ -64,7 +67,13 @@ export function SetupScreen() {
       {/* The fighter is the backdrop of the step, not an item inside it. */}
       <div className="setup__stage">
         <Suspense fallback={null}>
-          <SetupShowcase characterId={characterId} preview={preview} />
+          {/* The body they will actually fight in, fetched here rather than
+              at the first card of the battle. */}
+          <SetupShowcase
+            characterId={characterId}
+            preview={preview}
+            look={{ character: PLAYER_CHARACTERS[characterId] }}
+          />
         </Suspense>
         {/* The caption itself ignores taps, so the way out is its own element. */}
         <button
