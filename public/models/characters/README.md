@@ -51,6 +51,19 @@ The four values at the top of that workflow (`ASSETS_REPO`, `ASSETS_PATH`,
 another public project wanting a different folder copies the steps and changes
 those.
 
+**The token expires.** Fine-grained tokens last at most 366 days, and when this
+one lapses the deploy stops working: the workflow fails with
+
+```text
+ASSETS_TOKEN is not set. The licensed character models live in …
+```
+
+which is deliberate — a build that quietly carried on would publish a game with
+no characters in it — but it means a red Pages build a year from now is far
+more likely to be a lapsed token than a broken workflow. Regenerate it with the
+same single permission (Contents: Read-only on the assets repository) and
+replace the secret. Nothing in the repository needs changing.
+
 ## Running the game without them
 
 `npm test`, `npm run lint` and `npm run build` all pass on a clone that has
