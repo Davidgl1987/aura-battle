@@ -18,6 +18,27 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# --- Licensed assets --------------------------------------------------------
+#
+# The Firetoy character models are a paid third-party asset. They are not in
+# this repository and never will be — it is public — so the deploy fetches them
+# from a private one at build time.
+#
+# Only the folder this project needs is fetched, not the whole assets
+# repository: `actions/checkout` does a cone-mode sparse checkout, so a repo
+# holding the assets for a dozen projects still costs one folder here.
+#
+# **Reusing this in another public project:** copy the two steps under
+# "licensed assets" below, change these four values, and add the same
+# `ASSETS_TOKEN` secret to that repository. Nothing else is project-specific.
+env:
+  ASSETS_REPO: Davidgl1987/private-game-assets
+  ASSETS_PATH: aura-battle/firetoy/runtime
+  ASSETS_DEST: public/models/characters
+  # Where the private repo is checked out. Gitignored; nothing reads it after
+  # the copy.
+  ASSETS_CHECKOUT: .assets
+
 permissions:
   contents: read
   pages: write
@@ -41,6 +62,54 @@ jobs:
 
       - run: npm ci
       - run: npm test
+
+      # --- licensed assets ---------------------------------------------------
+      # After the tests, because they do not need the models, and before the
+      # build, which copies whatever is in `public/` into `dist/`.
+      - name: Check the assets token is configured
+        # Without it `checkout` fails on a private repository with a 404 that
+        # reads like the repo does not exist. The real answer is nearly always
+        # a missing or expired secret, so say so.
+        run: |
+          if [ -z "${{ secrets.ASSETS_TOKEN }}" ]; then
+            echo "::error::ASSETS_TOKEN is not set. The licensed character models live in" \
+                 "$ASSETS_REPO and the deploy cannot build without them." \
+                 "Add a fine-grained token with read-only Contents access to that repository" \
+                 "as an Actions secret named ASSETS_TOKEN."
+            exit 1
+          fi
+
+      - name: Fetch licensed assets
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.ASSETS_REPO }}
+          token: ${{ secrets.ASSETS_TOKEN }}
+          path: ${{ env.ASSETS_CHECKOUT }}
+          sparse-checkout: ${{ env.ASSETS_PATH }}
+          sparse-checkout-cone-mode: true
+          # The models are the only thing wanted; their history is not.
+          fetch-depth: 1
+
+      - name: Put the assets where the game expects them
+        run: |
+          set -euo pipefail
+          from="$ASSETS_CHECKOUT/$ASSETS_PATH"
+          if [ ! -d "$from" ]; then
+            echo "::error::$ASSETS_PATH is not in $ASSETS_REPO." \
+                 "The sparse checkout succeeded but the folder is missing."
+            exit 1
+          fi
+          mkdir -p "$ASSETS_DEST"
+          cp -v "$from"/* "$ASSETS_DEST"/
+          # A build with no models still succeeds and deploys a game with no
+          # characters in it, which is worse than not deploying at all.
+          for model in firetoy-male.glb firetoy-female.glb; do
+            test -s "$ASSETS_DEST/$model" || {
+              echo "::error::$model did not arrive from $ASSETS_REPO/$ASSETS_PATH"
+              exit 1
+            }
+          done
+
       # `npm run build` typechecks first, so a type error fails here too.
       - run: npm run build
 

@@ -27,6 +27,30 @@ Do not commit them, and do not commit a reduced, re-exported or otherwise
 derived version to get around the ignore rules. A smaller copy of a licensed
 model is still the licensed model.
 
+## Where the deploy gets them
+
+The GitHub Pages workflow fetches them at build time from a private repository
+that holds the licensed assets for several projects:
+
+```text
+private-game-assets/
+└─ aura-battle/firetoy/runtime/
+   ├─ firetoy-male.glb
+   └─ firetoy-female.glb
+```
+
+`.github/workflows/pages.yml` sparse-checks-out only that one folder — a repo
+holding a dozen projects' assets still costs one folder here — copies the two
+files into this directory, and then builds. It needs an Actions secret,
+`ASSETS_TOKEN`, holding a fine-grained token with read-only Contents access to
+the assets repository, and it fails with a readable error rather than
+deploying a characterless game if the models do not arrive.
+
+The four values at the top of that workflow (`ASSETS_REPO`, `ASSETS_PATH`,
+`ASSETS_DEST`, `ASSETS_CHECKOUT`) are the only project-specific part, so
+another public project wanting a different folder copies the steps and changes
+those.
+
 ## Running the game without them
 
 `npm test`, `npm run lint` and `npm run build` all pass on a clone that has

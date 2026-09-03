@@ -32,6 +32,10 @@ dist-ssr
 /public/models/characters/firetoy-male.glb
 /public/models/characters/firetoy-female.glb
 
+# Where the Pages workflow checks out the private assets repository. Only ever
+# present in CI, or locally if you reproduce those steps by hand.
+/.assets/
+
 # The pack as it ships, in case a copy is ever unzipped inside the repo.
 /public/models/characters/*.fbx
 /public/models/characters/*.unitypackage
