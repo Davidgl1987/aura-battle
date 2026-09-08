@@ -1,6 +1,7 @@
 import { Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { MOVES, poseForAction } from '../scene/animations'
+import { ALL_CLIPS } from '../scene/clips'
 import { getBuild } from '../scene/builds'
 import { Floor, StageShell } from '../scene/StageShell'
 import { FiretoyCharacter } from '../scene/firetoy/FiretoyCharacter'
@@ -21,6 +22,8 @@ import {
   type PresetId,
 } from '../scene/firetoy/characterPresets'
 import { PLAYER_CHARACTERS, RIVAL_CHARACTER_PRESETS } from '../scene/firetoy/cast'
+import type { ClipCue } from '../scene/firetoy/FiretoyCharacter'
+import { useMocap } from '../scene/firetoy/useMocap'
 import { type OutfitChoice, choiceFromOutfit, resolveOutfit } from '../scene/firetoy/outfit'
 import type { FighterAction } from '../scene/stageState'
 import type { FiretoyLook } from '../engine/types'
@@ -215,6 +218,29 @@ export function CharacterLab({ initialPreset }: { initialPreset: string }) {
   const [actionIndex, setActionIndex] = useState(0)
   const [copied, setCopied] = useState(false)
   const [loadMs, setLoadMs] = useState<number | null>(null)
+  // Which registered clip is on the body, and the instant it started. A moment
+  // rather than a flag, because that is what the playhead is measured from.
+  // The chip walks the registry and then switches back off, so every clip that
+  // is added can be looked at without touching this file again.
+  const [playing, setPlaying] = useState<{ index: number; at: number } | null>(null)
+  const external = playing ? (ALL_CLIPS[playing.index] ?? null) : null
+  const mocap = useMocap(external?.src ?? null)
+
+  const cue = useMemo<ClipCue | null>(
+    () =>
+      mocap && external && playing
+        ? {
+            source: mocap,
+            id: external.id,
+            startedAt: playing.at,
+            // Looped whatever the registry says, because the point in here is
+            // to watch one motion over and over. The battle plays it once.
+            loop: true,
+            rate: external.playbackRate,
+          }
+        : null,
+    [mocap, external, playing],
+  )
 
   const started = useRef(now())
   const hud = useRef<HTMLDivElement>(null)
@@ -314,6 +340,8 @@ export function CharacterLab({ initialPreset }: { initialPreset: string }) {
               gender={gender}
               outfit={outfit}
               poseAt={poseAt}
+              clip={cue}
+              now={now}
               position={[twin ? -0.7 : 0, 0, 0]}
             />
             {twin && (
@@ -321,6 +349,8 @@ export function CharacterLab({ initialPreset }: { initialPreset: string }) {
                 gender={gender}
                 outfit={twinOutfit}
                 poseAt={poseAt}
+                clip={cue}
+                now={now}
                 position={[0.7, 0, 0]}
               />
             )}
@@ -331,6 +361,9 @@ export function CharacterLab({ initialPreset }: { initialPreset: string }) {
       </main>
       <div className="lab__head">
         <span ref={hud}>… fps</span> · {shown} pieces on screen · {loaded - shown} hidden
+        {cue && mocap
+          ? ` · ${cue.id} ${mocap.clip.duration.toFixed(2)}s · ${mocap.clip.tracks.length} tracks`
+          : ''}
       </div>
 
       <div className="wardrobe">
@@ -350,11 +383,25 @@ export function CharacterLab({ initialPreset }: { initialPreset: string }) {
           </button>
           <button
             className="chip"
-            data-spent={actionIndex === 0}
+            data-spent={actionIndex === 0 || cue !== null}
             onPointerDown={() => setActionIndex((i) => (i + 1) % ACTIONS.length)}
           >
             {ACTIONS[actionIndex].label}
           </button>
+          {/* The imported clips, against the same body's own poses. Watch the
+              two ends: taking the body and giving it back are the whole point.
+              Off the end either way is the pose system, so every clip is two
+              presses from the one before it and one from none at all. */}
+          <Stepper
+            label="🎬 "
+            value={external ? external.id.replace(/-/g, ' ') : 'none'}
+            onStep={(by) =>
+              setPlaying((was) => {
+                const next = was === null ? (by > 0 ? 0 : ALL_CLIPS.length - 1) : was.index + by
+                return next < 0 || next >= ALL_CLIPS.length ? null : { index: next, at: now() }
+              })
+            }
+          />
           <button className="chip" data-spent={!copied} onPointerDown={copy}>
             {copied ? 'copied ✓' : 'copy'}
           </button>

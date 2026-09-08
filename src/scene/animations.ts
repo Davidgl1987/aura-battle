@@ -1,5 +1,7 @@
+import { CARDS } from '../engine/cards'
 import type { Judgement } from '../engine/types'
 import type { Build } from './builds'
+import { clipFor, type ExternalClip } from './clips'
 import { NEUTRAL, type Pose, TAU, arc, blend, hold, overshoot, pose, snap, wave } from './pose'
 import { actionProgress, type FighterAction } from './stageState'
 
@@ -309,6 +311,35 @@ export function moveFor(animation: string): PoseFn {
 }
 
 /**
+ * What a card's `animation` key names: one of the pose functions above, or an
+ * imported clip. The single place that decides, so that a card can be moved
+ * from one to the other and nothing between the deck and the skeleton has to
+ * know which it got.
+ */
+export type AnimationSource =
+  | { type: 'pose'; move: PoseFn }
+  | { type: 'clip'; clip: ExternalClip }
+
+export function animationFor(animation: string): AnimationSource {
+  const clip = clipFor(animation)
+  return clip ? { type: 'clip', clip } : { type: 'pose', move: moveFor(animation) }
+}
+
+/**
+ * The clips a battle can actually deal, which is not the registry: every clip
+ * that has been downloaded and looked at is registered, and only the ones a
+ * card names will ever be performed. Fetching the difference before a battle
+ * would be megabytes nobody asked for.
+ */
+export const DEALT_CLIPS: readonly ExternalClip[] = [
+  ...new Map(
+    CARDS.map((card) => clipFor(card.animation))
+      .filter((clip): clip is ExternalClip => clip !== undefined)
+      .map((clip) => [clip.id, clip]),
+  ).values(),
+]
+
+/**
  * A move as it is actually performed: wrapped in a ramp so the fighter rises
  * out of standing and returns to it. Authored moves are free to sit at their
  * extreme from the first frame — several of them hold the arms up throughout —
@@ -506,7 +537,13 @@ export function poseForAction(action: FighterAction, build: Build, now: number):
     case 'windUp':
       return windUpPose(p)
     case 'move':
-      return flourish(moveAt(action.animation, p), build, p)
+      // A card performed by a clip has no pose of its own. What comes back is
+      // what shows under it: while the clip is being faded in and out, on a
+      // body whose clip never arrived, and on a primitive fighter, which
+      // cannot play one at all.
+      return clipFor(action.animation)
+        ? idlePose(now / 1000, build)
+        : flourish(moveAt(action.animation, p), build, p)
     case 'react':
       return reactPose(action.judgement, p)
     case 'watch':

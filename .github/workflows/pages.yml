@@ -35,6 +35,11 @@ env:
   ASSETS_REPO: Davidgl1987/private-game-assets
   ASSETS_PATH: aura-battle/firetoy/runtime
   ASSETS_DEST: public/models/characters
+  # Mixamo clips, licensed the same way and fetched the same way. Optional, on
+  # purpose: a missing clip costs one card its motion — the fighter holds a
+  # pose instead — where a missing body costs the game its cast.
+  CLIPS_PATH: aura-battle/mixamo/runtime
+  CLIPS_DEST: public/models/animations
   # Where the private repo is checked out. Gitignored; nothing reads it after
   # the copy.
   ASSETS_CHECKOUT: .assets
@@ -85,7 +90,9 @@ jobs:
           repository: ${{ env.ASSETS_REPO }}
           token: ${{ secrets.ASSETS_TOKEN }}
           path: ${{ env.ASSETS_CHECKOUT }}
-          sparse-checkout: ${{ env.ASSETS_PATH }}
+          sparse-checkout: |
+            ${{ env.ASSETS_PATH }}
+            ${{ env.CLIPS_PATH }}
           sparse-checkout-cone-mode: true
           # The models are the only thing wanted; their history is not.
           fetch-depth: 1
@@ -109,6 +116,18 @@ jobs:
               exit 1
             }
           done
+
+          # The clips, if the assets repo has any yet. A card whose animation
+          # names one that never arrived performs it as a held pose and says so
+          # in the console, so this warns rather than failing the deploy.
+          clips="$ASSETS_CHECKOUT/$CLIPS_PATH"
+          if [ -d "$clips" ] && [ -n "$(ls -A "$clips")" ]; then
+            mkdir -p "$CLIPS_DEST"
+            cp -v "$clips"/*.fbx "$CLIPS_DEST"/
+          else
+            echo "::warning::No Mixamo clips in $ASSETS_REPO/$CLIPS_PATH." \
+                 "Cards whose animation is an imported clip will hold a pose instead."
+          fi
 
       # `npm run build` typechecks first, so a type error fails here too.
       - run: npm run build

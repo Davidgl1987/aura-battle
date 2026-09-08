@@ -43,3 +43,10 @@ Ib_MALE_01.*
 Ib_FEMALE_01.*
 B_Texture_[MF]_01.png
 B_Material_[MF]_01.mat
+
+# Mixamo clips. Free to download with an Adobe account and licensed to animate
+# a character in a game, but they are Adobe's files to hand out and not ours,
+# so they take the same route as the character pack: they stay on machines that
+# fetched them, and a deploy that ever needs one gets it from the private
+# assets repository. `public/models/animations/README.md` says which clips.
+/public/models/animations/*.fbx

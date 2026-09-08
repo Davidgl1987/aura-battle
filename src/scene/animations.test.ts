@@ -4,6 +4,7 @@ import { CHARACTERS } from '../engine/characters'
 import { BUILDS, getBuild, shoulderHeight } from './builds'
 import {
   MOVES,
+  animationFor,
   finalePose,
   flourish,
   idlePose,
@@ -46,10 +47,38 @@ function expectSane(p: Pose, where: string) {
 const samples = Array.from({ length: 41 }, (_, i) => i / 40)
 
 describe('every card has a body to go with it', () => {
-  it('covers all ten animation keys', () => {
+  it('names either a pose or an imported clip, for every card', () => {
     for (const card of CARDS) {
-      expect(MOVES[card.animation], `${card.name} → ${card.animation}`).toBeDefined()
+      const source = animationFor(card.animation)
+      const named =
+        source.type === 'clip' ? source.clip.id : Object.keys(MOVES).find((k) => MOVES[k] === source.move)
+      expect(named, `${card.name} → ${card.animation}`).toBe(card.animation)
     }
+  })
+
+  /**
+   * The registry holds every clip that has been downloaded and stood up in the
+   * lab, including the ones that walk a metre off their mark on the way — they
+   * are registered so they can be looked at, and this is what stops one being
+   * chosen for a card before somebody has re-exported it with In Place on.
+   */
+  it('never asks a card to perform a clip that walks off its mark', () => {
+    for (const card of CARDS) {
+      const source = animationFor(card.animation)
+      if (source.type === 'clip') {
+        expect(source.clip.rootMotion, `${card.name} → ${source.clip.id}`).toBe('inPlace')
+      }
+    }
+  })
+
+  /**
+   * The two kinds coexist on purpose: one card is performed by an imported
+   * clip and the other sixteen by the pose functions, and nothing above the
+   * skeleton knows the difference.
+   */
+  it('has both kinds in the deck', () => {
+    const kinds = new Set(CARDS.map((card) => animationFor(card.animation).type))
+    expect(kinds).toEqual(new Set(['pose', 'clip']))
   })
 
   it('falls back to something harmless for an unknown key', () => {

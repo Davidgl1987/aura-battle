@@ -55,7 +55,7 @@ export const CARDS: readonly Card[] = [
     difficulty: 2,
     durationMs: 3300,
     baseAura: 1300,
-    animation: 'stare',
+    animation: 'being-cocky',
     qte: {
       kind: 'timing',
       game: 'sweep',

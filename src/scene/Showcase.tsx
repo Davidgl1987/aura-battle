@@ -7,11 +7,13 @@ import { getCharacter } from '../engine/characters'
 import { PLAYER_CHARACTER, now } from '../state/store'
 import { AuraCore } from './AuraCore'
 import { BodyBoundary } from './BodyBoundary'
+import { DEALT_CLIPS } from './animations'
 import { getBuild, standingHeight } from './builds'
 import { Fighter } from './Fighter'
 import { FiretoyFighter } from './FiretoyFighter'
 import { DEFAULT_PLAYER_CHARACTER, RIVAL_CHARACTER_PRESETS } from './firetoy/cast'
 import { FIRETOY_HEIGHT, preloadFiretoy } from './firetoy/models'
+import { preloadMocap } from './firetoy/useMocap'
 import { Floor, StageShell } from './StageShell'
 import { SLOTS, type FighterAction, type Slot } from './stageState'
 
@@ -308,6 +310,13 @@ function PreviewCast({ characterId, preview, look, cardIds, frame = DECK_FRAME }
  * mid-match was a worse way round.
  */
 export function SetupShowcase({ characterId, preview, look, cardIds, frame }: PreviewProps) {
+  // Both screens that show a fighter performing a card come through here, and
+  // both are the last thing before a battle. Half a megabyte of clip next to
+  // twelve of body, fetched now rather than during the card that wants it.
+  useEffect(() => {
+    for (const clip of DEALT_CLIPS) preloadMocap(clip.src)
+  }, [])
+
   return (
     <div className="stage__scene">
       {/* Further out than the deck builder's shot needs, so the rival screen's

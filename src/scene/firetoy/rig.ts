@@ -1,5 +1,5 @@
 import { Euler, Quaternion, Vector3 } from 'three'
-import type { Object3D } from 'three'
+import type { Bone, Object3D } from 'three'
 import type { Pose } from '../pose'
 import { loadedName } from './characterParts'
 
@@ -44,11 +44,27 @@ interface Joint {
   rest: Quaternion
 }
 
+/** A bone as the file left it, so a body can be put back after a clip. */
+interface RestBone {
+  bone: Object3D
+  quaternion: Quaternion
+  position: Vector3
+}
+
 export interface Rig {
   /** The armature, scaled for squash and stretch. */
   root: Object3D
   joints: Record<BoneName, Joint>
-  hipsRestY: number
+  /** Where the hips rest. A clip's travel is measured against this too. */
+  hipsRest: Vector3
+  /**
+   * Every bone in the armature, at rest. A `Pose` writes eleven of them and
+   * leaves the other fifty-four alone, so it can be applied over anything; an
+   * imported clip writes fifty-two, which is why going back to poses needs
+   * this. Without it a body that has finished a clip keeps its fingers curled
+   * and its feet turned for the rest of the battle.
+   */
+  rest: readonly RestBone[]
   /**
    * How far the arms already hang out to the side, in radians. Measured from
    * the rig rather than assumed, and subtracted from every raise: without it
@@ -68,12 +84,27 @@ export function makeRig(root: Object3D): Rig | null {
     joints[name] = { bone, rest: bone.quaternion.clone() }
   }
 
+  const rest: RestBone[] = []
+  root.traverse((o) => {
+    if ((o as Bone).isBone)
+      rest.push({ bone: o, quaternion: o.quaternion.clone(), position: o.position.clone() })
+  })
+
   root.updateWorldMatrix(false, true)
   // The arm bone's own +Y is the direction the arm points at rest.
   const arm = new Vector3(0, 1, 0).transformDirection(joints['Arm.L'].bone.matrixWorld)
   const aPose = Math.atan2(Math.abs(arm.x), Math.max(0, -arm.y))
 
-  return { root, joints, hipsRestY: joints.Hips.bone.position.y, aPose }
+  return { root, joints, hipsRest: joints.Hips.bone.position.clone(), rest, aPose }
+}
+
+/** Put every bone back where the file had it, and undo any squash. */
+export function restPose(rig: Rig): void {
+  for (const { bone, quaternion, position } of rig.rest) {
+    bone.quaternion.copy(quaternion)
+    bone.position.copy(position)
+  }
+  rig.root.scale.set(1, 1, 1)
 }
 
 const parentWorld = new Quaternion()
@@ -111,7 +142,8 @@ function fold(joint: Joint, angle: number): void {
 export function applyPose(rig: Rig, pose: Pose): void {
   const { joints } = rig
 
-  joints.Hips.bone.position.y = rig.hipsRestY + pose.y
+  // Set, not offset: a clip may have left the hips somewhere else entirely.
+  joints.Hips.bone.position.set(rig.hipsRest.x, rig.hipsRest.y + pose.y, rig.hipsRest.z)
   twist(joints.Hips, 0, pose.turn, 0)
 
   // Spread across the three spine bones so the torso bends rather than hinges.

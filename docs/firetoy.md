@@ -27,6 +27,12 @@ disagree with it.
 - `src/scene/firetoy/outfit.ts` — what an outfit is, and the two rules.
 - `src/scene/firetoy/FiretoyCharacter.tsx` — one character on the stage.
 - `src/scene/firetoy/rig.ts` — the pose retarget (below).
+- `src/scene/firetoy/mocap.ts` — the imported-clip retarget (below).
+- `src/scene/clips.ts` — the registry of imported clips: four fields each.
+- `src/scene/firetoy/handover.ts` — when a body belongs to the pose system and
+  when to a clip, and the blend between. Pure.
+- `src/scene/firetoy/clipPlayer.ts` — the half of that which writes bones.
+- `src/scene/firetoy/useMocap.ts` — fetching a clip, once per file.
 - `src/scene/firetoy/cast.ts` — who wears what: the six rivals, the four
   hot-seat bodies, and which piece each unlockable accessory really is.
 - `src/scene/FiretoyFighter.tsx` — one of them standing on a mark in a battle.
@@ -237,7 +243,9 @@ authored FBX clips.
 four per hand — and they deform correctly with the arm, because they are skinned
 like everything else. But a `Pose` has no fingers in it, so they stay in their
 rest curl. Poses that want a fist or a point would need finger numbers added to
-`Pose`, which would then mean nothing to the primitive fighters.
+`Pose`, which would then mean nothing to the primitive fighters. An imported
+clip has no such problem: thirty of the fifty-two rotations in the first one are
+fingers, and they arrive for free.
 
 All seventeen card gestures, the crouch before one, both sides of a judgement
 and the two endings now run on it: `poseForAction` is shared with the primitive
@@ -251,8 +259,278 @@ Movement personality still comes from the primitive build behind the fighter —
 how much they bounce on the spot, how far a move overshoots. A rival's body
 changed; their timing did not.
 
-**Not done yet, on purpose:** finger poses, an idle tuned for a human rather
-than a doll, and anything involving imported clips.
+**Not done yet, on purpose:** finger poses and an idle tuned for a human rather
+than a doll. Imported clips are the section below.
+
+## Imported clips
+
+One clip, to answer the same kind of single question the pose probe answered:
+can motion captured for somebody else be made to play on a Firetoy body?
+
+`public/models/animations/being-cocky.fbx` is Mixamo's **Being Cocky**,
+exported FBX binary, Without Skin, 30 fps, no keyframe reduction, In Place. It
+is what **Sigma Stare** performs — the one card in the deck whose `animation`
+names a clip instead of a pose function. `?firetoy` has a 🎬 chip that swaps the
+pose system out for it on whichever body and outfit is on stage.
+
+### The rig is the same rig
+
+The two skeletons are the same sixty-five joints, in the same order, with the
+same "+Y points at the child" convention. The names differ by one rule:
+
+| Mixamo | Firetoy |
+|---|---|
+| `mixamorig:Hips` | `Hips` |
+| `mixamorig:Spine1` | `Spine1` |
+| `mixamorig:LeftForeArm` | `ForeArm.L` |
+| `mixamorig:RightHandThumb1` | `HandThumb1.R` |
+| `mixamorig:LeftToe_End` | `Toe_End.L` |
+
+Run over both files, that rule is a bijection: 65 names in, 65 distinct names
+out, nothing unmapped on either side and nothing left over. Firetoy's rig came
+out of Mixamo, renamed.
+
+**So the retarget is a rename.** A clip states, per bone and per frame, where
+that bone points; a local rotation is that orientation with the parent's taken
+off. When every bone maps and both rigs agree on their axes, the parent's
+orientation is the same on both sides and cancels — the source's local rotation
+*is* the target's, verbatim. `mocap.ts` is that, plus the two things below.
+
+**The A-pose does not enter into it, and that is the opposite of `rig.ts`.** A
+`Pose` is a delta laid over whatever the body was doing, so it has to subtract
+the 39° the arms already hang out at. A clip is absolute: it overwrites all
+fifty-two bones it touches, so the rest pose is simply gone for the duration,
+and subtracting the A-pose would bend the move instead of fixing it. Measured,
+the two rest poses disagree by this much — none of which had to be corrected:
+
+| | apart at rest |
+|---|---:|
+| hips, spine, neck, head | 0.7–7° |
+| shoulders | 20° |
+| arms and forearms | 51–53° |
+| hands | 81° |
+| fingers | 60–136° |
+| legs, feet, toes | 7–12° |
+
+### The two things that are not renames
+
+**The hips translation.** It arrives in the source rig's centimetres and has to
+land in metres, on legs of a different length. One ratio does both — hips height
+to hips height — applied to the offset from each rig's own rest, so a body keeps
+the place its own file put it and only borrows the motion.
+
+**The track name.** `GLTFLoader` strips full stops out of node names, so the
+bone the file calls `Arm.L` answers to `ArmL` once loaded. A track named
+`Arm.L.quaternion` would not merely miss it: three reads that as node `Arm`,
+property `L`. Every name goes through `loadedName`, the same as everywhere else.
+
+### What the file turned out to contain
+
+| | |
+|---|---|
+| Bones | 65, no meshes — Without Skin |
+| Clip | `mixamo.com`, 2.90 s, 88 keys at 30 fps |
+| Tracks | 53: fifty-two rotations and the hips' travel |
+| Of those, fingers | 30 |
+| Bones the clip never touches | 13 — ten finger tips, `HeadTop_End`, two `Toe_End` |
+
+The thirteen keep Firetoy's own rest, which is what you want: they are leaves
+with nothing hanging off them.
+
+**It loops exactly.** The last frame equals the first to a tenth of a degree on
+every track, hips included, so it repeats without a seam — at the cost of one
+frame of hold, 33 ms, where the two identical frames meet. Not worth trimming.
+
+**In Place took, mostly.** The hips still sway 2.8 cm across and 5.7 cm
+fore-and-aft, and end exactly where they started. That is a body shifting its
+weight, not walking off the mark, and there is no drift to cancel.
+
+### On the two bodies
+
+| | male | female |
+|---|---:|---:|
+| Hips at rest | 0.981 m | 1.069 m |
+| Scale applied to the hips travel | ×0.941 | ×1.025 |
+| Tracks that find their bone | 53 / 53 | 53 / 53 |
+| Lowest the feet go, over the whole clip | −13 mm | −6 mm |
+
+The feet are the number that would have shown a bad retarget, and −13 mm on the
+male body is the rig's shin being 3 cm shorter than the one the motion was
+captured on. It reads as standing on the floor. If a clip ever lands worse than
+this, the fix is a ground offset per clip, not a cleverer retarget.
+
+### Cost
+
+| | |
+|---|---:|
+| Parse the FBX (591 kB, one clip) | 18.6 ms |
+| `retargetToFiretoy`, per character | 15 µs |
+| `mixer.update`, per frame, 53 tracks | 4.4 µs |
+| Copied per character rather than shared | 1.4 kB |
+
+Only the hips track is rebuilt per body; the fifty-two rotations are handed on
+by reference, because nothing writes to a keyframe track once it exists.
+
+**No frame rate is quoted here on purpose.** The preview pane throttles
+`requestAnimationFrame` while it is off screen — the same artefact the section
+below describes — and the lab's own readout while a clip plays is that, not the
+clip. Four microseconds a frame is the cost.
+
+**Runtime or offline?** Runtime, decided and paid for. Now that a card performs
+a clip, `FBXLoader` is in the stage chunk every 3D screen loads: it went from
+1054 kB to 1106 kB, **+16.7 kB gzipped**, and the entry chunk did not move at
+322 kB. The alternative was baking the retarget offline into a GLB and shipping
+keyframes alone, which would save that 16.7 kB and cost a build step; at one
+clip, and 15 µs to retarget it, there is nothing to buy. Worth revisiting if the
+game ever ships a dozen — and a baked clip would still be Mixamo's, so it takes
+the same private-repo route as the bodies either way.
+
+## The handover
+
+A `Pose` and a clip cannot both have a body, and swapping between them on the
+frame a card starts is a cut: eleven joints are in one place, fifty-three land
+in another, and the hands are the worst of it, because a clip curls fingers a
+pose has never heard of. So neither side takes the body outright.
+
+    pose ──▶ in ──▶ clip ──▶ out ──▶ pose
+             ▲                │
+             └────────────────┘   a clip dealt while another is fading out
+
+Four phases and no more, in `handover.ts`, which is pure and tested rather than
+stared at. `clipPlayer.ts` is the half that writes bones, and both blends are
+the same three steps: **capture** all sixty-five bones on the frame a blend
+begins, **write the target** over the whole skeleton, and **pull back** toward
+the capture by however much of the blend is left. 120 ms each way — long enough
+to read as a movement, short enough that a 2.9-second clip is not mostly blend.
+
+Writing the rest pose first, in both blends, is what makes the fingers come
+back. And the frame after a blend out, one more reset: the blend stops a
+fraction of a per cent short, and nothing else would ever clear it, so a finger
+would sit a tenth of a degree into the clip for the rest of the battle.
+
+**Everything is a function of the game clock.** The playhead is
+`now - startedAt`, never an accumulation of frame deltas, so a paused game holds
+its frame (`now()` stops), a slow frame does not drift, and two fighters — or a
+reload — cannot disagree about where in the clip they are. A clip that arrives
+after the card it belongs to is joined in progress rather than restarted.
+
+### The clip is read, not played
+
+There is no `AnimationMixer`, and the reason cost an afternoon.
+`PropertyMixer.apply` compares what it is about to write against what it wrote
+last time and skips the assignment if they match — sound when the mixer owns
+the skeleton, wrong here, because the pull-back moves those same bones behind
+its back. During a blend in the playhead is pinned to the clip's first frame,
+so the mixer wrote it once and then went quiet: every frame after that blended
+toward the *rest* pose instead of the clip, and the body snapped **51.66°** into
+place the moment the playhead moved. Reading the tracks' interpolants directly
+is fewer moving parts than working around that, and they are the same
+interpolants the mixer would have used.
+
+### What the seams measure
+
+The biggest turn any single bone makes in one frame, at 60 fps, over
+idle → wind-up → Being Cocky → PERFECT → idle. The blends have to disappear
+into the motion either side of them, and the test is that they are *smaller*
+than what the game already does:
+
+| | male | female |
+|---|---:|---:|
+| Wind-up (pose) | 15.7° | 13.9° |
+| **Blend in** | **10.7°** | **10.2°** |
+| The clip itself | 5.2° | 5.2° |
+| **Blend out** | **10.7°** | **10.2°** |
+| React PERFECT, then idle (pose) | 39.0° | 43.8° |
+
+The loudest frame in the whole cycle is the celebration throwing its arms up —
+a pose that was there before any of this. Every finger ends the cycle exactly on
+its rest rotation, as do the twelve bones the clip never touches, and the hips
+stay within 3 cm of the mark they started on: `rootMotion: 'inPlace'` is a fact
+about the export rather than something the code has to correct.
+
+The awkward cases hold up too. A card **shorter than its clip** cuts the motion
+off mid-air — the blend out then crosses 15.3° a frame instead of 10.7°, still
+under the game's own poses. At **rate 1.5** the clip moves 1.5× further per
+frame, 7.8°, and the seams do not change. Held mid-clip, the body holds its
+frame and carries on from it.
+
+### Cost of a frame
+
+| | |
+|---|---:|
+| A pose frame — the other sixteen cards | 2.9 µs |
+| A clip frame — 53 tracks read and written | 4.2 µs |
+| A blend frame — rest, clip, 65 slerps | 4.1 µs |
+
+## The clips desk
+
+`npm run clips` is what stands between a Mixamo download and the game.
+
+    npm run clips                 look at what has arrived, and register it
+    npm run clips -- --upload     and push the registered files to the assets repo
+    npm run clips -- --dry-run    say what either would do, and change nothing
+
+It settles the **name** first — Mixamo exports whatever the button said, and the
+file name is the id the registry, a card's `animation` and the lab's chip all
+use — then **measures** what the download page does not tell you, then
+**registers** and, asked to, **ships**.
+
+Two measurements decide whether the game can play a clip at all, and both are in
+the keyframes rather than on the page you downloaded it from:
+
+**Does it stay on its mark?** The furthest the hips get from where they started,
+across the floor, in hip heights — which is near enough centimetres, because a
+Firetoy hip stands at 0.98 m on the male body and 1.07 m on the female.
+Every clip downloaded so far answers this with a gap you could drive through:
+dancing on the spot tops out at 31 cm of weight shift, walking starts at 67 cm,
+and there is nothing whatsoever in between. The line sits at 45 cm for that
+reason rather than because it is a round number, and the gap has survived every
+batch that has arrived since — including the acrobatics, which are not close to
+it: a running forward flip covers 4.2 metres.
+
+What is over the line is registered as `rootMotion: 'travels'`, which is a fact
+about the file and not a plan. It earns a clip a place in the lab, where it can
+be judged, and nothing else: a card that names one fails the deck test. The way
+out is to re-export from Mixamo with In Place on and run the desk again, which
+re-measures every file it finds and corrects the entry.
+
+The other thing the table is good for is catching an export that came down on
+different settings — one clip arrived at 66 fps rather than 30, which breaks
+nothing, because playback reads keyframes against the clock, and is twice the
+file for the same motion.
+
+**Do its ends meet?** The worst any one bone has to turn to get from the last
+frame back to the first. Mixamo's loops are exact, so this is mostly 0.0° and
+the interesting entries are the ones that are not: dancing twerk at 19° would
+jolt every time round, so it is a clip to play once.
+
+New entries are registered played-once at their own speed, because which card
+performs what is a decision for somebody in front of the lab, not for a script
+that has never seen the animation.
+
+### Registered is not performed
+
+The registry holds every clip that has been downloaded and stood up, and cards
+name very few of them. `DEALT_CLIPS` in `animations.ts` is the ones a battle can
+actually deal, and it is the only list anything preloads. The registry is
+already tens of megabytes of FBX; fetching all of it before a battle in order to
+play one card would be an unusually thorough way to waste somebody's data.
+
+### Not answered yet
+
+- **Root motion.** A third of the registered clips walk, and all the game does
+  about it is refuse to let a card have one. Playing them properly means separating
+  the hips' XZ from the mark the fighter is standing on, and deciding what the
+  stage does when a performance ends somewhere else — neither of which anything
+  has needed yet.
+- **A second clip.** Everything above is written for one. Two clips on one body
+  in quick succession is handled — a new clip blends in from wherever the last
+  one left off — but two clips *at once*, or a clip layered over a pose, is not.
+- **Whether the game wants more of them.** Sixteen card gestures are still
+  functions, tuned against `balance.ts` and shared with the primitive fighters.
+  A clip is a fixed 2.9 seconds that knows nothing about a card's duration, and
+  `MOVES.stare` — what Sigma Stare used to do — is now unused by any card,
+  kept because the lab still cycles it and it costs nothing.
 
 ## Performance
 
@@ -288,8 +566,9 @@ and it is known how much of the catalogue the game actually uses.
 
 None of this reaches the game's first load. `CharacterLab` is behind a lazy
 import, the way every other screen that opens a 3D stage already is, so the
-entry chunk is 319 kB with the lab as it was without it; `GLTFLoader` and the
-catalogue sit in the lab's own 85 kB chunk until `?firetoy` asks for them.
+entry chunk is 322 kB with the lab as it was without it; the catalogue and the
+lab's own loaders sit in a 59 kB chunk until `?firetoy` asks for them, and
+`GLTFLoader` is in the stage chunk every 3D screen already loads.
 
 Frame rate was not measured here: this machine's preview pane throttles
 `requestAnimationFrame` to a standstill while it is off screen, so every reading
@@ -309,7 +588,10 @@ the exact node name of whatever was last touched along the top. `×2` puts a
 second character on stage in a different preset — the proof that two instances
 of one cached GLB keep their own wardrobes — `copy` puts the current outfit on the clipboard
 as TypeScript, and the action chip runs the fighter through everything a
-battle asks of them.
+battle asks of them. 🎬 swaps all of that for the imported clip — looped, which
+the battle does not do, because in here the point is to watch one motion over
+and over and catch the two seams. It stays dark on a clone that has not
+downloaded a clip.
 
 This is where the six rivals get changed: open one, move a few pieces, copy the
 result back into `cast.ts`.

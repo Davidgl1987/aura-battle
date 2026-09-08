@@ -2,10 +2,11 @@ import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Group } from 'three'
 import type { FiretoyLook } from '../engine/types'
-import { poseForAction, settle } from './animations'
+import { animationFor, poseForAction, settle } from './animations'
 import { getBuild } from './builds'
-import { FiretoyCharacter } from './firetoy/FiretoyCharacter'
+import { type ClipCue, FiretoyCharacter } from './firetoy/FiretoyCharacter'
 import { FIRETOY_SCALE } from './firetoy/models'
+import { useMocap } from './firetoy/useMocap'
 import { NEUTRAL, type Pose } from './pose'
 import { SLOTS, type FighterAction, type Slot } from './stageState'
 
@@ -53,6 +54,28 @@ export function FiretoyFighter({
   const current = useRef<Pose>({ ...NEUTRAL })
   const lastAt = useRef(0)
 
+  // Whether this card is performed by an imported clip, and if so, since when.
+  // The instant is the action's own, not the moment the file arrived: a clip
+  // that turns up late is joined where the match says it should be, so two
+  // fighters and a reload all show the same frame of it.
+  const source = action.kind === 'move' ? animationFor(action.animation) : null
+  const external = source?.type === 'clip' ? source.clip : null
+  const mocap = useMocap(external?.src ?? null)
+
+  const clip = useMemo<ClipCue | null>(
+    () =>
+      external && mocap && action.kind === 'move'
+        ? {
+            source: mocap,
+            id: external.id,
+            startedAt: action.startedAt,
+            rate: external.playbackRate,
+            loop: external.loop,
+          }
+        : null,
+    [external, mocap, action],
+  )
+
   useFrame((_, delta) => {
     if (!slotRef.current) return
     const to = SLOTS[slot]
@@ -85,6 +108,8 @@ export function FiretoyFighter({
         gender={character.gender}
         outfit={character.outfit}
         poseAt={poseAt}
+        clip={clip}
+        now={now}
         glow={charged ? color : null}
         scale={FIRETOY_SCALE}
       />
