@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { MOVES, poseForAction } from '../scene/animations'
+import { MOVES, REST_CLIP, clipForAction, poseForAction, spanOf } from '../scene/animations'
 import { ALL_CLIPS } from '../scene/clips'
 import { getBuild } from '../scene/builds'
 import { Floor, StageShell } from '../scene/StageShell'
@@ -23,9 +23,10 @@ import {
 } from '../scene/firetoy/characterPresets'
 import { PLAYER_CHARACTERS, RIVAL_CHARACTER_PRESETS } from '../scene/firetoy/cast'
 import type { ClipCue } from '../scene/firetoy/FiretoyCharacter'
+import { BLEND_IN_MS, BLEND_OUT_MS } from '../scene/firetoy/handover'
 import { useMocap } from '../scene/firetoy/useMocap'
 import { type OutfitChoice, choiceFromOutfit, resolveOutfit } from '../scene/firetoy/outfit'
-import type { FighterAction } from '../scene/stageState'
+import { REST_STAGGER_MS, type Beat, type FighterAction } from '../scene/stageState'
 import type { FiretoyLook } from '../engine/types'
 import { now } from '../state/store'
 
@@ -59,11 +60,26 @@ const CATEGORIES: readonly WearCategory[] = [
 
 /**
  * Everything a fighter does in a battle, on a loop: the card gestures, the
- * crouch before one, both sides of a judgement, and the two endings. The rig
- * has to hold all of it, not just the moves — a celebration throws the arms
- * further than any card does, and that is where a retarget goes wrong.
+ * crouch before one, both sides of every beat a turn can be worth, and the two
+ * endings. The rig has to hold all of it, not just the moves — a celebration
+ * throws the arms further than any card does, and that is where a retarget
+ * goes wrong.
+ *
+ * Stepping through the actions is also the only place the whole animation
+ * direction is visible in one pass: each one names its own clip now, so the
+ * chip walks the cast list rather than the registry.
  */
 const SPAN_MS = 1600
+
+const BEATS: readonly Beat[] = [
+  'PERFECT',
+  'GOOD',
+  'MISS',
+  'LOST_COMPOSURE',
+  'GOD_AURA',
+  'OUTAURA',
+  'STREAK',
+]
 
 const ACTIONS: readonly { label: string; at: (t: number) => FighterAction }[] = [
   { label: 'idle', at: () => ({ kind: 'idle' }) },
@@ -84,12 +100,12 @@ const ACTIONS: readonly { label: string; at: (t: number) => FighterAction }[] = 
       durationMs: SPAN_MS,
     }),
   },
-  ...(['PERFECT', 'GOOD', 'MISS', 'LOST_COMPOSURE'] as const).flatMap((judgement) =>
+  ...BEATS.flatMap((beat) =>
     (['react', 'watch'] as const).map((kind) => ({
-      label: `${kind} ${judgement.toLowerCase()}`,
+      label: `${kind} ${beat.toLowerCase().replace('_', ' ')}`,
       at: (t: number): FighterAction => ({
         kind,
-        judgement,
+        beat,
         startedAt: loopFrom(t),
         durationMs: SPAN_MS,
       }),
@@ -223,20 +239,38 @@ export function CharacterLab({ initialPreset }: { initialPreset: string }) {
   // The chip walks the registry and then switches back off, so every clip that
   // is added can be looked at without touching this file again.
   const [playing, setPlaying] = useState<{ index: number; at: number } | null>(null)
-  const external = playing ? (ALL_CLIPS[playing.index] ?? null) : null
+  // The registry chip wins when it is on; otherwise the action shows whatever
+  // the direction gave it, which is what makes stepping the actions a review
+  // of the mapping rather than of the pose system alone. Asked at instant zero
+  // because only the clip is wanted out of it — the playhead is placed below.
+  const directed = useMemo(() => clipForAction(ACTIONS[actionIndex].at(0)), [actionIndex])
+  // A pose is performed over a span the way a clip is, so stepping to `wind up`
+  // or `react good` in here has to hand one over or nothing happens. Looped,
+  // like the clips are: the point in here is to watch one motion over and over.
+  const span = useMemo(() => {
+    const found = spanOf(ACTIONS[actionIndex].at(loopFrom(now())))
+    return found && { ...found, loop: true }
+  }, [actionIndex])
+  const external = playing ? (ALL_CLIPS[playing.index] ?? null) : (directed?.clip ?? null)
   const mocap = useMocap(external?.src ?? null)
+  // The same floor the stage stands on. Without it the lab shows the rig's own
+  // A-pose between gestures, which is a body the game never puts on screen.
+  const resting = useMocap(REST_CLIP.src)
 
   const cue = useMemo<ClipCue | null>(
     () =>
-      mocap && external && playing
+      mocap && external
         ? {
             source: mocap,
             id: external.id,
-            startedAt: playing.at,
+            startedAt: playing ? playing.at : loopFrom(now()),
             // Looped whatever the registry says, because the point in here is
             // to watch one motion over and over. The battle plays it once.
             loop: true,
             rate: external.playbackRate,
+            window: external,
+            blendInMs: external.blendInMs ?? BLEND_IN_MS,
+            blendOutMs: external.blendOutMs ?? BLEND_OUT_MS,
           }
         : null,
     [mocap, external, playing],
@@ -341,6 +375,8 @@ export function CharacterLab({ initialPreset }: { initialPreset: string }) {
               outfit={outfit}
               poseAt={poseAt}
               clip={cue}
+              span={span}
+              rest={resting}
               now={now}
               position={[twin ? -0.7 : 0, 0, 0]}
             />
@@ -350,6 +386,9 @@ export function CharacterLab({ initialPreset }: { initialPreset: string }) {
                 outfit={twinOutfit}
                 poseAt={poseAt}
                 clip={cue}
+                span={span}
+                rest={resting}
+                restPhaseMs={REST_STAGGER_MS}
                 now={now}
                 position={[0.7, 0, 0]}
               />

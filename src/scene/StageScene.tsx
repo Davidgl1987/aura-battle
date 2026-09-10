@@ -9,7 +9,7 @@ import { FiretoyFighter } from './FiretoyFighter'
 import { Motes } from './Motes'
 import { Floor, StageShell } from './StageShell'
 import { DEFAULT_PLAYER_CHARACTER } from './firetoy/cast'
-import { SLOTS, fighterAction, slotOf } from './stageState'
+import { REST_STAGGER_MS, SLOTS, fighterAction, slotOf } from './stageState'
 
 /** How hard the camera is knocked by each result. */
 const SHAKE: Record<string, number> = {
@@ -133,6 +133,7 @@ function Cast({ bloomRef }: { bloomRef: React.RefObject<BloomEffect | null> }) {
             slot={slotOf(match, player.id)}
             action={fighterAction(match, player.id)}
             charged={player.godAura}
+            restPhaseMs={player.id * REST_STAGGER_MS}
             now={now}
           />
         ))}

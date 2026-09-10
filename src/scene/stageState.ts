@@ -1,15 +1,36 @@
-import { INTRO_MS } from '../engine/balance'
+import { INTRO_MS, STREAK_MIN } from '../engine/balance'
 import { getCard } from '../engine/cards'
-import type { Judgement, MatchState, PlayerId } from '../engine/types'
+import type { Judgement, MatchState, PlayerId, TurnResult } from '../engine/types'
+
+/**
+ * What a turn is worth showing a body about. The four judgements, and the three
+ * things that can happen on top of one and are worth more than it: a meter
+ * filled, a rival out-scored, a run of PERFECTs.
+ *
+ * Bigger than `Judgement` on purpose. A PERFECT that lights GOD AURA is the
+ * loudest moment the game has and it used to look exactly like any other
+ * PERFECT, because the only thing the stage was told was the grade.
+ */
+export type Beat =
+  | Judgement
+  | 'LOST_COMPOSURE'
+  | 'GOD_AURA'
+  | 'OUTAURA'
+  | 'STREAK'
 
 /** What a fighter is doing right now, and since when. */
 export type FighterAction =
+  /**
+   * Nothing is being asked of them. Not the absence of an animation: the
+   * resting clip is under every frame of every action, and idling is what is
+   * left when nothing is playing over it. See `clipPlayer.ts`.
+   */
   | { kind: 'idle' }
   | { kind: 'windUp'; startedAt: number; durationMs: number }
   | { kind: 'move'; animation: string; startedAt: number; durationMs: number }
   | {
       kind: 'react'
-      judgement: Judgement | 'LOST_COMPOSURE'
+      beat: Beat
       startedAt: number
       durationMs: number
     }
@@ -18,10 +39,26 @@ export type FighterAction =
   /** The other one, reacting to what just happened across the stage. */
   | {
       kind: 'watch'
-      judgement: Judgement | 'LOST_COMPOSURE'
+      beat: Beat
       startedAt: number
       durationMs: number
     }
+
+/**
+ * What a result is worth showing, which is not always the grade it was given.
+ *
+ * Read most spectacular first, because a play can be several of these at once
+ * and the body only has one thing to say: lighting GOD AURA outranks the
+ * OUTAURA that came with it, which outranks the streak, which outranks the
+ * PERFECT underneath all three. Everything here is already on the result — the
+ * stage works out what it means, it does not ask the engine for anything new.
+ */
+export function beatOf(result: TurnResult): Beat {
+  if (!result.godAuraBefore && result.godAuraAfter) return 'GOD_AURA'
+  if (result.lines.some((line) => line.key === 'outaurad')) return 'OUTAURA'
+  if (result.perfectStreak >= STREAK_MIN) return 'STREAK'
+  return result.judgement
+}
 
 /**
  * Where a fighter can stand. The first two are the battle; the rest are for
@@ -54,10 +91,10 @@ export function fighterAction(match: MatchState, playerId: PlayerId): FighterAct
       // Timed phases only record when they end, so the start is worked back.
       return playerId === match.active
         ? { kind: 'windUp', startedAt: phase.endsAt - INTRO_MS, durationMs: INTRO_MS }
-        : { kind: 'idle' }
+        : IDLE
 
     case 'qte': {
-      if (playerId !== match.active) return { kind: 'idle' }
+      if (playerId !== match.active) return IDLE
       const card = getCard(phase.cardId)
       return {
         kind: 'move',
@@ -73,7 +110,7 @@ export function fighterAction(match: MatchState, playerId: PlayerId): FighterAct
         // Both bodies have something to say about a result: one owns it, the
         // other answers it.
         kind: playerId === phase.result.player ? 'react' : 'watch',
-        judgement: phase.result.judgement,
+        beat: beatOf(phase.result),
         startedAt: phase.startedAt,
         // The reaction plays out, then holds for as long as the score is up.
         durationMs: REACTION_MS,
@@ -82,13 +119,24 @@ export function fighterAction(match: MatchState, playerId: PlayerId): FighterAct
     case 'matchEnd':
       // A draw leaves nobody to celebrate, so both just stand there.
       return phase.winner === null
-        ? { kind: 'idle' }
+        ? IDLE
         : { kind: 'finale', won: phase.winner === playerId }
 
     default:
-      return { kind: 'idle' }
+      return IDLE
   }
 }
+
+const IDLE: FighterAction = { kind: 'idle' }
+
+/**
+ * How far apart the two fighters' resting loops are held. A little over a
+ * second: long enough that no phrase of the eight-second idle lines up, short
+ * enough that both are still visibly breathing rather than one being caught
+ * mid-hold. A property of who is standing where, not of what they are doing,
+ * which is why it rides on the body rather than on the action.
+ */
+export const REST_STAGGER_MS = 1300
 
 /** Whoever is up steps forward; the other waits upstage. */
 export function slotOf(match: MatchState, playerId: PlayerId): Slot {

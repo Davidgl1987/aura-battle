@@ -2,10 +2,11 @@ import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Group } from 'three'
 import type { FiretoyLook } from '../engine/types'
-import { animationFor, poseForAction, settle } from './animations'
+import { REST_CLIP, clipForAction, poseForAction, settle, spanOf } from './animations'
 import { getBuild } from './builds'
 import { type ClipCue, FiretoyCharacter } from './firetoy/FiretoyCharacter'
 import { FIRETOY_SCALE } from './firetoy/models'
+import { BLEND_IN_MS, BLEND_OUT_MS } from './firetoy/handover'
 import { useMocap } from './firetoy/useMocap'
 import { NEUTRAL, type Pose } from './pose'
 import { SLOTS, type FighterAction, type Slot } from './stageState'
@@ -32,6 +33,12 @@ interface Props {
   /** Lit from within while GOD AURA holds, in their own colour. */
   charged: boolean
   color: string
+  /**
+   * Shifts this fighter's resting loop. Two of them handed the same clock
+   * breathe in unison, which reads as a chorus line rather than two people
+   * waiting.
+   */
+  restPhaseMs?: number
   /** Time base shared with the rest of the game. */
   now: () => number
 }
@@ -43,6 +50,7 @@ export function FiretoyFighter({
   action,
   charged,
   color,
+  restPhaseMs = 0,
   now,
 }: Props) {
   const build = useMemo(() => getBuild(characterId), [characterId])
@@ -54,26 +62,38 @@ export function FiretoyFighter({
   const current = useRef<Pose>({ ...NEUTRAL })
   const lastAt = useRef(0)
 
-  // Whether this card is performed by an imported clip, and if so, since when.
-  // The instant is the action's own, not the moment the file arrived: a clip
-  // that turns up late is joined where the match says it should be, so two
-  // fighters and a reload all show the same frame of it.
-  const source = action.kind === 'move' ? animationFor(action.animation) : null
-  const external = source?.type === 'clip' ? source.clip : null
-  const mocap = useMocap(external?.src ?? null)
+  // Whether this action is performed by an imported clip, and if so, since
+  // when. Every kind of action can be — the card, the reaction across the
+  // stage, standing still, both endings — and the instant is the action's own,
+  // not the moment the file arrived: a clip that turns up late is joined where
+  // the match says it should be, so two fighters and a reload all show the
+  // same frame of it.
+  const external = clipForAction(action)
+  const entry = external?.clip ?? null
+  const startedAt = external?.startedAt ?? 0
+  const loop = external?.loop ?? false
+  const mocap = useMocap(entry?.src ?? null)
+  // Standing there is not an action, it is what the body does when no action
+  // is asking for anything else — so it is fetched once and stays.
+  const resting = useMocap(REST_CLIP.src)
 
+  // Keyed on the registry entry rather than on the wrapper, which is built
+  // fresh every render: a new cue every frame would retarget the clip again.
   const clip = useMemo<ClipCue | null>(
     () =>
-      external && mocap && action.kind === 'move'
+      entry && mocap
         ? {
             source: mocap,
-            id: external.id,
-            startedAt: action.startedAt,
-            rate: external.playbackRate,
-            loop: external.loop,
+            id: entry.id,
+            startedAt,
+            rate: entry.playbackRate,
+            loop,
+            window: entry,
+            blendInMs: entry.blendInMs ?? BLEND_IN_MS,
+            blendOutMs: entry.blendOutMs ?? BLEND_OUT_MS,
           }
         : null,
-    [external, mocap, action],
+    [entry, startedAt, loop, mocap],
   )
 
   useFrame((_, delta) => {
@@ -109,6 +129,9 @@ export function FiretoyFighter({
         outfit={character.outfit}
         poseAt={poseAt}
         clip={clip}
+        span={spanOf(action)}
+        rest={resting}
+        restPhaseMs={restPhaseMs}
         now={now}
         glow={charged ? color : null}
         scale={FIRETOY_SCALE}

@@ -1,19 +1,30 @@
 /**
- * Handing one body back and forth between the pose system and an imported
- * clip, without a pop at either end.
+ * Handing one body back and forth between its resting animation and whatever
+ * it has been asked to perform, without a pop at either end.
  *
- * A `Pose` writes eleven joints over the rest pose; a clip writes fifty-two,
- * fingers included. Switching between them on the frame a card starts is a
- * visible jump — the arms are in one place and then another, and the hands are
- * the worst of it, because a clip curls the fingers and a pose has never heard
- * of them. So neither side ever takes the body outright: whatever is showing
- * is captured, and the new owner is faded in over `BLEND_MS`.
+ * The resting animation is `neutral-idle`, and it owns the skeleton. Every
+ * frame, all sixty-five bones, whether anything else is playing or not — see
+ * `clipPlayer.ts`. That is the whole reason this file can be as small as it is:
+ * there is no state to hand *back* to, because the base was never given away.
  *
- * That is four phases and nothing more:
+ * It was not always so, and the way it failed is worth writing down. The base
+ * used to be the rest pose plus eleven joints of `Pose`, written only on the
+ * frame a blend finished. The other fifty-four bones kept whatever the last
+ * clip had left them at — fingers curled, feet turned — until something else
+ * claimed them, which for a GOOD (a nod, and no clip) was never.
  *
- *     pose ──▶ in ──▶ clip ──▶ out ──▶ pose
+ * So: four phases, and what changes across them is only how much of the
+ * performed clip is showing on top of the base.
+ *
+ *     base ──▶ in ──▶ clip ──▶ out ──▶ base
  *              ▲                │
  *              └────────────────┘   a clip dealt while another is fading out
+ *
+ * A clip that runs out goes `out` on its own, without being asked, which is
+ * what returns a fighter to idle in the middle of a phase that is still up: a
+ * card is over long before its resolve screen is, and a reaction is over long
+ * before somebody swipes. The one thing that never runs out is a `loop`, which
+ * is how the two endings stay on screen.
  *
  * This module is the timing of it — which phase, how far through, and where
  * the clip's playhead is. `clipPlayer.ts` is the half that writes bones. Pure
@@ -23,12 +34,26 @@
 
 /**
  * Long enough to read as a movement rather than a cut, short enough that a
- * 2.9-second clip is not mostly blend. Measured against the game's own moves,
- * which take about this long to rise out of standing.
+ * 2.9-second clip is not mostly blend.
+ *
+ * Out is longer than in, because the two ends are not the same job. Coming in,
+ * the clip is the thing you asked for and it should arrive; going out, the body
+ * is settling back to standing and a fast settle reads as a snap. At a shared
+ * 120 ms every return to idle looked like a cut, which is what these were
+ * raised from.
+ *
+ * Where they landed is measured rather than felt: `clipPlayer.test.ts` steps
+ * each transition at 60 Hz and reports the furthest any one bone turns in a
+ * single frame. Taking the body is the tightest of them — the clip arrives at
+ * whatever frame it opens on, where a return only ever has to reach standing —
+ * so the in blend is sized against that one and the out follows it up.
+ *
+ * A clip may override either. See `blendInMs` in `clips.ts`; none has needed to.
  */
-export const BLEND_MS = 120
+export const BLEND_IN_MS = 180
+export const BLEND_OUT_MS = 280
 
-export type Phase = 'pose' | 'in' | 'clip' | 'out'
+export type Phase = 'base' | 'in' | 'clip' | 'out'
 
 /** A clip that should be playing, and the game-clock instant it started. */
 export interface Playing {
@@ -42,9 +67,17 @@ export interface Playing {
   startedAt: number
   /** Seconds of clip per second of game time. */
   rate: number
+  /**
+   * Whether it repeats for as long as its action lasts. Decided by the action
+   * rather than by the clip — a short dance tiles to fill a card, an ending
+   * holds until somebody taps, and a reaction plays once and gives the body
+   * back. See `clipForAction`.
+   */
   loop: boolean
   /** The clip's own length, in seconds. */
   duration: number
+  blendInMs: number
+  blendOutMs: number
 }
 
 export interface Handover {
@@ -55,7 +88,7 @@ export interface Handover {
   key: string | null
 }
 
-export const AT_REST: Handover = { phase: 'pose', since: 0, key: null }
+export const AT_REST: Handover = { phase: 'base', since: 0, key: null }
 
 export interface Frame {
   phase: Phase
@@ -81,7 +114,7 @@ const keyOf = (playing: Playing) => `${playing.id}@${playing.startedAt}`
  * has arrived at its first frame.
  */
 function elapsed(playing: Playing, now: number): number {
-  return ((now - playing.startedAt - BLEND_MS) / 1000) * playing.rate
+  return ((now - playing.startedAt - playing.blendInMs) / 1000) * playing.rate
 }
 
 /**
@@ -115,14 +148,16 @@ export function advance(
     frame: { phase, k, clipTime, capture: false },
   })
 
-  // Nobody is asking for a clip: give the body back, once.
+  // Nobody is asking for a clip. The base already owns the body, so the only
+  // thing left is to fade out whatever was still showing over it — and if the
+  // clip had already finished on its own, not even that.
   if (!playing) {
-    if (state.phase === 'pose') {
+    if (state.phase === 'base') {
       return { state: state.key === null ? state : { ...state, key: null }, frame: DONE }
     }
     if (state.phase !== 'out') return begin('out', null, now, 0)
-    const k = ease((now - state.since) / BLEND_MS)
-    return k < 1 ? still('out', k, 0) : still('pose', 1, 0)
+    const k = ease((now - state.since) / BLEND_OUT_MS)
+    return k < 1 ? still('out', k, 0) : still('base', 1, 0)
   }
 
   const clipTime = playhead(playing, now)
@@ -134,7 +169,7 @@ export function advance(
 
   switch (state.phase) {
     case 'in': {
-      const k = ease((now - state.since) / BLEND_MS)
+      const k = ease((now - state.since) / playing.blendInMs)
       return k < 1 ? still('in', k, clipTime) : still('clip', 1, clipTime)
     }
     case 'clip':
@@ -144,13 +179,14 @@ export function advance(
         ? begin('out', key, now, clipTime)
         : still('clip', 1, clipTime)
     case 'out': {
-      const k = ease((now - state.since) / BLEND_MS)
-      return k < 1 ? still('out', k, clipTime) : still('pose', 1, clipTime)
+      const k = ease((now - state.since) / playing.blendOutMs)
+      return k < 1 ? still('out', k, clipTime) : still('base', 1, clipTime)
     }
-    // The clip is over and its action is still up: the pose system has it.
+    // The clip is over and its action is still up: the fighter is idling, and
+    // stays idling until something else is asked of them.
     default:
-      return still('pose', 1, clipTime)
+      return still('base', 1, clipTime)
   }
 }
 
-const DONE: Frame = { phase: 'pose', k: 1, clipTime: 0, capture: false }
+const DONE: Frame = { phase: 'base', k: 1, clipTime: 0, capture: false }

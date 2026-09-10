@@ -3,7 +3,7 @@ import type { Judgement } from '../engine/types'
 import type { Build } from './builds'
 import { clipFor, type ExternalClip } from './clips'
 import { NEUTRAL, type Pose, TAU, arc, blend, hold, overshoot, pose, snap, wave } from './pose'
-import { actionProgress, type FighterAction } from './stageState'
+import { actionProgress, type Beat, type FighterAction } from './stageState'
 
 /** A move, described over its own span: 0 is the first frame, 1 the last. */
 export type PoseFn = (p: number) => Pose
@@ -11,9 +11,16 @@ export type PoseFn = (p: number) => Pose
 const HALF_PI = Math.PI / 2
 
 /**
- * One entry per card's `animation` key. Each one is built from the same
- * fifteen numbers, so a gesture is readable as code: "hands to the jaw, chin
- * up, hold" really is what mewing says.
+ * The hand-authored gestures, each built from the same fifteen numbers, so a
+ * gesture is readable as code: "hands to the jaw, chin up, hold" really is what
+ * mewing says.
+ *
+ * There was one of these per card until every card moved onto an imported clip,
+ * and no card names one now. They are kept because the lab still steps through
+ * them and because putting a card back on one is a single string — the cheapest
+ * way there is to disagree with the animation direction. `docs/firetoy.md`
+ * records what else of the pose system is still load-bearing, which is more
+ * than this is.
  */
 export const MOVES: Record<string, PoseFn> = {
   // 😤 Hands framing the jawline, chin up, dead still. All in the snap.
@@ -326,18 +333,184 @@ export function animationFor(animation: string): AnimationSource {
 }
 
 /**
- * The clips a battle can actually deal, which is not the registry: every clip
- * that has been downloaded and looked at is registered, and only the ones a
- * card names will ever be performed. Fetching the difference before a battle
- * would be megabytes nobody asked for.
+ * The clip a fighter performs when a beat lands on them, and the one the
+ * fighter opposite answers with.
+ *
+ * Two tables rather than one because a moment is a conversation: somebody
+ * out-scores somebody. The winner waves it away and the loser fumes, and both
+ * of those are the same instant of the same match. Null is not an oversight —
+ * it means the pose system already has something small and right to say and a
+ * clip would be too much furniture for it. A GOOD is a nod.
  */
-export const DEALT_CLIPS: readonly ExternalClip[] = [
+const REACTS: Record<Beat, string | null> = {
+  GOD_AURA: 'sword-and-shield-power-up',
+  OUTAURA: 'dismissing-gesture',
+  STREAK: 'taunt',
+  PERFECT: 'victory-idle',
+  GOOD: null,
+  MISS: 'shaking-head-no',
+  LOST_COMPOSURE: 'defeat',
+}
+
+const WATCHES: Record<Beat, string | null> = {
+  // Somebody across the stage just caught fire, or beat a score with your name
+  // on it. Neither is a shrug.
+  GOD_AURA: 'surprised',
+  OUTAURA: 'angry',
+  STREAK: 'shaking-head-no',
+  PERFECT: 'surprised',
+  GOOD: null,
+  // A fumble is an invitation, and `loser` is a hand held up to a forehead.
+  MISS: 'loser',
+  LOST_COMPOSURE: 'loser',
+}
+
+/**
+ * Breathing on the spot.
+ *
+ * Not an action's clip, and that is the point: it is the layer under every
+ * frame of every action, so a fighter with nothing to do is idling rather than
+ * holding the last thing they were told to do. `clipPlayer.ts` writes it first
+ * and always. Every body in the game needs it, so it is the one clip worth
+ * having in hand before anything else.
+ */
+const IDLE_CLIP = 'neutral-idle'
+
+/** The resting animation itself, for whoever has to fetch it. */
+export const REST_CLIP: ExternalClip = clipFor(IDLE_CLIP)!
+
+/** Held for as long as the result screen is up, so both of them loop. */
+const FINALE_CLIPS = { won: 'victory-idle', lost: 'defeat' } as const
+
+/** The clip an action is performed by, and how. */
+export interface ClipAt {
+  clip: ExternalClip
+  /** The instant its playhead is measured from. */
+  startedAt: number
+  /**
+   * Whether it runs round again. A decision about the moment rather than about
+   * the file, which is why it is not simply the registry's `loop`: a card tiles
+   * a short dance to fill itself, an ending holds until somebody taps, and a
+   * reaction plays once and gives the body back to the idle underneath.
+   */
+  loop: boolean
+}
+
+/**
+ * What an action looks like as imported motion, or null for the ones the pose
+ * system still owns.
+ *
+ * The counterpart of `poseForAction`, and deliberately its own function rather
+ * than a field on it: a clip and a pose are both live at once during a blend,
+ * and `clipPlayer.ts` wants each of them from the source that knows.
+ *
+ * Two actions have no clip and will not be getting one. The wind-up is 400 ms,
+ * which is three frames longer than the blend that would introduce a clip, so
+ * there is nothing left to see. And a GOOD is a nod — see `REACTS`.
+ */
+export function clipForAction(action: FighterAction): ClipAt | null {
+  const found = (id: string | null, startedAt: number, loop: boolean): ClipAt | null => {
+    const clip = id === null ? undefined : clipFor(id)
+    return clip ? { clip, startedAt, loop } : null
+  }
+
+  switch (action.kind) {
+    case 'windUp':
+      return null
+    case 'move':
+      // Tiled if the clip can take it: a one-second moonwalk in a three-second
+      // card is better round three times than once and then standing there.
+      return found(action.animation, action.startedAt, clipFor(action.animation)?.loop ?? false)
+    case 'react':
+      return found(REACTS[action.beat], action.startedAt, false)
+    case 'watch':
+      return found(WATCHES[action.beat], action.startedAt, false)
+    case 'finale':
+      // The one thing that never gives the body back. No instant of its own
+      // either: the screen stays up until somebody taps, so the playhead is
+      // measured from the clock's own zero and runs round there for good.
+      return found(FINALE_CLIPS[action.won ? 'won' : 'lost'], 0, true)
+    default:
+      // Standing there is not an action. `neutral-idle` is already under this
+      // frame and every other one — see `clipPlayer.ts`.
+      return null
+  }
+}
+
+/**
+ * The span an action is performed over, when there is no clip to perform it
+ * with: the wind-up, a GOOD, and any body whose clip file never arrived.
+ *
+ * A pose is performed exactly the way a clip is — faded in against the resting
+ * animation, held, faded back out when its span runs out. That is the whole
+ * reason this exists rather than the pose simply being written whenever no clip
+ * is playing: written, it would appear and disappear on the frame a cue changed,
+ * and the eleven joints it owns would jump between its idea of standing and the
+ * resting clip's. Performed, it blends both ways like everything else does.
+ *
+ * Null for idling, which is not a performance. Standing there is what the
+ * resting animation is already doing underneath.
+ */
+export interface Span {
+  /** Distinguishes one performance from the next, the way a clip's id does. */
+  id: string
+  startedAt: number
+  durationMs: number
+  loop: boolean
+}
+
+export function spanOf(action: FighterAction): Span | null {
+  switch (action.kind) {
+    case 'idle':
+      return null
+    // The one that outlasts itself. `finalePose` loops on wall time rather than
+    // running over a span, so its own length is arbitrary and it never ends.
+    case 'finale':
+      return { id: `finale:${action.won}`, startedAt: 0, durationMs: 1000, loop: true }
+    default:
+      return { id: action.kind, startedAt: action.startedAt, durationMs: action.durationMs, loop: false }
+  }
+}
+
+const byId = (ids: readonly (string | null)[]): readonly ExternalClip[] => [
   ...new Map(
-    CARDS.map((card) => clipFor(card.animation))
+    ids
+      .map((id) => (id === null ? undefined : clipFor(id)))
       .filter((clip): clip is ExternalClip => clip !== undefined)
       .map((clip) => [clip.id, clip]),
   ).values(),
 ]
+
+/**
+ * The clips a battle can actually deal, which is not the registry: every clip
+ * that has been downloaded and looked at is registered, and only the ones
+ * something names will ever be performed. Fetching the difference before a
+ * battle would be megabytes nobody asked for.
+ */
+export const DEALT_CLIPS: readonly ExternalClip[] = byId(CARDS.map((card) => card.animation))
+
+/**
+ * The ones that belong to no card: standing still, the seven things a result
+ * can be worth saying, and the two endings. Fetched with the cards rather than
+ * on demand, because the idle is on screen before anything is dealt and a
+ * reaction that arrives after its own moment is a reaction nobody saw.
+ */
+export const STATE_CLIPS: readonly ExternalClip[] = byId([
+  IDLE_CLIP,
+  ...Object.values(REACTS),
+  ...Object.values(WATCHES),
+  ...Object.values(FINALE_CLIPS),
+])
+
+/**
+ * Everything with a consumer, which is what gets shipped. The registry holds
+ * the ones that were downloaded and looked at too, and those are a public URL
+ * nobody fetches — see `npm run clips -- --upload`.
+ */
+export const USED_CLIPS: readonly ExternalClip[] = byId([
+  ...DEALT_CLIPS.map((clip) => clip.id),
+  ...STATE_CLIPS.map((clip) => clip.id),
+])
 
 /**
  * A move as it is actually performed: wrapped in a ramp so the fighter rises
@@ -347,6 +520,23 @@ export const DEALT_CLIPS: readonly ExternalClip[] = [
  */
 export function moveAt(animation: string, p: number): Pose {
   return blend(NEUTRAL, moveFor(animation)(p), hold(p, 0.14, 0.86))
+}
+
+/**
+ * A shape as it is actually performed: wrapped in the same ramp `moveAt` uses,
+ * so it provably rises out of standing and returns to it.
+ *
+ * This is here because it did not used to be, and the bug was visible from
+ * across the room. `reactPose`'s PERFECT throws the arms up with `snap(p * 2)`,
+ * which reaches 1 half way through the span and — `snap` being clamped —
+ * never comes back down. The reaction's span is 900 ms and the resolve screen
+ * stays up until somebody swipes, so `p` sat at 1 and the fighter held their
+ * arms over their head for the rest of the turn. Every other pose in the file
+ * happened to be wrapped in `arc` or `hold` and returned to neutral by luck
+ * rather than by rule; this is the rule.
+ */
+function overSpan(shape: (q: number) => Pose, p: number): Pose {
+  return blend(NEUTRAL, shape(p), hold(p, 0.14, 0.8))
 }
 
 /** Breathing on the spot, scaled by how bouncy the fighter is. */
@@ -368,6 +558,10 @@ export function idlePose(seconds: number, build: Build): Pose {
 
 /** The crouch before a move: a beat of anticipation. */
 export function windUpPose(p: number): Pose {
+  return overSpan(windUpShape, p)
+}
+
+function windUpShape(p: number): Pose {
   const k = arc(p)
   return pose({
     y: -0.09 * k,
@@ -381,8 +575,28 @@ export function windUpPose(p: number): Pose {
   })
 }
 
+/**
+ * The four the pose system was written for. The three louder beats are all a
+ * play going well, so under a clip that has not arrived they read as the
+ * PERFECT they are sitting on top of.
+ */
+function graded(beat: Beat): Judgement | 'LOST_COMPOSURE' {
+  switch (beat) {
+    case 'GOD_AURA':
+    case 'OUTAURA':
+    case 'STREAK':
+      return 'PERFECT'
+    default:
+      return beat
+  }
+}
+
 /** What the body does about the result. */
-export function reactPose(judgement: Judgement | 'LOST_COMPOSURE', p: number): Pose {
+export function reactPose(beat: Beat, p: number): Pose {
+  return overSpan((q) => reactShape(graded(beat), q), p)
+}
+
+function reactShape(judgement: Judgement | 'LOST_COMPOSURE', p: number): Pose {
   switch (judgement) {
     case 'PERFECT': {
       const jump = arc(p)
@@ -477,7 +691,11 @@ export function finalePose(won: boolean, seconds: number): Pose {
  * What the fighter across the stage does about someone else's result: shrinks
  * from a PERFECT, leans in to gloat over a fumble.
  */
-export function watchPose(judgement: Judgement | 'LOST_COMPOSURE', p: number): Pose {
+export function watchPose(beat: Beat, p: number): Pose {
+  return overSpan((q) => watchShape(graded(beat), q), p)
+}
+
+function watchShape(judgement: Judgement | 'LOST_COMPOSURE', p: number): Pose {
   const k = hold(p, 0.18, 0.7)
 
   switch (judgement) {
@@ -545,9 +763,9 @@ export function poseForAction(action: FighterAction, build: Build, now: number):
         ? idlePose(now / 1000, build)
         : flourish(moveAt(action.animation, p), build, p)
     case 'react':
-      return reactPose(action.judgement, p)
+      return reactPose(action.beat, p)
     case 'watch':
-      return watchPose(action.judgement, p)
+      return watchPose(action.beat, p)
     case 'finale':
       return finalePose(action.won, now / 1000)
     default:

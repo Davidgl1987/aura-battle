@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS, INTRO_MS } from '../engine/balance'
 import { getCard } from '../engine/cards'
 import { createMatch, step } from '../engine/match'
-import type { MatchState, PlayerSetup } from '../engine/types'
+import type { MatchState, PlayerSetup, TurnResult } from '../engine/types'
 import { runFor } from '../engine/qte'
-import { SLOTS, actionProgress, fighterAction, slotOf } from './stageState'
+import { REST_STAGGER_MS, SLOTS, actionProgress, beatOf, fighterAction, slotOf } from './stageState'
 
 const DECK = ['mewing', 'six-seven', 'split-focus', 'griddy-drop']
 const setups: [PlayerSetup, PlayerSetup] = [
@@ -114,7 +114,7 @@ describe('what each body is doing', () => {
     const react = fighterAction(resolved, 0)
     expect(react.kind).toBe('react')
     if (react.kind === 'react') {
-      expect(react.judgement).toBe('PERFECT')
+      expect(react.beat).toBe('PERFECT')
       // Anchored to the start of the resolve screen, not its end.
       expect(react.startedAt).toBe(t + 50)
     }
@@ -127,7 +127,7 @@ describe('what each body is doing', () => {
     const watching = fighterAction(resolved, 1)
     expect(watching.kind).toBe('watch')
     if (watching.kind === 'watch') {
-      expect(watching.judgement).toBe('PERFECT')
+      expect(watching.beat).toBe('PERFECT')
       expect(watching.startedAt).toBe(t + 50)
     }
   })
@@ -139,7 +139,7 @@ describe('what each body is doing', () => {
 
     const react = fighterAction(state, 0)
     expect(react.kind).toBe('react')
-    if (react.kind === 'react') expect(react.judgement).toBe('LOST_COMPOSURE')
+    if (react.kind === 'react') expect(react.beat).toBe('LOST_COMPOSURE')
   })
 })
 
@@ -168,5 +168,119 @@ describe('timing an action', () => {
     // The score sheet has no clock of its own, so the reaction has to play out
     // and then settle rather than run to the end of a phase.
     expect(actionProgress(react, react.startedAt + react.durationMs * 4)).toBe(1)
+  })
+})
+
+/**
+ * What a turn is worth showing, which is not always the grade it was given: a
+ * PERFECT that lights GOD AURA is a different moment from a PERFECT, and the
+ * stage used to be told only the grade.
+ */
+describe('what a result is worth showing', () => {
+  const result = (over: Partial<TurnResult> = {}): TurnResult => ({
+    player: 0,
+    cardId: 'mewing',
+    judgement: 'PERFECT',
+    freshness: 'FRESH',
+    aura: 1000,
+    impact: 1000,
+    outcome: null,
+    lines: [],
+    perfectStreak: 0,
+    momentumBefore: 0,
+    momentumAfter: 0,
+    godAuraBefore: false,
+    godAuraAfter: false,
+    ...over,
+  })
+
+  it('is the grade when nothing louder happened', () => {
+    expect(beatOf(result())).toBe('PERFECT')
+    expect(beatOf(result({ judgement: 'MISS' }))).toBe('MISS')
+    expect(beatOf(result({ judgement: 'LOST_COMPOSURE' }))).toBe('LOST_COMPOSURE')
+  })
+
+  it('reads the loudest thing first', () => {
+    const everything = {
+      godAuraAfter: true,
+      perfectStreak: 4,
+      lines: [{ key: 'outaurad' as const, label: "OUTAURA'D", value: 0 }],
+    }
+    expect(beatOf(result(everything))).toBe('GOD_AURA')
+    expect(beatOf(result({ ...everything, godAuraAfter: false }))).toBe('OUTAURA')
+    expect(beatOf(result({ ...everything, godAuraAfter: false, lines: [] }))).toBe('STREAK')
+  })
+
+  /** Already alight is not the same moment as catching fire. */
+  it('does not light a meter that was already lit', () => {
+    expect(beatOf(result({ godAuraBefore: true, godAuraAfter: true }))).toBe('PERFECT')
+  })
+
+  it('needs a run rather than one of them for a streak', () => {
+    expect(beatOf(result({ perfectStreak: 1 }))).toBe('PERFECT')
+    expect(beatOf(result({ perfectStreak: 2 }))).toBe('STREAK')
+  })
+})
+
+describe('two of them standing there', () => {
+  /**
+   * Idling is the same for both of them, because it is not something either is
+   * doing — it is what the resting animation underneath is doing when nothing
+   * has been asked. What keeps them out of step is where they stand, and the
+   * stage passes that to the body rather than putting it in the action.
+   */
+  it('asks nothing of either fighter', () => {
+    const { s } = opened()
+    expect(fighterAction(s, 0)).toEqual({ kind: 'idle' })
+    expect(fighterAction(s, 1)).toEqual({ kind: 'idle' })
+    expect(REST_STAGGER_MS).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * The shape of a turn, as a fighter lives it.
+ *
+ * Written down as a sequence because that is the thing that was wrong: every
+ * one of these actions was correct on its own, and the body still ended up
+ * holding whichever of them had run most recently. What makes the sequence
+ * true is that nothing in it persists — see `clipForAction`, which loops the
+ * ending and nothing else, and `clipPlayer.ts`, which keeps the resting
+ * animation under every frame of all of it.
+ */
+describe('the shape of a turn', () => {
+  const kindsOf = (state: MatchState) =>
+    [0, 1].map((id) => fighterAction(state, id as 0 | 1).kind)
+
+  it('walks the active fighter from idle, through the card, to the answer', () => {
+    const { s, t } = opened()
+    expect(kindsOf(s)).toEqual(['idle', 'idle'])
+
+    let state = step(s, { type: 'READY', now: t })
+    expect(kindsOf(state), 'choosing a card').toEqual(['idle', 'idle'])
+
+    state = step(state, { type: 'SELECT_CARD', cardId: 'mewing', now: t })
+    expect(kindsOf(state), 'the crouch before it').toEqual(['windUp', 'idle'])
+
+    state = step(state, { type: 'TICK', now: t + INTRO_MS })
+    expect(kindsOf(state), 'performing it').toEqual(['move', 'idle'])
+
+    const outcome = runFor(getCard('mewing'), 'PERFECT')
+    state = step(state, { type: 'QTE_RESULT', outcome, now: t + INTRO_MS + 50 })
+    // One owns the result, the other answers it. Neither of them is the card.
+    expect(kindsOf(state), 'and answering for it').toEqual(['react', 'watch'])
+  })
+
+  /**
+   * The one exception, and the reason it is worth naming: an ending is the only
+   * thing on screen that nothing follows, so it is the only thing allowed to
+   * stay. Everything above hands the body back to the idle underneath.
+   */
+  it('leaves only the ending standing', () => {
+    const { s } = opened()
+    const ended: MatchState = {
+      ...s,
+      phase: { kind: 'matchEnd', winner: 0, reason: 'moves' },
+    }
+    expect(kindsOf(ended)).toEqual(['finale', 'finale'])
   })
 })

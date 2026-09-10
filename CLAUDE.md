@@ -9,7 +9,7 @@ is built from primitives at runtime.
 
 ```bash
 npm run dev       # vite, portrait-first — open on a phone from the Network: address
-npm test          # 646 tests, ~3s
+npm test          # 702 tests, ~3s
 npm run build     # tsc -b && vite build
 npm run lint      # eslint
 npm run measure   # the whole game's numbers, printed — read docs/balance.md first

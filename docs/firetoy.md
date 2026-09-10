@@ -264,14 +264,17 @@ than a doll. Imported clips are the section below.
 
 ## Imported clips
 
-One clip, to answer the same kind of single question the pose probe answered:
-can motion captured for somebody else be made to play on a Firetoy body?
+It started as one clip, to answer the same kind of single question the pose
+probe answered: can motion captured for somebody else be made to play on a
+Firetoy body? It can, so now everything a fighter does is one.
 
-`public/models/animations/being-cocky.fbx` is Mixamo's **Being Cocky**,
-exported FBX binary, Without Skin, 30 fps, no keyframe reduction, In Place. It
-is what **Sigma Stare** performs — the one card in the deck whose `animation`
-names a clip instead of a pose function. `?firetoy` has a 🎬 chip that swaps the
-pose system out for it on whichever body and outfit is on stage.
+The files are Mixamo exports — FBX binary, Without Skin, 30 fps, no keyframe
+reduction, In Place wherever the site offers it. Twenty-six are registered and
+twenty-one are performed: eleven between the eighteen cards, ten more for
+standing still, the beats a result can be worth, and the two endings.
+`?firetoy` has a 🎬 chip that steps the registry on whichever body and outfit is
+on stage, and the action chip beside it walks the direction itself — every card
+and every reaction, each showing the clip it was actually given.
 
 ### The rig is the same rig
 
@@ -387,32 +390,61 @@ the same private-repo route as the bodies either way.
 
 ## The handover
 
-A `Pose` and a clip cannot both have a body, and swapping between them on the
-frame a card starts is a cut: eleven joints are in one place, fifty-three land
-in another, and the hands are the worst of it, because a clip curls fingers a
-pose has never heard of. So neither side takes the body outright.
+**`neutral-idle` owns the skeleton.** All sixty-five bones, every frame, written
+before anything else — see `writeBase` in `clipPlayer.ts`. Everything a fighter
+is asked to do is a *performance* laid over that and blended against it, and a
+performance that ends hands the body straight back to the idle underneath.
 
-    pose ──▶ in ──▶ clip ──▶ out ──▶ pose
-             ▲                │
-             └────────────────┘   a clip dealt while another is fading out
+    idle ──▶ in ──▶ performing ──▶ out ──▶ idle
+             ▲                      │
+             └──────────────────────┘   something dealt while another fades out
+
+A performance is a clip if the action has one, and the `Pose` the action carries
+if it does not — the 400 ms wind-up, a GOOD (which is a nod), and any body whose
+clip file never arrived. Both go through the same blend and the same ending,
+which is the point: whichever it is, it cannot appear or vanish on a single
+frame, and it cannot outlive its own span.
 
 Four phases and no more, in `handover.ts`, which is pure and tested rather than
 stared at. `clipPlayer.ts` is the half that writes bones, and both blends are
 the same three steps: **capture** all sixty-five bones on the frame a blend
 begins, **write the target** over the whole skeleton, and **pull back** toward
-the capture by however much of the blend is left. 120 ms each way — long enough
-to read as a movement, short enough that a 2.9-second clip is not mostly blend.
+the capture by however much of the blend is left. In 180 ms, out 280 ms — the
+two ends are not the same job, because coming in the performance is the thing
+that was asked for and should arrive, while going out the body is settling back
+to standing and a fast settle reads as a cut.
 
-Writing the rest pose first, in both blends, is what makes the fingers come
-back. And the frame after a blend out, one more reset: the blend stops a
-fraction of a per cent short, and nothing else would ever clear it, so a finger
-would sit a tenth of a degree into the clip for the rest of the battle.
+### How a fighter used to freeze
+
+This shape is a rewrite, and what it replaced is worth keeping because both
+failures were invisible from the code and obvious on a phone.
+
+**Fifty-four unclaimed bones.** The base used to be the rig's rest pose plus a
+`Pose`, and a `Pose` is eleven joints. The rest were written once, on the frame
+a blend out finished, and never again — so any action that arrived without a
+clip left them exactly where the last clip had put them, fingers curled, for as
+long as that action lasted. Now the rest pose goes down first and the resting
+clip over it, both of them every frame, so the floor is absolute and nothing
+above it has to be careful.
+
+**A pose that never came back down.** `reactPose`'s PERFECT throws the arms up
+with `snap(p * 2)`, and `snap` is clamped: it reaches 1 half way through the
+span and stays there. The span is 900 ms and the resolve screen stays up until
+somebody swipes, so the fighter held their arms over their head for the rest of
+the turn. Every other shape in `animations.ts` happened to be wrapped in `arc`
+or `hold` and returned to standing by luck rather than by rule; `overSpan` is
+now that rule, and `animations.test.ts` holds every beat to it at both ends.
+
+The seam table below had already measured this and written it down as merely
+the loudest frame in the cycle. A 39° single-frame turn was the bug, described.
 
 **Everything is a function of the game clock.** The playhead is
 `now - startedAt`, never an accumulation of frame deltas, so a paused game holds
 its frame (`now()` stops), a slow frame does not drift, and two fighters — or a
-reload — cannot disagree about where in the clip they are. A clip that arrives
-after the card it belongs to is joined in progress rather than restarted.
+reload — cannot disagree about where in the clip they are. The resting loop is
+on the same clock, offset per body by `REST_STAGGER_MS` so that two fighters do
+not breathe in unison. A clip that arrives after the card it belongs to is
+joined in progress rather than restarted.
 
 ### The clip is read, not played
 
@@ -429,30 +461,28 @@ interpolants the mixer would have used.
 
 ### What the seams measure
 
-The biggest turn any single bone makes in one frame, at 60 fps, over
-idle → wind-up → Being Cocky → PERFECT → idle. The blends have to disappear
-into the motion either side of them, and the test is that they are *smaller*
-than what the game already does:
+The furthest any single bone turns in one frame, at 60 Hz, through each
+transition — asked as a *share* of the whole distance that transition covers
+rather than as an angle, because how far the body has to travel belongs to the
+clips and not to the blend. A cut puts all of it in one frame; an eased blend
+over the shorter of the two windows peaks near a seventh.
 
-| | male | female |
-|---|---:|---:|
-| Wind-up (pose) | 15.7° | 13.9° |
-| **Blend in** | **10.7°** | **10.2°** |
-| The clip itself | 5.2° | 5.2° |
-| **Blend out** | **10.7°** | **10.2°** |
-| React PERFECT, then idle (pose) | 39.0° | 43.8° |
+| transition | share of the move in its worst frame |
+|---|---:|
+| idle → performing | 0.14 |
+| performing → next performing | 0.14 |
+| a performance running out → idle | 0.09 |
+| a performance cut short → idle | 0.09 |
+| a clip → a pose the clip never touched | 0.09 |
 
-The loudest frame in the whole cycle is the celebration throwing its arms up —
-a pose that was there before any of this. Every finger ends the cycle exactly on
-its rest rotation, as do the twelve bones the clip never touches, and the hips
-stay within 3 cm of the mark they started on: `rootMotion: 'inPlace'` is a fact
-about the export rather than something the code has to correct.
+`clipPlayer.test.ts` holds all five under 0.35 and asserts that something
+actually moved, so a transition cannot pass by standing still. Taking the body
+is the tightest of them, which is what the in blend is sized against: a
+performance arrives at whatever frame it opens on, where a return only ever has
+to reach standing.
 
-The awkward cases hold up too. A card **shorter than its clip** cuts the motion
-off mid-air — the blend out then crosses 15.3° a frame instead of 10.7°, still
-under the game's own poses. At **rate 1.5** the clip moves 1.5× further per
-frame, 7.8°, and the seams do not change. Held mid-clip, the body holds its
-frame and carries on from it.
+Every finger ends a cycle exactly on its rest rotation, as do the twelve bones
+no clip ever touches, and the hips stay on the mark they started on.
 
 ### Cost of a frame
 
@@ -510,27 +540,95 @@ that has never seen the animation.
 
 ### Registered is not performed
 
-The registry holds every clip that has been downloaded and stood up, and cards
-name very few of them. `DEALT_CLIPS` in `animations.ts` is the ones a battle can
-actually deal, and it is the only list anything preloads. The registry is
-already tens of megabytes of FBX; fetching all of it before a battle in order to
-play one card would be an unusually thorough way to waste somebody's data.
+The registry holds every clip that has been downloaded and stood up, and not all
+of them are used. `USED_CLIPS` in `animations.ts` is what something names, split
+into `DEALT_CLIPS` — what a card can deal — and `STATE_CLIPS`, which is standing
+still, the beats a result can be worth, and the two endings. Those two are the
+only lists anything preloads, and `--upload` sends only the union. The registry
+is already tens of megabytes of FBX; fetching all of it before a battle in order
+to play one card would be an unusually thorough way to waste somebody's data.
+
+### What the pose system still owns
+
+Every card and every reaction is a clip now. `Pose` is not dead, and three
+things keep it alive:
+
+- **The wind-up.** 400 ms, which is three frames longer than the blend that
+  would introduce a clip. There is nothing left to see, so `windUpPose` is the
+  only thing that performs it.
+- **The bed under every clip.** `clipPlayer.ts` blends *toward* a pose at both
+  ends of a clip, so `idlePose`, `reactPose`, `watchPose` and `finalePose` are
+  what a body eases out of and back into sixty times a second. Deleting them
+  would not save a frame; it would remove the thing the blend blends to.
+- **A clone with no clips.** The FBX files are Adobe's and gitignored, and the
+  game runs without them — a card is performed as a held idle and the console
+  says so once. The four reaction poses are why a fighter without the licensed
+  files still celebrates and slumps rather than standing there.
+
+What is genuinely unused is `MOVES` — the seventeen hand-authored card gestures
+— along with `moveAt`, `moveFor` and `flourish`. No card names one, and
+`poseForAction`'s move branch only reaches them for an animation key that is not
+a registered clip, which no card can now produce. They are kept for the moment
+because the lab still steps through them and because a card can be moved back
+onto one by changing a single string, which is the cheapest possible way to
+disagree with the direction. They and the unreachable `Fighter` above are one
+deletion, when somebody is sure.
+
+### Playing a stretch of one, and holding it on its mark
+
+Two fields on an entry, both added when the whole game moved onto clips, and
+both worth the room they take.
+
+**`startTime` / `endTime`** name the seconds to play. Three separate problems
+wanted it. `angry` is nineteen seconds and no card is four, so a card would
+have played the opening and cut away from it. Several clips stand still for a
+while and *then* walk, and the stretch before the walk is a whole card —
+`taunt` gestures until 3.90 and steps after it. And one file can then serve two
+cards that want different lengths of it, without being fetched twice. The
+window keeps the keyframes straddling both bounds, so it covers what was asked
+for rather than stopping a frame short, and re-bases the first to time zero.
+
+**`hold`** takes the drift out of the hips. It is deliberately not a pin:
+pinning would take the weight shift with it — a dance moves its body over a
+planted foot by 20–30 cm every bar, and the foot pays for none of that — so the
+feet would skate. Instead each frame has the average of its neighbours within
+`DRIFT_SECONDS` subtracted, which drops what is slower than a second and a half
+and leaves the sway exactly where it was. Y is never touched, or a backflip
+would land on the floor it left.
+
+Neither is a timeline editor: two numbers, a flag, no easing, no second window.
+
+**What it bought.** Of the nine clips that walk, four are usable and five are
+not. `backflip` holds — most of its 74 cm is airborne, so removing it costs 12
+cm of foot slide per second, which reads as a pivot. `gangnam-style`,
+`swing-dancing` and `taunt` need no hold at all: a window of each stands still
+by itself. `bboy-uprock`, `breakdance-footwork-to-idle` and `capoeira` skate at
+29–69 cm/s however they are windowed or held, and `butterfly-twirl` and
+`running-forward-flip` are locomotion at 81 and 107 — those five stay in the lab
+and out of the game.
+
+A held clip never lands at exactly zero, and cannot: the moving average on the
+first frame only has the half of its window that exists, so it lags by up to
+half a window's travel. That residual is the 27 cm the desk still measures on
+the backflip, and it is at the two ends, where the fighter is standing.
 
 ### Not answered yet
 
-- **Root motion.** A third of the registered clips walk, and all the game does
-  about it is refuse to let a card have one. Playing them properly means separating
-  the hips' XZ from the mark the fighter is standing on, and deciding what the
-  stage does when a performance ends somewhere else — neither of which anything
-  has needed yet.
+- **Root motion, properly.** What is here removes a journey; it does not carry
+  one. A clip that is *meant* to end somewhere else — a step in, a knockdown —
+  still has nowhere to put the fighter, because the stage's marks are fixed and
+  the logical position of a player never moves. Five clips are unused for
+  exactly this reason.
 - **A second clip.** Everything above is written for one. Two clips on one body
   in quick succession is handled — a new clip blends in from wherever the last
   one left off — but two clips *at once*, or a clip layered over a pose, is not.
-- **Whether the game wants more of them.** Sixteen card gestures are still
-  functions, tuned against `balance.ts` and shared with the primitive fighters.
-  A clip is a fixed 2.9 seconds that knows nothing about a card's duration, and
-  `MOVES.stare` — what Sigma Stare used to do — is now unused by any card,
-  kept because the lab still cycles it and it costs nothing.
+  A GOOD is still a pose nod for want of it.
+- **Two gestures the pack does not contain.** 😤 Mewing is hands framing the
+  jaw with the chin up, and ✌️ Six Seven is both hands alternating on the count.
+  Neither is in Mixamo's catalogue at all. They perform `being-cocky` and
+  `hokey-pokey`, which are the right *register* and the wrong gesture, and they
+  are the two cards worth recording specifically. 🧘 Levitate is a lesser third:
+  nothing in the pack leaves the ground for long enough.
 
 ## Performance
 

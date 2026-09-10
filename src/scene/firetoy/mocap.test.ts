@@ -174,3 +174,122 @@ describe('reading a parsed FBX', () => {
     expect(readMixamo(fakeFbx({ hips: false }))).toBeNull()
   })
 })
+/**
+ * The two things the registry can ask for. Both live on keyframes and nowhere
+ * else, so both are checked on tracks built here rather than by staring at a
+ * fighter — which is the point of `docs/firetoy.md`'s complaint that neither
+ * was measurable before.
+ */
+describe('playing a stretch of a clip', () => {
+  const target = new Vector3(0, 100, 0)
+
+  /** Six seconds at one frame a second, so a window is countable by eye. */
+  const seconds = [0, 1, 2, 3, 4, 5]
+  const turning = () =>
+    new QuaternionKeyframeTrack(
+      'mixamorigSpine.quaternion',
+      seconds,
+      seconds.flatMap((t) => [0, 0, t / 10, 1]),
+    )
+
+  it('keeps only the keyframes inside the window', () => {
+    const out = retargetToFiretoy(sourceClip(turning()), target, { startTime: 2, endTime: 4 })
+    expect([...out.tracks[0].times]).toEqual([0, 1, 2])
+    // Re-based, so the window's own first frame is time zero.
+    expect(out.duration).toBe(2)
+  })
+
+  it('is the whole clip when nothing is asked for', () => {
+    const track = turning()
+    const out = retargetToFiretoy(sourceClip(track), target, {})
+    expect(out.tracks[0].times).toBe(track.times)
+    expect(out.duration).toBe(2)
+  })
+
+  it('cuts the hips travel to the same window as the rest of the body', () => {
+    const out = retargetToFiretoy(
+      sourceClip(
+        turning(),
+        new VectorKeyframeTrack(
+          'mixamorigHips.position',
+          seconds,
+          seconds.flatMap((t) => [0, 100, t]),
+        ),
+      ),
+      target,
+      { startTime: 2, endTime: 4 },
+    )
+    const hips = out.tracks.find((t) => t.name === 'Hips.position')
+    expect([...(hips?.times ?? [])]).toEqual([0, 1, 2])
+    // The z of frames 2, 3 and 4, laid over this rig's own rest of zero.
+    expect([...(hips?.values ?? [])].filter((_, i) => i % 3 === 2)).toEqual([2, 3, 4])
+  })
+
+  /**
+   * A window that asks for more than there is gets what there is, rather than
+   * an empty clip: the numbers are written by a person reading the desk, and
+   * one that overshoots by a frame should not blank a fighter.
+   */
+  it('does not run off either end', () => {
+    const out = retargetToFiretoy(sourceClip(turning()), target, { startTime: -3, endTime: 99 })
+    expect(out.tracks[0].times).toHaveLength(seconds.length)
+  })
+})
+
+describe('holding a clip on its mark', () => {
+  const target = new Vector3(0, 100, 0)
+  /** Ten seconds at 30 fps: long enough to hold a slow walk and a fast sway. */
+  const times = Array.from({ length: 300 }, (_, i) => i / 30)
+
+  const hips = (at: (t: number) => number) =>
+    new VectorKeyframeTrack('mixamorigHips.position', times, times.flatMap((t) => [at(t), 100, 0]))
+
+  const xs = (clip: AnimationClip) =>
+    [...clip.tracks[0].values].filter((_, i) => i % 3 === 0)
+
+  /**
+   * Ten metres of walking becomes a third of one. Not zero, and it cannot be:
+   * the average at the very first frame only has the half of its window that
+   * exists, so it lags the walk by half a window — 0.7 s at a metre a second.
+   * That residual is at the two ends and nowhere else, which is why the real
+   * backflip measures 27 cm rather than none.
+   */
+  it('takes a steady walk away and leaves the fighter near where they started', () => {
+    // A metre a second, for ten seconds.
+    const held = xs(retargetToFiretoy(sourceClip(hips((t) => t * 100)), target, { hold: true }))
+    expect(Math.max(...held.map(Math.abs))).toBeLessThan(40)
+    // And the middle of it, where the window is whole, is on the mark.
+    expect(Math.abs(held[150])).toBeLessThan(1)
+
+    const loose = xs(retargetToFiretoy(sourceClip(hips((t) => t * 100)), target, {}))
+    expect(Math.max(...loose)).toBeGreaterThan(900)
+  })
+
+  /**
+   * The reason this is not a pin. A dance moves its body over a planted foot
+   * and the foot pays for none of it, so the sway has to survive or every
+   * fighter is on ice.
+   */
+  it('leaves a sway where it was', () => {
+    const sway = (t: number) => Math.sin(t * Math.PI * 2) * 25
+    const held = xs(retargetToFiretoy(sourceClip(hips(sway)), target, { hold: true }))
+    const swing = Math.max(...held) - Math.min(...held)
+    expect(swing).toBeGreaterThan(40)
+  })
+
+  it('never touches the height, so a jump still leaves the floor', () => {
+    const jump = new VectorKeyframeTrack(
+      'mixamorigHips.position',
+      times,
+      times.flatMap((t) => [t * 100, 100 + Math.max(0, Math.sin(t * Math.PI)) * 50, 0]),
+    )
+    const out = retargetToFiretoy(sourceClip(jump), target, { hold: true })
+    const ys = [...out.tracks[0].values].filter((_, i) => i % 3 === 1)
+    expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(50, 0)
+  })
+
+  it('leaves the travel alone when nothing asks for the hold', () => {
+    const out = retargetToFiretoy(sourceClip(hips((t) => t * 100)), target, {})
+    expect(Math.max(...xs(out))).toBeCloseTo(996.7, 0)
+  })
+})

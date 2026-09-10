@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AT_REST, BLEND_MS, advance, type Handover, type Playing } from './handover'
+import { AT_REST, BLEND_IN_MS, BLEND_OUT_MS, advance, type Handover, type Playing } from './handover'
 
 const COCKY: Playing = {
   id: 'being-cocky',
@@ -7,6 +7,8 @@ const COCKY: Playing = {
   rate: 1,
   loop: false,
   duration: 2.9,
+  blendInMs: BLEND_IN_MS,
+  blendOutMs: BLEND_OUT_MS,
 }
 
 /** Run the handover forward, returning the last frame and the state with it. */
@@ -22,9 +24,10 @@ function run(steps: { at: number; playing?: Playing | null }[], from: Handover =
 }
 
 describe('nobody playing a clip', () => {
-  it('leaves the body to the pose system', () => {
+  /** Which is not nothing: the resting animation is under every frame. */
+  it('leaves the body to the base', () => {
     const { frame } = run([{ at: 500 }, { at: 516 }])
-    expect(frame).toMatchObject({ phase: 'pose', capture: false })
+    expect(frame).toMatchObject({ phase: 'base', capture: false })
   })
 })
 
@@ -37,7 +40,7 @@ describe('taking the body', () => {
   it('is half way across half way through', () => {
     const { frame } = run([
       { at: 1000, playing: COCKY },
-      { at: 1000 + BLEND_MS / 2, playing: COCKY },
+      { at: 1000 + BLEND_IN_MS / 2, playing: COCKY },
     ])
     expect(frame.phase).toBe('in')
     expect(frame.k).toBeCloseTo(0.5)
@@ -48,7 +51,7 @@ describe('taking the body', () => {
   it('holds the clip on its first frame until the blend is done', () => {
     const { frame } = run([
       { at: 1000, playing: COCKY },
-      { at: 1000 + BLEND_MS - 1, playing: COCKY },
+      { at: 1000 + BLEND_IN_MS - 1, playing: COCKY },
     ])
     expect(frame.clipTime).toBe(0)
   })
@@ -56,14 +59,14 @@ describe('taking the body', () => {
   it('hands over to the mixer when the blend runs out', () => {
     const { frame } = run([
       { at: 1000, playing: COCKY },
-      { at: 1000 + BLEND_MS, playing: COCKY },
+      { at: 1000 + BLEND_IN_MS, playing: COCKY },
     ])
     expect(frame).toMatchObject({ phase: 'clip', k: 1, clipTime: 0, capture: false })
   })
 })
 
 describe('playing', () => {
-  const at = (ms: number) => run([{ at: 1000, playing: COCKY }, { at: 1000 + BLEND_MS + ms, playing: COCKY }]).frame
+  const at = (ms: number) => run([{ at: 1000, playing: COCKY }, { at: 1000 + BLEND_IN_MS + ms, playing: COCKY }]).frame
 
   it('runs the playhead on the game clock', () => {
     expect(at(1000).clipTime).toBeCloseTo(1)
@@ -74,7 +77,7 @@ describe('playing', () => {
     const fast = { ...COCKY, rate: 2 }
     const { frame } = run([
       { at: 1000, playing: fast },
-      { at: 1000 + BLEND_MS + 1000, playing: fast },
+      { at: 1000 + BLEND_IN_MS + 1000, playing: fast },
     ])
     expect(frame.clipTime).toBeCloseTo(2)
   })
@@ -97,7 +100,7 @@ describe('playing', () => {
     const loop = { ...COCKY, loop: true }
     const { frame } = run([
       { at: 1000, playing: loop },
-      { at: 1000 + BLEND_MS + 2900, playing: loop },
+      { at: 1000 + BLEND_IN_MS + 2900, playing: loop },
     ])
     expect(frame.clipTime).toBeLessThan(loop.duration)
     expect(frame.clipTime).toBeCloseTo(0, 3)
@@ -107,7 +110,7 @@ describe('playing', () => {
     const loop = { ...COCKY, loop: true }
     const { frame } = run([
       { at: 1000, playing: loop },
-      { at: 1000 + BLEND_MS + 3500, playing: loop },
+      { at: 1000 + BLEND_IN_MS + 3500, playing: loop },
     ])
     expect(frame.phase).toBe('clip')
     expect(frame.clipTime).toBeCloseTo(0.6)
@@ -117,22 +120,22 @@ describe('playing', () => {
 describe('giving the body back', () => {
   const played = [
     { at: 1000, playing: COCKY },
-    { at: 1000 + BLEND_MS, playing: COCKY },
+    { at: 1000 + BLEND_IN_MS, playing: COCKY },
   ]
-  const ended = 1000 + BLEND_MS + 2900
+  const ended = 1000 + BLEND_IN_MS + 2900
 
   it('blends out on its own when a clip that does not loop runs out', () => {
     const { frame } = run([...played, { at: ended, playing: COCKY }])
     expect(frame).toMatchObject({ phase: 'out', k: 0, capture: true })
   })
 
-  it('is back on the pose system a blend later', () => {
+  it('is back on the resting animation a blend later', () => {
     const { frame } = run([
       ...played,
       { at: ended, playing: COCKY },
-      { at: ended + BLEND_MS, playing: COCKY },
+      { at: ended + BLEND_OUT_MS, playing: COCKY },
     ])
-    expect(frame.phase).toBe('pose')
+    expect(frame.phase).toBe('base')
   })
 
   /** The card outlives the clip by a few hundred milliseconds. It must not replay. */
@@ -140,10 +143,10 @@ describe('giving the body back', () => {
     const { frame } = run([
       ...played,
       { at: ended, playing: COCKY },
-      { at: ended + BLEND_MS, playing: COCKY },
+      { at: ended + BLEND_OUT_MS, playing: COCKY },
       { at: ended + 400, playing: COCKY },
     ])
-    expect(frame).toMatchObject({ phase: 'pose', capture: false })
+    expect(frame).toMatchObject({ phase: 'base', capture: false })
   })
 
   it('blends out when the action ends first, cutting the clip short', () => {
@@ -178,6 +181,27 @@ describe('a clip arriving over another', () => {
   it('joins a clip that arrived late in progress', () => {
     const { frame } = run([{ at: 2000, playing: COCKY }])
     expect(frame.phase).toBe('in')
-    expect(frame.clipTime).toBeCloseTo(0.88)
+    // A second late, less the blend it still owes the body.
+    expect(frame.clipTime).toBeCloseTo((1000 - BLEND_IN_MS) / 1000)
+  })
+})
+
+describe('how long a blend takes', () => {
+  /**
+   * The two ends are not the same job. Coming in, the clip is the thing that
+   * was asked for and it should arrive; going out, the body is settling back to
+   * standing, and a fast settle reads as a cut. They were one number and every
+   * return to idle looked like one.
+   */
+  it('settles back more slowly than it arrives', () => {
+    expect(BLEND_OUT_MS).toBeGreaterThan(BLEND_IN_MS)
+  })
+
+  it('takes a clip at its own blend when it asks for one', () => {
+    const brisk: Playing = { ...COCKY, blendInMs: 40 }
+    const half = run([{ at: 1000, playing: brisk }, { at: 1020, playing: brisk }]).frame
+    expect(half.phase).toBe('in')
+    expect(half.k).toBeCloseTo(0.5)
+    expect(run([{ at: 1000, playing: brisk }, { at: 1040, playing: brisk }]).frame.phase).toBe('clip')
   })
 })

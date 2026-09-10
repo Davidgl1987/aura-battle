@@ -7,7 +7,7 @@ import { getCharacter } from '../engine/characters'
 import { PLAYER_CHARACTER, now } from '../state/store'
 import { AuraCore } from './AuraCore'
 import { BodyBoundary } from './BodyBoundary'
-import { DEALT_CLIPS } from './animations'
+import { DEALT_CLIPS, STATE_CLIPS } from './animations'
 import { getBuild, standingHeight } from './builds'
 import { Fighter } from './Fighter'
 import { FiretoyFighter } from './FiretoyFighter'
@@ -311,10 +311,16 @@ function PreviewCast({ characterId, preview, look, cardIds, frame = DECK_FRAME }
  */
 export function SetupShowcase({ characterId, preview, look, cardIds, frame }: PreviewProps) {
   // Both screens that show a fighter performing a card come through here, and
-  // both are the last thing before a battle. Half a megabyte of clip next to
-  // twelve of body, fetched now rather than during the card that wants it.
+  // both are the last thing before a battle. Fetched now rather than during the
+  // card that wants it: alongside twelve megabytes of body this is the cheaper
+  // half, and a clip that arrives during its own card is a card played as a
+  // held idle.
+  //
+  // The cards first, because one of them is on screen within seconds of this
+  // and a reaction is a turn away. Both go, though — the idle is showing
+  // already, and a reaction that lands after its own moment is one nobody saw.
   useEffect(() => {
-    for (const clip of DEALT_CLIPS) preloadMocap(clip.src)
+    for (const clip of [...DEALT_CLIPS, ...STATE_CLIPS]) preloadMocap(clip.src)
   }, [])
 
   return (

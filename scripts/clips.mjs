@@ -23,15 +23,23 @@
  * re-exported with In Place on is a different file that deserves a different
  * answer, and this is what notices.
  *
+ * Measured through the entry, though, not around it. A registered clip may name
+ * a window of itself to play and may ask for its drift to be taken out, and it
+ * is the stretch the game actually performs that has to stay on its mark — so
+ * `taunt` gestures for two seconds, then walks, and is `inPlace` because the
+ * two seconds are what a card was given.
+ *
  * **Register and ship.** Everything in the folder gets an entry, because a clip
  * has to be registered before the lab can show it and the lab is where these
  * are judged. What the measurement decides is `rootMotion` — a clip that walks
- * is written down as one, which keeps it out of a card until somebody re-exports
- * it — and never `loop` or which card performs what, which are decisions for a
- * person in front of the lab and not for a script that has never seen the
- * animation. Uploading puts the files where the Pages build looks for them,
- * since they are Adobe's to license and ours only to borrow, and so they never
- * enter this repository.
+ * is written down as one, which keeps it out of a card until somebody windows,
+ * holds or re-exports it — and never `loop`, the window, or which card performs
+ * what, which are decisions for a person in front of the lab and not for a
+ * script that has never seen the animation. Uploading puts the files where the
+ * Pages build looks for them, since they are Adobe's to license and ours only
+ * to borrow, and so they never enter this repository — and it sends only the
+ * clips something actually names, because everything in `public/` is published
+ * and a clip nobody performs is 600 kB sitting at a public URL.
  */
 import { execFileSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -43,6 +51,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..')
 const CLIPS_DIR = join(ROOT, 'public/models/animations')
 const REGISTRY = join(ROOT, 'src/scene/clips.ts')
+const SOURCE = join(ROOT, 'src')
 
 /** Where the licensed files live, and the branch the Pages build reads. */
 const ASSETS_REPO = 'https://github.com/Davidgl1987/private-game-assets.git'
@@ -67,7 +76,14 @@ const ON_THE_SPOT = 0.45
 /** A hip height, roughly, for saying a wander out loud. */
 const HIP_CM = 100
 
-/** Above this, the last frame is far enough from the first for a loop to show. */
+/**
+ * Above this, the last frame is far enough from the first for a loop to show.
+ *
+ * Only ever asked of a clip that loops. A window's two ends have no reason to
+ * meet — `taunt` starts mid-gesture at 1.47 s and stops at 3.90 s — and saying
+ * so about the twenty entries that play once was twenty lines of noise around
+ * the one that mattered.
+ */
 const JOLT_DEG = 12
 
 /**
@@ -100,12 +116,40 @@ function kebab(file) {
 }
 
 /**
- * Everything the file itself can answer. It does not go through `mocap.ts`,
- * which is TypeScript and would want a build step to run from here: the only
- * thing borrowed is the name of the joint the translation lives on, and it is
- * on the next line rather than two imports away.
+ * How long a wander has to last before it counts as going somewhere. The same
+ * number as `DRIFT_SECONDS` in `mocap.ts`, for the same reason, and it has to
+ * stay the same number: this measures what that produces.
  */
-function measure(path) {
+const DRIFT_SECONDS = 1.4
+
+/** A track's slow half, so it can be taken off. Mirrors `held` in `mocap.ts`. */
+function deDrift(times, values, axis) {
+  const out = new Float32Array(times.length)
+  const half = DRIFT_SECONDS / 2
+  let from = 0
+  let to = 0
+  let sum = 0
+  for (let i = 0; i < times.length; i++) {
+    while (to < times.length && times[to] <= times[i] + half) sum += values[to++ * 3 + axis]
+    while (times[from] < times[i] - half) sum -= values[from++ * 3 + axis]
+    out[i] = values[i * 3 + axis] - sum / (to - from)
+  }
+  return out
+}
+
+/**
+ * Everything the file itself can answer, asked of the stretch the game actually
+ * plays. It does not go through `mocap.ts`, which is TypeScript and would want
+ * a build step to run from here: the only thing borrowed is the name of the
+ * joint the translation lives on and the arithmetic above, and both are a few
+ * lines rather than two imports away.
+ *
+ * `how` is the entry the registry already holds — its window and its hold — so
+ * a clip that walks for two seconds and then stands still is measured on the
+ * standing still, which is the part a card was given. Nothing else here reads
+ * the registry: the numbers belong to the file, and only the question does.
+ */
+function measure(path, how = {}) {
   const bytes = readFileSync(path)
   const fbx = new FBXLoader().parse(
     bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
@@ -118,34 +162,54 @@ function measure(path) {
   const turns = clip.tracks.filter((t) => t.name.endsWith('.quaternion'))
   const travelTrack = clip.tracks.find((t) => t.name.endsWith('.position') && /Hips/.test(t.name))
 
+  // The keyframes the window keeps, as a half-open range into each track.
+  const cut = (track) => {
+    let from = 0
+    let to = track.times.length - 1
+    if (how.startTime !== undefined) while (from < to && track.times[from + 1] <= how.startTime) from++
+    if (how.endTime !== undefined) while (to > from && track.times[to - 1] >= how.endTime) to--
+    return { from, to }
+  }
+
   // How far the hips get from where they started, at their furthest, across the
   // floor. Not the drift from first frame to last: a clip that walks out and
   // back is still a clip that leaves its mark.
   let travel = 0
   if (travelTrack && hips.position.y) {
-    const v = travelTrack.values
-    for (let i = 0; i < v.length; i += 3) {
-      travel = Math.max(travel, Math.hypot(v[i] - v[0], v[i + 2] - v[2]))
+    const { from, to } = cut(travelTrack)
+    const times = travelTrack.times.slice(from, to + 1)
+    const v = travelTrack.values.slice(from * 3, (to + 1) * 3)
+    const xs = how.hold ? deDrift(times, v, 0) : null
+    const zs = how.hold ? deDrift(times, v, 2) : null
+    const at = (i) => [xs ? xs[i] : v[i * 3], zs ? zs[i] : v[i * 3 + 2]]
+    const [x0, z0] = at(0)
+    for (let i = 0; i < times.length; i++) {
+      const [x, z] = at(i)
+      travel = Math.max(travel, Math.hypot(x - x0, z - z0))
     }
     travel /= Math.abs(hips.position.y)
   }
 
-  // The worst any one bone has to turn to get from the last frame back to the
-  // first — what a loop would show as a jolt, and what a card that plays it
-  // once never sees.
+  // The worst any one bone has to turn to get from the last frame of the window
+  // back to its first — what a loop would show as a jolt, and what a clip that
+  // plays once never sees.
   const a = new Quaternion()
   const b = new Quaternion()
   let seam = 0
   for (const track of turns) {
-    const v = track.values
-    a.fromArray(v, 0).normalize()
-    b.fromArray(v, v.length - 4).normalize()
+    const { from, to } = cut(track)
+    a.fromArray(track.values, from * 4).normalize()
+    b.fromArray(track.values, to * 4).normalize()
     seam = Math.max(seam, a.angleTo(b))
   }
 
+  const { from, to } = turns[0] ? cut(turns[0]) : { from: 0, to: 0 }
+  const played =
+    turns[0] && to > from ? turns[0].times[to] - turns[0].times[from] : clip.duration
   const times = turns[0]?.times.length ?? 0
   return {
     duration: clip.duration,
+    played,
     fps: clip.duration > 0 ? Math.round((times - 1) / clip.duration) : 0,
     tracks: clip.tracks.length,
     travel,
@@ -154,21 +218,43 @@ function measure(path) {
   }
 }
 
-/**
- * The registry, rewritten. Entries already in the file are carried over as the
- * text they are, so a `loop` somebody flipped by hand survives the next run —
- * bar `rootMotion`, which belongs to the file rather than to anybody's opinion
- * and is corrected in place when the two disagree.
- */
-function register(spots) {
-  const source = readFileSync(REGISTRY, 'utf8')
+/** Every entry in the registry, as the text it is, keyed by id. */
+function entriesOf(source) {
   const block = /(const CLIPS: Record<string, ExternalClip> = \{\n)([\s\S]*?)(\n\}\n)/.exec(source)
   if (!block) throw new Error(`Cannot find the CLIPS object in ${REGISTRY}`)
-
   const entries = new Map()
   for (const entry of block[2].matchAll(/^ {2}'([a-z0-9-]+)': \{\n(?: {4,}.*\n)+? {2}\},$/gm)) {
     entries.set(entry[1], entry[0])
   }
+  return { block, entries }
+}
+
+/**
+ * The decisions the measurement has to know about, read back out of the entry
+ * a person wrote. Everything else in there is the game's business.
+ */
+function howPlayed(entry = '') {
+  const number = (field) => {
+    const found = new RegExp(`${field}: (-?[0-9.]+),`).exec(entry)
+    return found ? Number(found[1]) : undefined
+  }
+  return {
+    startTime: number('startTime'),
+    endTime: number('endTime'),
+    hold: /hold: true,/.test(entry),
+    loop: /loop: true,/.test(entry),
+  }
+}
+
+/**
+ * The registry, rewritten. Entries already in the file are carried over as the
+ * text they are, so a `loop` or a window somebody wrote by hand survives the
+ * next run — bar `rootMotion`, which belongs to the file rather than to
+ * anybody's opinion and is corrected in place when the two disagree.
+ */
+function register(spots) {
+  const source = readFileSync(REGISTRY, 'utf8')
+  const { block, entries } = entriesOf(source)
 
   const corrected = []
   for (const [id, spot] of spots) {
@@ -200,7 +286,34 @@ function register(spots) {
   return { all: sorted, corrected }
 }
 
-/** The registered files, into the assets repository, as one commit. */
+/**
+ * The registered clips something actually names, which is not all of them.
+ *
+ * Asked of the source rather than of a list kept here, because a list kept here
+ * is a list that goes stale the first time a card is repointed. An id is a
+ * kebab-case string and every consumer quotes it — `animation: 'moonwalk'`, a
+ * beat in `animations.ts` — so the question is whether the quoted id appears
+ * anywhere under `src/` outside the registry that defines it.
+ */
+function usedIds(ids) {
+  const seen = new Set()
+  const walk = (dir) => {
+    for (const item of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, item.name)
+      if (item.isDirectory()) {
+        walk(path)
+        continue
+      }
+      if (path === REGISTRY || !/\.tsx?$/.test(item.name) || /\.test\.tsx?$/.test(item.name)) continue
+      const text = readFileSync(path, 'utf8')
+      for (const id of ids) if (text.includes(`'${id}'`)) seen.add(id)
+    }
+  }
+  walk(SOURCE)
+  return [...seen].sort()
+}
+
+/** The named files, into the assets repository, as one commit. */
 function ship(ids) {
   const into = join(ASSETS_CLONE, ASSETS_PATH)
 
@@ -213,7 +326,7 @@ function ship(ids) {
     return !existsSync(to) || readFileSync(from).compare(readFileSync(to)) !== 0
   })
 
-  if (sending.length === 0) return say('  the assets repository already has every registered clip')
+  if (sending.length === 0) return say('  the assets repository already has every clip in use')
   const mb = sending.reduce((n, id) => n + statSync(join(CLIPS_DIR, `${id}.fbx`)).size, 0) / 1024 ** 2
   say(`  ${sending.length} to send, ${mb.toFixed(1)} MB: ${sending.join(', ')}`)
   if (dryRun) return say('  (dry run: nothing cloned, copied, committed or pushed)')
@@ -314,15 +427,19 @@ say(
     (fresh.length === 0 ? 'nothing new' : `${fresh.length} new`) +
     '\n',
 )
-say('  ' + ' clip'.padEnd(29) + '  secs  fps  tracks     kb  travel   seam')
-say('  ' + '─'.repeat(83))
+say('  ' + ' clip'.padEnd(29) + '  secs played  fps  tracks     kb  travel   seam')
+say('  ' + '─'.repeat(90))
 
 // Everything is measured, not only what is new: a clip that has been re-exported
 // with In Place on is the same id and a different file, and this is what notices.
+// Each one through its own entry, so `travel` and `seam` describe the stretch the
+// game plays rather than a stretch nobody will ever see.
+const registryEntries = entriesOf(readFileSync(REGISTRY, 'utf8')).entries
 const spots = new Map()
 const travellers = []
 for (const { file, id } of named) {
-  const m = measure(join(CLIPS_DIR, file))
+  const how = howPlayed(registryEntries.get(id))
+  const m = measure(join(CLIPS_DIR, file), how)
   if (!m) {
     complain(`${id}.fbx has no animation, or no mixamorig:Hips. Not a Mixamo clip?`)
     continue
@@ -330,15 +447,18 @@ for (const { file, id } of named) {
   const spot = m.travel <= ON_THE_SPOT ? 'inPlace' : 'travels'
   spots.set(id, spot)
   if (spot === 'travels') travellers.push(id)
+  const windowed = m.played < m.duration - 0.05
   const notes = [
     spot === 'inPlace' ? '' : 'travels',
-    m.seam >= JOLT_DEG ? 'jolts on loop' : '',
+    how.loop && m.seam >= JOLT_DEG ? 'jolts on loop' : '',
     m.fps === EXPORTED_FPS ? '' : `${m.fps} fps, not ${EXPORTED_FPS}`,
+    how.hold ? 'held' : '',
   ]
   say(
     (fresh.includes(id) ? '  +' : '   ') +
       id.padEnd(28) +
       m.duration.toFixed(2).padStart(6) +
+      (windowed ? m.played.toFixed(2) : '—').padStart(8) +
       String(m.fps).padStart(5) +
       String(m.tracks).padStart(8) +
       String(m.kb).padStart(7) +
@@ -366,12 +486,18 @@ if (travellers.length > 0) {
       `${travellers.join(', ')}.`,
   )
   say('  The lab will show them. A card that names one fails the deck test, so')
-  say('  re-export those from Mixamo with In Place on before choosing them.')
+  say('  give those a window that stays put, a `hold`, or a re-export from')
+  say('  Mixamo with In Place on before choosing them.')
 }
 
 if (upload) {
+  const used = usedIds(registered.length > 0 ? registered : [...known])
+  const spare = (registered.length > 0 ? registered : [...known]).filter((id) => !used.includes(id))
   say('\n  uploading …')
-  ship([...known, ...registering].sort())
+  if (spare.length > 0) {
+    say(`  ${spare.length} registered but named by nothing, so not sent: ${spare.join(', ')}`)
+  }
+  ship(used)
 }
 
 if (problems.length > 0) {

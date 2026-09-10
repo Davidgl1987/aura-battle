@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    /* The tests are the only thing under `src` that reads a file off the disk:
+       `clips.test.ts` measures the real Mixamo exports through the real
+       retarget, because whether `taunt` stands still between 1.47 and 3.90
+       seconds is a fact about one file and not about any rule. That is also
+       why `node` is here and not in the app project — a browser game that can
+       see `process` compiles right up until it runs. */
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src/**/*.test.ts", "src/**/*.test.tsx"],
+  /* `extends` brings the app project's exclude with it, which is this exact
+     list. Cleared, or there would be nothing left to check. */
+  "exclude": []
+}

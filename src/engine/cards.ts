@@ -36,7 +36,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 1,
     durationMs: 3300,
     baseAura: 900,
-    animation: 'mewing',
+    // Preening. The gesture itself is not in the pack — see docs/firetoy.md.
+    animation: 'being-cocky',
     qte: {
       kind: 'timing',
       game: 'sweep',
@@ -55,7 +56,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 2,
     durationMs: 3300,
     baseAura: 1300,
-    animation: 'being-cocky',
+    // A head scanning the room until it locks onto you.
+    animation: 'looking',
     qte: {
       kind: 'timing',
       game: 'sweep',
@@ -74,7 +76,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 3,
     durationMs: 3300,
     baseAura: 2000,
-    animation: 'griddy',
+    // Footwork, and short enough to come round twice.
+    animation: 'bboy-hip-hop-move',
     qte: {
       kind: 'timing',
       game: 'sweep',
@@ -97,7 +100,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 1,
     durationMs: 3200,
     baseAura: 900,
-    animation: 'beatDrop',
+    // The easiest groove in the pack, arms wide open.
+    animation: 'hip-hop-dancing',
     qte: {
       kind: 'timing',
       game: 'lanes',
@@ -119,7 +123,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 2,
     durationMs: 3600,
     baseAura: 1300,
-    animation: 'beatDrop',
+    // Three and a half seconds of horse, exactly this long.
+    animation: 'gangnam-style',
     qte: {
       kind: 'timing',
       game: 'lanes',
@@ -141,7 +146,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 3,
     durationMs: 4000,
     baseAura: 2000,
-    animation: 'hyperpop',
+    // The fastest and least dignified thing here.
+    animation: 'silly-dancing',
     qte: {
       kind: 'timing',
       game: 'lanes',
@@ -166,7 +172,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 1,
     durationMs: 2200,
     baseAura: 900,
-    animation: 'clap',
+    // Arms snapping together in front, on a loop.
+    animation: 'bboy-hip-hop-move',
     qte: { kind: 'speed', game: 'mash', goodAt: 7, pads: 1 },
   },
   {
@@ -177,7 +184,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 2,
     durationMs: 2200,
     baseAura: 1300,
-    animation: 'sixSeven',
+    // Hands alternating. Not the count itself — see docs/firetoy.md.
+    animation: 'hokey-pokey',
     qte: { kind: 'speed', game: 'mash', goodAt: 8, pads: 2 },
   },
   {
@@ -188,7 +196,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 3,
     durationMs: 2600,
     baseAura: 2000,
-    animation: 'sturdy',
+    // Kicks out to the side, which is what the card is.
+    animation: 'swing-dancing',
     qte: { kind: 'speed', game: 'mash', goodAt: 9, pads: 3 },
   },
 
@@ -201,7 +210,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 1,
     durationMs: 3200,
     baseAura: 900,
-    animation: 'tierList',
+    // One second of glide, three times over, expressionless.
+    animation: 'moonwalk',
     qte: { kind: 'speed', game: 'order', visible: 5, goodAt: 4 },
   },
   {
@@ -212,7 +222,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 2,
     durationMs: 3200,
     baseAura: 1300,
-    animation: 'tierList',
+    // Appraising something invisible, the way the stare does.
+    animation: 'looking',
     qte: { kind: 'speed', game: 'order', visible: 6, goodAt: 5 },
   },
   {
@@ -223,7 +234,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 3,
     durationMs: 3400,
     baseAura: 2000,
-    animation: 'speedrun',
+    // The hardest speed card gets the only flip in the pack.
+    animation: 'backflip',
     qte: { kind: 'speed', game: 'order', visible: 7, goodAt: 6 },
   },
 
@@ -236,7 +248,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 1,
     durationMs: 1900,
     baseAura: 900,
-    animation: 'lean',
+    // Loose enough to tip over.
+    animation: 'silly-dancing',
     qte: {
       kind: 'control',
       game: 'zone',
@@ -254,7 +267,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 2,
     durationMs: 1900,
     baseAura: 1300,
-    animation: 'lockedIn',
+    // Contained. Almost nothing moves, which is the point.
+    animation: 'being-cocky',
     qte: {
       kind: 'control',
       game: 'zone',
@@ -272,7 +286,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 3,
     durationMs: 2050,
     baseAura: 2000,
-    animation: 'levitate',
+    // Arms open, turning. Nothing in the pack leaves the ground.
+    animation: 'hip-hop-dancing',
     qte: {
       kind: 'control',
       game: 'zone',
@@ -294,7 +309,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 1,
     durationMs: 2300,
     baseAura: 900,
-    animation: 'splitFocus',
+    // Settled low with both hands out front.
+    animation: 'dancing-twerk',
     qte: {
       kind: 'control',
       game: 'paths',
@@ -313,7 +329,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 2,
     durationMs: 2300,
     baseAura: 1300,
-    animation: 'splitFocus',
+    // Two arms doing two different things.
+    animation: 'hokey-pokey',
     qte: {
       kind: 'control',
       game: 'paths',
@@ -332,7 +349,8 @@ export const CARDS: readonly Card[] = [
     difficulty: 3,
     durationMs: 2700,
     baseAura: 2000,
-    animation: 'galaxyBrain',
+    // Arms up and rising, which is the half of it that fits.
+    animation: 'gangnam-style',
     qte: {
       kind: 'control',
       game: 'paths',

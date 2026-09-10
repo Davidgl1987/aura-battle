@@ -24,5 +24,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  /* Type-checked by `tsconfig.test.json`, which is the same settings plus
+     Node's types. Kept out of here so that app code cannot reach for `process`
+     or `fs` and still compile. */
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }
