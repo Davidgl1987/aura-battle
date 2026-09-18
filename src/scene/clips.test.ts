@@ -4,8 +4,10 @@ import { describe, expect, it } from 'vitest'
 import { Vector3 } from 'three'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { readMixamo, retargetToFiretoy } from './firetoy/mocap'
+import { CARDS } from '../engine/cards'
 import { USED_CLIPS } from './animations'
-import { ALL_CLIPS } from './clips'
+import { ALL_CLIPS, clipFor } from './clips'
+import { BLEND_IN_MS } from './firetoy/handover'
 
 /**
  * The registry against the files it describes.
@@ -86,6 +88,34 @@ describe.skipIf(!HAVE_CLIPS)('the clips as the game plays them', () => {
           entry.endTime - (entry.startTime ?? 0) + 2 / 30 + 0.001,
         )
       }
+    }
+  })
+
+  /**
+   * A card is never longer than the gesture it performs.
+   *
+   * The other way round is fine and deliberate: a hold has a ceiling of 2.1
+   * seconds and half the clips it performs run past three, so those cards show
+   * the opening of one and blend out. Outlasting the clip is the bug, because
+   * there is nothing to blend to — the fighter hands the body back to
+   * `neutral-idle` and stands there breathing through the end of their own
+   * move, on screen, while the QTE is still being scored. Mewing did, for a
+   * quarter of a second, and it read as the card having already finished.
+   *
+   * Measured rather than declared, which is why it lives here: an entry with no
+   * `endTime` plays the whole file and only the file knows how long that is.
+   * Two frames of slack, because a window keeps the keyframes straddling both
+   * of its bounds and 30 fps makes that 33 ms at each end.
+   *
+   * Loops are exempt. A tiled clip has no end to outlast.
+   */
+  it('never leaves a card running after its own animation has finished', () => {
+    for (const card of CARDS) {
+      const entry = clipFor(card.animation)
+      if (!entry || entry.loop) continue
+      const played = (retargeted(entry.id).duration * 1000) / entry.playbackRate
+      const covered = BLEND_IN_MS + played + 2000 / 30
+      expect(covered, `${card.name} → ${entry.id}`).toBeGreaterThanOrEqual(card.durationMs)
     }
   })
 

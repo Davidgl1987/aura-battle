@@ -19,7 +19,19 @@ import type { Card, Difficulty, QteKind } from './types'
  * `kind` is what freshness is measured on, and it stays at three. `game` is the
  * minigame the card actually runs, and there are two of those per kind: adding
  * minigames without adding kinds is what keeps varying your answers worth the
- * same as it was worth before they existed.
+ * same as it was worth before they existed. Which game a card runs is a
+ * question about the gesture rather than about the tier — the clap is a mash,
+ * the driving one steers two lanes, the ranking one presses numbers in order —
+ * and `docs/qte.md` lists all six alongside what they ask a thumb to do.
+ *
+ * `durationMs` is the animation and the QTE at once: the stage performs the
+ * card's clip over exactly this long and the gesture is graded over exactly
+ * this long, so the number is the length of one action rather than of two that
+ * happen to overlap. It is therefore read off the clip — `BLEND_IN_MS` plus
+ * whatever stretch of the file `clips.ts` plays — and never rounded up to make
+ * a card harder. A card longer than its own clip stands there breathing
+ * through the end of its own move, which `clips.test.ts` now fails on. Shorter
+ * is allowed and sometimes necessary: a hold has a ceiling of its own.
  *
  * The HARD of each gesture is the card a rival hands over, which is why there
  * are exactly six of them and exactly six rivals.
@@ -34,9 +46,12 @@ export const CARDS: readonly Card[] = [
     emoji: '😤',
     kind: 'timing',
     difficulty: 1,
-    durationMs: 3300,
+    durationMs: 3050,
     baseAura: 900,
     // Preening. The gesture itself is not in the pack — see docs/firetoy.md.
+    // 3050 is all `being-cocky` has, blend in front of it included. At 3300 the
+    // preen was over a quarter of a second before the card was, and the fighter
+    // stood there breathing through the end of their own move.
     animation: 'being-cocky',
     qte: {
       kind: 'timing',
@@ -121,9 +136,12 @@ export const CARDS: readonly Card[] = [
     emoji: '🎵',
     kind: 'timing',
     difficulty: 2,
-    durationMs: 3600,
+    durationMs: 3800,
     baseAura: 1300,
-    // Three and a half seconds of horse, exactly this long.
+    // The horse, all of it: 3.63 seconds and the blend in front of it. At 3600
+    // the card ended on the second-to-last beat of the clip. The chart still
+    // finishes first, by design — see `notesInside` — so the last note lands
+    // and the gesture gets to close over the top of it.
     animation: 'gangnam-style',
     qte: {
       kind: 'timing',
@@ -170,9 +188,11 @@ export const CARDS: readonly Card[] = [
     emoji: '👏',
     kind: 'speed',
     difficulty: 1,
-    durationMs: 2200,
+    durationMs: 2380,
     baseAura: 900,
-    // Arms snapping together in front, on a loop.
+    // Arms snapping together in front, on a loop — and 2380 is exactly one
+    // turn of it once the blend is paid for. At 2200 the card stopped a sixth
+    // of a second short of the cycle, mid-clap.
     animation: 'bboy-hip-hop-move',
     qte: { kind: 'speed', game: 'mash', goodAt: 7, pads: 1 },
   },
@@ -240,15 +260,32 @@ export const CARDS: readonly Card[] = [
   },
 
   // --- Control: hold the ring ------------------------------------------------
+  // All three run 2100 ms, which is the longest a single finger is asked to
+  // track anything — `control.test.ts` holds the line, because the window runs
+  // from the touch that armed the QTE and a hold that outstays it stops being
+  // a test and starts being a chore.
+  //
+  // The same length for all three on purpose: the tier is the ring and nothing
+  // else. Smaller *and* longer would be doing the difficulty twice, which is
+  // the mistake `QTE_RAMP` was flattened to undo. They were 1900 / 1900 / 2050,
+  // which cut all three clips off around halfway; the cap is the most of them
+  // a hold can show.
   {
     id: 'lean',
-    name: 'Lean',
+    // Was "Lean", named for a pose that tipped the whole body over. The clip
+    // that replaced it is a small fists-up shimmy that never leaves the
+    // vertical, and the ring it is played over is the big easy one — small,
+    // contained, no pressure. The id stays: it is in every saved deck.
+    name: 'Lowkey',
     emoji: '🫠',
     kind: 'control',
     difficulty: 1,
-    durationMs: 1900,
+    durationMs: 2100,
     baseAura: 900,
-    // Loose enough to tip over.
+    // Loose enough to tip over. `silly-dancing` runs nearly four seconds and a
+    // hold cannot, so this shows the opening of it and blends out. A window of
+    // its own would fit better — it is Hyperpop's clip too, and Hyperpop plays
+    // every frame of it, so the window would have to be a second entry.
     animation: 'silly-dancing',
     qte: {
       kind: 'control',
@@ -265,7 +302,7 @@ export const CARDS: readonly Card[] = [
     emoji: '🔒',
     kind: 'control',
     difficulty: 2,
-    durationMs: 1900,
+    durationMs: 2100,
     baseAura: 1300,
     // Contained. Almost nothing moves, which is the point.
     animation: 'being-cocky',
@@ -280,11 +317,16 @@ export const CARDS: readonly Card[] = [
   },
   {
     id: 'levitate',
-    name: 'Levitate',
+    // Was "Levitate", from a pose that hovered. Nothing in the pack leaves the
+    // ground — see docs/firetoy.md — and what plays here is an arms-open groove
+    // with the feet planted, held over the smallest ring in the game. Staying
+    // in it is the card, so the name says that instead of promising a float.
+    // The id stays: it is a rival's signature and a saved unlock.
+    name: 'Flow State',
     emoji: '🧘',
     kind: 'control',
     difficulty: 3,
-    durationMs: 2050,
+    durationMs: 2100,
     baseAura: 2000,
     // Arms open, turning. Nothing in the pack leaves the ground.
     animation: 'hip-hop-dancing',
@@ -303,13 +345,19 @@ export const CARDS: readonly Card[] = [
   // not so much that it turns into a blur.
   {
     id: 'cruise-control',
-    name: 'Cruise Control',
+    // Was "Cruise Control". The window of `dancing-twerk` it performs is a low,
+    // wide squat bouncing on the spot, and the gesture is two thumbs on two
+    // wheels — a car that bounces is the one this looks like. The id stays: it
+    // is a starter card and in the default deck.
+    name: 'Low Rider',
     emoji: '🚗',
     kind: 'control',
     difficulty: 1,
-    durationMs: 2300,
+    durationMs: 2480,
     baseAura: 900,
-    // Settled low with both hands out front.
+    // Settled low with both hands out front. 2480 is the whole of the window
+    // `dancing-twerk` is given, blend included; at 2300 the steer outlasted
+    // the hands it was supposed to belong to by a fifth of a second.
     animation: 'dancing-twerk',
     qte: {
       kind: 'control',
@@ -349,7 +397,10 @@ export const CARDS: readonly Card[] = [
     difficulty: 3,
     durationMs: 2700,
     baseAura: 2000,
-    // Arms up and rising, which is the half of it that fits.
+    // Arms up and rising, which is the two thirds of it that fits. The rest
+    // needs 3.8 seconds, and a two-thumbed trace that long is a chore rather
+    // than a card — the lane is what makes this the hard one, not the clock.
+    // Beat Drop plays the same clip in full, so the move is not going unseen.
     animation: 'gangnam-style',
     qte: {
       kind: 'control',

@@ -1,11 +1,16 @@
 import { playCrowd, type Reaction } from './crowd'
-import { startMusic } from './music'
+import { musicRunning, startMusic } from './music'
 import { SOUNDS, type SoundName } from './sounds'
 
 /**
  * A tiny synthesiser. Browsers refuse to make noise until the player has
- * touched the screen, so nothing is built until `unlock` runs on their first
- * tap — before that every `play` is a no-op rather than an error.
+ * pressed something, so nothing is built until `unlock` runs — before that
+ * every `play` is a no-op rather than an error.
+ *
+ * *When* that happens is `useSound`'s decision and it is deliberate: the first
+ * press on an actual control, which on the title screen is PLAY. This file
+ * only has to be safe to call twice, because it is called on every press for
+ * the rest of the session.
  */
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
@@ -51,7 +56,10 @@ function followVisibility(context: AudioContext): void {
 
 export function unlock(): void {
   if (ctx) {
-    void ctx.resume()
+    // Already open and already running is the common case by a mile — this is
+    // called on every press, and a mash is a dozen of those a second — and
+    // `resume()` allocates a promise every time it is asked.
+    if (ctx.state !== 'running') void ctx.resume()
     return
   }
   const Ctor = window.AudioContext ?? (window as WebkitWindow).webkitAudioContext
@@ -94,9 +102,29 @@ export function unlock(): void {
   kick.connect(master)
   kick.start(0)
 
-  // Under the music fader, itself under the master gain: the global mute still
-  // covers everything, and the music switch covers only the loop.
-  startMusic(ctx, musicBus)
+  syncMusic()
+}
+
+/**
+ * Puts the loop where the music switch says it should be.
+ *
+ * Two things want this and neither can be sure it goes second: unlocking with
+ * music already on has to start the loop, and turning music on later has to
+ * start it too. Asking here rather than at either call site is what makes the
+ * order not matter.
+ *
+ * The loop used to be started by `unlock` outright and faded to nothing when
+ * music was off — a scheduler running four bars ahead into a gain of zero, and
+ * a settings switch that silenced music without stopping it. Turning it off
+ * mid-battle still only fades: restarting the loop from bar one every time
+ * somebody flicks the switch is worse than paying for a few silent bars, and
+ * the case that mattered was never starting it in the first place.
+ */
+function syncMusic(): void {
+  if (!ctx || !musicBus) return
+  musicBus.gain.setTargetAtTime(musicMuted ? 0 : 1, ctx.currentTime, 0.08)
+  // Idempotent — see `startMusic`. Nothing here can end up with two loops.
+  if (!musicMuted) startMusic(ctx, musicBus)
 }
 
 /** Judgements, hits and the crowd. The loop keeps playing. */
@@ -107,7 +135,7 @@ export function setSfxMuted(value: boolean): void {
 /** The loop. Effects keep firing. */
 export function setMusicMuted(value: boolean): void {
   musicMuted = value
-  if (musicBus && ctx) musicBus.gain.setTargetAtTime(value ? 0 : 1, ctx.currentTime, 0.08)
+  syncMusic()
 }
 
 /** The room reacting. Same gate as everything else: silent until unlocked. */
@@ -168,7 +196,12 @@ export function play(name: SoundName): void {
 // so the module still imports in plain node.
 if (import.meta.env.DEV && typeof window !== 'undefined') {
   ;(window as unknown as { __audio: unknown }).__audio = {
-    state: () => ({ context: ctx?.state ?? 'closed', sfxMuted, musicMuted }),
+    state: () => ({
+      context: ctx?.state ?? 'closed',
+      sfxMuted,
+      musicMuted,
+      music: musicRunning(),
+    }),
     unlock,
     play,
     crowd,

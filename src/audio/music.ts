@@ -268,6 +268,16 @@ export function setMusicHeat(lit: boolean): void {
   tone.frequency.setTargetAtTime(lit ? LIT_CUTOFF : BASE_CUTOFF, at, 0.35)
 }
 
+/**
+ * Whether the loop is actually running, as opposed to running into a gain of
+ * zero. The difference is the whole of what the music switch now does at start
+ * up, and there is no other way to see it from outside: `window.__audio` is
+ * the only screen this synthesiser has.
+ */
+export function musicRunning(): boolean {
+  return timer !== 0
+}
+
 export function stopMusic(): void {
   if (timer) window.clearInterval(timer)
   timer = 0

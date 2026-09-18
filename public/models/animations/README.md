@@ -96,9 +96,15 @@ after the card does — 180 ms, in `handover.ts` — so a card whose `durationMs
 shorter than `180 + duration ÷ playbackRate` will cut the motion off and blend
 out of it early. That is handled and it looks fine; it is just not what the
 animation was drawn to do, which is what `startTime` and `endTime` are for. The
-other way round is handled too: a clip that runs out before its card does hands
-the body back to `neutral-idle` and the fighter stands there breathing until the
-card is over.
+three ring holds do it on purpose: a hold has a ceiling of its own, and half of
+`silly-dancing` is what fits inside it.
+
+The other way round is a bug, and `clips.test.ts` fails on it. A clip that runs
+out before its card does hands the body back to `neutral-idle`, and the fighter
+stands there breathing — on screen, while the QTE is still being scored — until
+the card is over. So `durationMs` is read off the clip rather than chosen:
+`BLEND_IN_MS` plus whatever stretch of the file this entry plays, which is the
+**played** column above.
 
 **5. Check it.** `npm test && npm run lint && npm run build`. The deck test
 fails if a card's animation names neither a pose nor a clip, so a typo in the id

@@ -627,7 +627,8 @@ the backflip, and it is at the two ends, where the fighter is standing.
   jaw with the chin up, and ✌️ Six Seven is both hands alternating on the count.
   Neither is in Mixamo's catalogue at all. They perform `being-cocky` and
   `hokey-pokey`, which are the right *register* and the wrong gesture, and they
-  are the two cards worth recording specifically. 🧘 Levitate is a lesser third:
+  are the two cards worth recording specifically. 🧘 Flow State — Levitate until
+  the name promised a float the pack cannot deliver — is a lesser third:
   nothing in the pack leaves the ground for long enough.
 
 ## Performance

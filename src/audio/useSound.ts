@@ -7,6 +7,17 @@ import { setMusicHeat } from './music'
 import { crowdFor, soundFor } from './sounds'
 import { uiSoundFor } from './uiSounds'
 
+/**
+ * What counts as pressing something, for the purpose of opening the audio.
+ *
+ * Deliberately not "whatever `uiSoundFor` answers to": that table decides what
+ * a tap *sounds* like and it returns null for the controls the battle voices
+ * itself — a card leaving your hand, a QTE pad. Those are all behind PLAY so
+ * it would not matter today, but hanging the whole soundtrack on a lookup
+ * table of sound effects is a coupling that would fail quietly.
+ */
+const CONTROL = 'button, [role="switch"]'
+
 /** How long the phone buzzes for each result. A MISS gets the blunt one. */
 const BUZZ_MS: Record<string, number> = {
   PERFECT: 18,
@@ -36,41 +47,54 @@ export function useSound(): void {
   })
 
   /**
-   * Try immediately, then on every gesture. Not every browser makes a page
-   * wait for a tap — a desktop the player has used before will open the
-   * context straight away — and gating the whole soundtrack on a gesture that
-   * was never required meant the music sat silent until something was clicked.
+   * One listener for the whole interface: it opens the audio and it voices the
+   * tap, in that order, because both are answers to the same question — did
+   * the player just press something.
    *
-   * Where a gesture *is* required the early attempt leaves a suspended
-   * context, and the listeners below resume it on the first touch. `unlock` is
-   * idempotent, so nothing is lost either way.
+   * `pointerdown` rather than `click`, because that is the event the buttons
+   * themselves act on, so the sound and the thing it is announcing happen on
+   * the same touch.
    *
-   * The listeners stay attached rather than firing once: coming back from
-   * another app can leave the context suspended again, and the next tap is the
-   * natural moment to pick it back up.
-   */
-  useEffect(() => {
-    const open = () => unlock()
-    open()
-    const gestures = ['pointerdown', 'touchend', 'click', 'keydown'] as const
-    for (const type of gestures) window.addEventListener(type, open)
-    return () => {
-      for (const type of gestures) window.removeEventListener(type, open)
-    }
-  }, [])
-
-  /**
-   * One listener for the whole interface. `pointerdown` rather than `click`
-   * because that is the event the buttons themselves act on, so the sound and
-   * the thing it is announcing happen on the same touch.
+   * What "press something" means is `CONTROL`, and the narrowness is the whole
+   * point. This used to open the context on mount and again on every
+   * `pointerdown`, `touchend`, `click` and `keydown` anywhere on the window.
+   * On a desktop that meant the loop started over the loading splash, before
+   * the title had drawn; on a phone it meant the music arrived on whatever the
+   * player happened to brush first — the backdrop, the stage, a miss. Neither
+   * reads as the game starting. Now the title screen's own biggest button is
+   * the moment: press PLAY, the mode sheet opens and the loop comes in under
+   * it, and a tap on the fighters behind it opens nothing.
+   *
+   * Attached for the whole session rather than firing once. Coming back from
+   * another app can leave the context suspended, and the next press is the
+   * natural place to pick it back up; `unlock` costs a state check once the
+   * context is running.
    */
   useEffect(() => {
     const onTap = (event: PointerEvent) => {
-      const sound = uiSoundFor(event.target)
+      const target = event.target
+      if (!(target instanceof Element) || !target.closest(CONTROL)) return
+      unlock()
+      const sound = uiSoundFor(target)
       if (sound) play(sound)
     }
+    // The same press, on the way back up. An iPhone does not count a touch
+    // going down as a gesture — it might be the start of a scroll — so the
+    // `pointerdown` a finger produces cannot open the audio there, and never
+    // could: `touchend` is what WebKit accepts, and it was in the list before
+    // this was narrowed to controls. Narrowed the same way, so the moment is
+    // unchanged — the loop comes in as the finger leaves PLAY rather than as
+    // it lands — and `unlock` is a state check once the context is running.
+    const onLift = (event: TouchEvent) => {
+      const target = event.target
+      if (target instanceof Element && target.closest(CONTROL)) unlock()
+    }
     window.addEventListener('pointerdown', onTap)
-    return () => window.removeEventListener('pointerdown', onTap)
+    window.addEventListener('touchend', onLift)
+    return () => {
+      window.removeEventListener('pointerdown', onTap)
+      window.removeEventListener('touchend', onLift)
+    }
   }, [])
 
   useGameEvents(
