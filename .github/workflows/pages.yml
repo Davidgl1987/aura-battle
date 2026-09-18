@@ -35,9 +35,9 @@ env:
   ASSETS_REPO: Davidgl1987/private-game-assets
   ASSETS_PATH: aura-battle/firetoy/runtime
   ASSETS_DEST: public/models/characters
-  # Mixamo clips, licensed the same way and fetched the same way. Optional, on
-  # purpose: a missing clip costs one card its motion — the fighter holds a
-  # pose instead — where a missing body costs the game its cast.
+  # Mixamo clips, licensed the same way and fetched the same way. Not optional
+  # any more: every clip the game fetches has to arrive or the build fails —
+  # see "Check every clip the game fetches arrived" below.
   CLIPS_PATH: aura-battle/mixamo/runtime
   CLIPS_DEST: public/models/animations
   # Where the private repo is checked out. Gitignored; nothing reads it after
@@ -117,17 +117,23 @@ jobs:
             }
           done
 
-          # The clips, if the assets repo has any yet. A card whose animation
-          # names one that never arrived performs it as a held pose and says so
-          # in the console, so this warns rather than failing the deploy.
+          # The clips: whatever the assets repo has. Whether that is everything
+          # the game fetches is the next step's question, not this one's.
           clips="$ASSETS_CHECKOUT/$CLIPS_PATH"
-          if [ -d "$clips" ] && [ -n "$(ls -A "$clips")" ]; then
-            mkdir -p "$CLIPS_DEST"
-            cp -v "$clips"/*.fbx "$CLIPS_DEST"/
-          else
-            echo "::warning::No Mixamo clips in $ASSETS_REPO/$CLIPS_PATH." \
-                 "Cards whose animation is an imported clip will hold a pose instead."
+          mkdir -p "$CLIPS_DEST"
+          if [ -d "$clips" ]; then
+            find "$clips" -maxdepth 1 -name '*.fbx' -exec cp -v {} "$CLIPS_DEST"/ \;
           fi
+
+      - name: Check every clip the game fetches arrived
+        # This used to warn, and only when the folder was empty. One clip made
+        # it not empty, so a deploy went out with twenty of twenty-one missing
+        # and every card but Mewing performed as a held idle, without a word in
+        # the log. The list checked is the game's own — `USED_CLIPS` in
+        # `src/scene/animations.ts`, read through vitest because that is what
+        # can import the TypeScript here — so there is no second copy of it in
+        # this file to fall behind when a card is repointed.
+        run: npm run clips:check
 
       # `npm run build` typechecks first, so a type error fails here too.
       - run: npm run build

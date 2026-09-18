@@ -123,13 +123,22 @@ what ships — and commits and pushes them under this repository's own git
 identity rather than the machine's. A registered clip nobody performs is left
 behind, and the run says which.
 `.github/workflows/pages.yml` sparse-checks-out that folder alongside the
-characters one and copies the files back in here at build time. Everything in
-`public/` is published, so a clip that no card performs is 600 kB nobody
+characters one, copies the files back in here at build time, and then **fails
+the deploy if any clip the game fetches is missing**:
+
+```bash
+npm run clips:check
+```
+
+That is `src/scene/shipped.test.ts`, run with `VITE_REQUIRE_CLIPS=1` so that it
+asks rather than skips, and the list it asks about is `USED_CLIPS` itself — the
+same one `--upload` sends — so there is no copy of it in the workflow to fall
+behind when a card is repointed. It used to warn, and only when the folder was
+empty; one clip made it not empty, and a deploy went out with twenty of
+twenty-one missing and every card but Mewing performed as a held idle. Everything
+in `public/` is published, so a clip that no card performs is 600 kB nobody
 downloads sitting at a public URL — a reason to upload once a card names it
-rather than the moment it is registered. It **warns rather than fails** if
-the folder is empty, because a missing clip costs one card its motion where a
-missing body costs the game its cast — so a deploy that quietly ships an idling
-Sigma Stare is possible. The warning in the build log is the thing to watch for.
+rather than the moment it is registered.
 
 ## Without them
 

@@ -14,6 +14,7 @@ npm run build     # tsc -b && vite build
 npm run lint      # eslint
 npm run measure   # the whole game's numbers, printed — read docs/balance.md first
 npm run clips     # register and measure new Mixamo clips — public/models/animations/README.md
+npm run clips:check  # every clip the game fetches is in public/ — what the deploy fails on
 npm run balance   # the balance test's own tables
 ```
 
